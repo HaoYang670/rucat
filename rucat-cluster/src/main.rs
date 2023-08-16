@@ -13,10 +13,10 @@ macro_rules! vec_duplicate {
 }
 
 /**
- * Rename the project: Rucat (rust + category)
  * We should define a driver to schedule and assign tasks
+ * How to serialize a closure? `serde_closure`?
  * We need to define some functions (map, reduce, filter ...) to parallize and merge tasks (or to define a functor directly)
- * Remote servers: how to do it? tokio?
+ * Remote servers: how to do it? tokio? -- P0
  * How to handle error?
  *
  * I need a category manager to setup drivers and executors
