@@ -2,7 +2,6 @@ use std::{collections::LinkedList, time::Instant};
 
 use clap::Parser;
 use rucat_cluster::{configs::*, execute};
-use num_cpus;
 
 // I need a macro to duplicate the Fn.
 macro_rules! vec_duplicate {
