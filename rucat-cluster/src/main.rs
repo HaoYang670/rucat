@@ -1,25 +1,26 @@
-use std::{collections::LinkedList, time::Instant};
-
 use clap::Parser;
-use rucat_cluster::{configs::*, execute};
+use rucat_cluster::configs::*;
+use rucat_cluster::driver::schedule_tasks;
 
-// I need a macro to duplicate the Fn.
-macro_rules! vec_duplicate {
-    ($elem:expr; $type:ty; $n:expr;) => {{
-        let mut temp: Vec<$type> = vec![];
-        (0..$n).for_each(|_| temp.push($elem));
-        temp
-    }};
-}
+// driver-workers
+
+
 
 /**
  * We should define a driver to schedule and assign tasks
  * How to serialize a closure? `serde_closure`?
  * We need to define some functions (map, reduce, filter ...) to parallize and merge tasks (or to define a functor directly)
  * Remote servers: how to do it? tokio? -- P0
+ *  toy: create a driver and a worker. (locally, 2 processes)
+ *      driver sends the worker a number.
+ *      worker prints it out and returns num + 1.
+ * Interprocess communication: Socket? Message queue?
  * How to handle error?
  *
- * I need a category manager to setup drivers and executors
+ * Driver and workers are independent processes (Is there a more stateless way? pure fn, or just treat a process as a function)
+ * Driver and workers intersect by socket (driver sent tasks to workers and workers return back the result)
+ * So, each process should bind to a TCP port?
+ * And we need a strong typed communication protocal.
  */
 fn main() {
     let cli = Cli::parse();
@@ -29,26 +30,6 @@ fn main() {
     }
 }
 
-fn schedule_tasks() {
-    println!("this is a driver");
-    println!(
-        "physical cpus = {}, logical cpus = {}",
-        num_cpus::get_physical(),
-        num_cpus::get()
-    );
-    let start = Instant::now();
-
-    let tasks = vec_duplicate![
-      Box::new(move || {
-        (0..900).map(|i| (i as f32) / f32::EPSILON).sum::<f32>();
-        start.elapsed()
-      });
-      Box<dyn Fn() -> _ + Send>;
-      10;
-    ];
-    let result: LinkedList<_> = execute(tasks);
-    println!("{:?}", result)
-}
 
 fn execute_tasks() {
     println!("this is an executor")
