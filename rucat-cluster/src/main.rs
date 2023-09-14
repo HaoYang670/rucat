@@ -4,8 +4,6 @@ use rucat_cluster::driver::schedule_tasks;
 
 // driver-workers
 
-
-
 /**
  * We should define a driver to schedule and assign tasks
  * How to serialize a closure? `serde_closure`?
@@ -24,12 +22,8 @@ use rucat_cluster::driver::schedule_tasks;
  */
 fn main() {
     let cli = Cli::parse();
-    match cli.mode {
-        Role::Driver => schedule_tasks(),
-        Role::Worker => execute_tasks(),
-    }
+    println!("create 1 driver and {} workers", cli.workers)
 }
-
 
 fn execute_tasks() {
     println!("this is an executor")
