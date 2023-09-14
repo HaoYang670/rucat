@@ -1,13 +1,22 @@
-
 pub type Result<T> = std::result::Result<T, RucatError>;
 
 #[derive(Debug, PartialEq)]
 pub enum RucatError {
-  SerializationError(String),
+    SerializationError(String),
+    IOError(String),
+    Others(String),
 }
 
-impl From<serde_json::Error> for RucatError {
-  fn from(value: serde_json::Error) -> Self {
-    Self::SerializationError(value.to_string())
-  }
+macro_rules! convert_to_rucat_error {
+    ($err_ty: ty, $constructor: expr) => {
+        impl From<$err_ty> for RucatError {
+            fn from(value: $err_ty) -> Self {
+                $constructor(value.to_string())
+            }
+        }
+    };
 }
+
+convert_to_rucat_error!(serde_json::Error, RucatError::SerializationError);
+convert_to_rucat_error!(std::io::Error, RucatError::IOError);
+convert_to_rucat_error!(String, RucatError::Others);
