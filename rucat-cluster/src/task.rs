@@ -7,14 +7,13 @@ pub trait SubResultTrait: st::Serialize + st::Deserialize {}
 type SubInput = (st::Box<dyn SubDataTrait>,);
 type SubOutput = st::Box<dyn SubResultTrait>;
 
-/// We want Rucat can execute all kinds of tasks.
-/// One choice is to define Task as an Enum to list
-/// the types we support (sql, s-expression, ...). But it is not extendable
-/// and it is not `forall tasks`.
-/// Insteads, we define a generic struct here which the elements are functions of how to execute the task.
+/// We want Rucat to execute all kinds of tasks.
+/// One choice is to define Task as a sum type of all
+/// the types we support (sql, s-expression, python, ...). But it is not extendable and it is not the `forall tasks` we expect.
+/// Insteads, we define a generic type here which the elements are functions of how to execute the task.
 ///
-/// Driver will call `get_data` and `split`, and send `(SubData, execute)` to workers.
-/// Worker executes `execute` on `SubData` and sends `SubResult` back to Driver.
+/// Driver will call `get_data` and `split`, and send `SubTask` to workers.
+/// Workers simplify `SubTask`s to `SubResult`s and send them back to the driver.
 /// Driver collects `SubResult`s and call `merge` to get the final result.
 pub struct Task<Data, SubData, SubResult, Result> {
     /// The `data` could be a constant value or a file path (e.x. you store the data on s3 bucket)
