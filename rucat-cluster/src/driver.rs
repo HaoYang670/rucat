@@ -1,14 +1,23 @@
-use std::{collections::LinkedList, time::Instant};
+use std::{
+    io,
+    net::{TcpListener, TcpStream},
+};
 
-use crate::worker::execute;
+/// Driver is a node which splits a task into subtasks,
+/// assigns subtasks to workers, gets sub results back from workers and merges sub results into the final result.
+/// When assigning a task to a driver (the cluster manager's duty), workers should also be assigned together
+/// so that driver can know the number of workers and how many sub tasks should be splitted.
+/// Driver should own Workers so that the linear type system can make one Worker can only has one driver.
+pub struct Driver {
+    listener: TcpListener,
+    workers: Vec<TcpStream>, // tcp stream or address?
+}
 
-// I need a macro to duplicate the Fn.
-macro_rules! vec_duplicate {
-  ($elem:expr; $type:ty; $n:expr;) => {{
-      let mut temp: Vec<$type> = vec![];
-      (0..$n).for_each(|_| temp.push($elem));
-      temp
-  }};
+impl Driver {
+    ///
+    fn assign_workers() {}
+    ///
+    fn unassign_workers() {}
 }
 
 /**
@@ -17,22 +26,18 @@ macro_rules! vec_duplicate {
  * We should provide a library for sending tasks (to driver).
  */
 pub fn schedule_tasks() {
-  println!("this is a driver");
-  println!(
-      "physical cpus = {}, logical cpus = {}",
-      num_cpus::get_physical(),
-      num_cpus::get()
-  );
-  let start = Instant::now();
+    println!("this is a driver");
+    println!("receiving tasks: ");
 
-  let tasks = vec_duplicate![
-    Box::new(move || {
-      (0..900).map(|i| (i as f32) / f32::EPSILON).sum::<f32>();
-      start.elapsed()
-    });
-    Box<dyn Fn() -> _ + Send>;
-    10;
-  ];
-  let result: LinkedList<_> = execute(tasks);
-  println!("{:?}", result)
+    loop {
+        let mut input = String::new();
+        match io::stdin().read_line(&mut input) {
+            Ok(_) => {
+                println!("receive: {}", input);
+            }
+            Err(error) => {
+                println!("Error reading input: {}", error);
+            }
+        }
+    }
 }

@@ -4,7 +4,7 @@ pub type Result<T> = std::result::Result<T, RucatError>;
 pub enum RucatError {
     SerializationError(String),
     IOError(String),
-    Others(String),
+    Other(String),
 }
 
 macro_rules! convert_to_rucat_error {
@@ -19,4 +19,4 @@ macro_rules! convert_to_rucat_error {
 
 convert_to_rucat_error!(serde_json::Error, RucatError::SerializationError);
 convert_to_rucat_error!(std::io::Error, RucatError::IOError);
-convert_to_rucat_error!(String, RucatError::Others);
+convert_to_rucat_error!(String, RucatError::Other);

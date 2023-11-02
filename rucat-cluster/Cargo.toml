@@ -6,6 +6,16 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+# crate for CLI
 clap = { version = "4.3.21", features = ["derive"] }
+
+# ??? Do we still need these?
 serde = { version = "1.0.185", features = ["derive"] }
 serde_json = "1.0.105"
+
+# crate for driver to calling workers 
+tarpc = "0.33"
+
+# crates for serialize tasks
+serde_closure = "0.3.3"
+serde_traitobject = "0.2.8"
