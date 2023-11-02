@@ -4,6 +4,9 @@ use serde_traitobject as st;
 pub trait SubDataTrait: st::Serialize + st::Deserialize {}
 pub trait SubResultTrait: st::Serialize + st::Deserialize {}
 
+type SubInput = (st::Box<dyn SubDataTrait>,);
+type SubOutput = st::Box<dyn SubResultTrait>;
+
 /// We want Rucat can execute all kinds of tasks.
 /// One choice is to define Task as an Enum to list
 /// the types we support (sql, s-expression, ...). But it is not extendable
@@ -20,9 +23,7 @@ pub struct Task<Data, SubData, SubResult, Result> {
     /// The number of pieces should always be equals to the number of workers.
     split: Box<dyn Fn(Data, usize) -> Vec<SubData>>,
     /// Size of a closure cannot be known at compile time. And we don't want to copied it which would take much memory
-    execute: st::Rc<
-        st::Box<dyn st::Fn<(st::Box<dyn SubDataTrait>,), Output = st::Box<dyn SubResultTrait>>>,
-    >,
+    execute: st::Rc<st::Box<dyn st::Fn<SubInput, Output = SubOutput>>>,
     merge: Box<dyn Fn(Vec<SubResult>) -> Result>,
 }
 
@@ -34,9 +35,7 @@ where
     pub fn new(
         data: Data,
         split: Box<dyn Fn(Data, usize) -> Vec<SubData>>,
-        execute: st::Rc<
-            st::Box<dyn st::Fn<(st::Box<dyn SubDataTrait>,), Output = st::Box<dyn SubResultTrait>>>,
-        >,
+        execute: st::Rc<st::Box<dyn st::Fn<SubInput, Output = SubOutput>>>,
         merge: Box<dyn Fn(Vec<SubResult>) -> Result>,
     ) -> Self {
         Self {
@@ -64,15 +63,13 @@ where
 #[derive(Serialize, Deserialize)]
 pub struct SubTask {
     sub_data: st::Box<dyn SubDataTrait>,
-    execute: st::Rc<
-        st::Box<dyn st::Fn<(st::Box<dyn SubDataTrait>,), Output = st::Box<dyn SubResultTrait>>>,
-    >,
+    execute: st::Rc<st::Box<dyn st::Fn<SubInput, Output = SubOutput>>>,
 }
 
 impl SubTask {
     /// Simplify the `SubTask` into `SubResult`
     /// This consumes the `SubTask`
-    pub fn simplify(self) -> st::Box<dyn SubResultTrait> {
+    pub fn simplify(self) -> SubOutput {
         (self.execute)(self.sub_data)
     }
 }
