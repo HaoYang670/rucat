@@ -28,7 +28,7 @@ pub struct Task<Data, SubData, SubResult, Result> {
 
 impl<Data, SubData, SubResult, Result> Task<Data, SubData, SubResult, Result>
 where
-    SubData: SubDataTrait + 'static,
+    SubData: SubDataTrait + 'static, // the lifetime must be static because it is serializable (I tried to use 'a but failed)
     SubResult: SubResultTrait,
 {
     pub fn new(
