@@ -4,12 +4,14 @@ use serde_traitobject as st;
 pub trait SubDataTrait: st::Serialize + st::Deserialize {}
 pub trait SubResultTrait: st::Serialize + st::Deserialize {}
 
-type SubInput = (st::Box<dyn SubDataTrait>,);
-type SubOutput = st::Box<dyn SubResultTrait>;
+pub type SubInput = (st::Box<dyn SubDataTrait>,);
+pub type SubOutput = st::Box<dyn SubResultTrait>;
 
-/// We want Rucat to execute all kinds of tasks.
+/// We want Rucat to execute all kinds of tasks. (turing complete)
 /// One choice is to define Task as a sum type of all
-/// the types we support (sql, s-expression, python, ...). But it is not extendable and it is not the `forall tasks` we expect.
+/// the types we support (SQL, s-expression, python, ...). But it is not extendable and it is not the `forall tasks` we expect.
+/// -- Although SQL and Python are turing complete expressions, it is not friendly for users to express all tasks in some
+/// -- specific languages. Sometimes, it could be so complicate.
 /// Insteads, we define a generic type here which the elements are functions of how to execute the task.
 ///
 /// Driver will call `get_data` and `split`, and send `SubTask` to workers.
