@@ -22,14 +22,16 @@ type Machine = ();
  */
 fn create_cluster(driver: Machine, workers: &[Machine]) -> Driver {
     println!("Create one driver with {} workers", workers.len());
-    let driver = Command::new("./rucat-cluster/target/debug/rucat-cluster")
-        .arg("driver")
-        .output()
-        .unwrap();
-    let worker = Command::new("./rucat-cluster/target/debug/rucat-cluster")
-        .arg("worker")
-        .output()
-        .unwrap();
+    let driver =
+        Command::new("./rucat-cluster/target/debug/rucat-cluster")
+            .arg("driver")
+            .output()
+            .unwrap();
+    let worker =
+        Command::new("./rucat-cluster/target/debug/rucat-cluster")
+            .arg("worker")
+            .output()
+            .unwrap();
 
     match (driver.status.success(), worker.status.success()) {
         (false, _) => println!("driver error: {}", String::from_utf8_lossy(&driver.stderr)),

@@ -1,11 +1,16 @@
+use std::fmt::Debug;
+
 use serde::{Deserialize, Serialize};
 use serde_traitobject as st;
 
-pub trait SubDataTrait: st::Serialize + st::Deserialize {}
-pub trait SubResultTrait: st::Serialize + st::Deserialize {}
+// Debug trait if for the tarpc
+pub trait SubDataTrait: st::Serialize + st::Deserialize + Debug {}
+pub trait SubResultTrait: st::Serialize + st::Deserialize + Debug {}
+pub trait SubExecuteTrait: st::Fn<SubData, Output = SubResult> + Debug {}
 
-pub type SubInput = (st::Box<dyn SubDataTrait>,);
-pub type SubOutput = st::Box<dyn SubResultTrait>;
+type SubData = (st::Box<dyn SubDataTrait>,);
+pub type SubResult = st::Box<dyn SubResultTrait>;
+type SubExecute = st::Box<dyn SubExecuteTrait>;
 
 /// We want Rucat to execute all kinds of tasks. (turing complete)
 /// One choice is to define Task as a sum type of all
@@ -24,7 +29,7 @@ pub struct Task<Data, SubData, SubResult, Result> {
     /// The number of pieces should always be equals to the number of workers.
     split: Box<dyn Fn(Data, usize) -> Vec<SubData>>,
     /// Size of a closure cannot be known at compile time. And we don't want to copied it which would take much memory
-    execute: st::Rc<st::Box<dyn st::Fn<SubInput, Output = SubOutput>>>,
+    execute: st::Rc<SubExecute>,
     merge: Box<dyn Fn(Vec<SubResult>) -> Result>,
 }
 
@@ -36,7 +41,7 @@ where
     pub fn new(
         data: Data,
         split: Box<dyn Fn(Data, usize) -> Vec<SubData>>,
-        execute: st::Rc<st::Box<dyn st::Fn<SubInput, Output = SubOutput>>>,
+        execute: st::Rc<SubExecute>,
         merge: Box<dyn Fn(Vec<SubResult>) -> Result>,
     ) -> Self {
         Self {
@@ -61,16 +66,16 @@ where
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct SubTask {
     sub_data: st::Box<dyn SubDataTrait>,
-    execute: st::Rc<st::Box<dyn st::Fn<SubInput, Output = SubOutput>>>,
+    execute: st::Rc<SubExecute>,
 }
 
 impl SubTask {
     /// Simplify the `SubTask` into `SubResult`
     /// This consumes the `SubTask`
-    pub fn simplify(self) -> SubOutput {
+    pub fn simplify(self) -> SubResult {
         (self.execute)(self.sub_data)
     }
 }
