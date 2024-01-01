@@ -23,12 +23,12 @@ type Machine = ();
 fn create_cluster(driver: Machine, workers: &[Machine]) -> Driver {
     println!("Create one driver with {} workers", workers.len());
     let driver =
-        Command::new("./rucat-cluster/target/debug/rucat-cluster")
+        Command::new("./rucat_cluster/target/debug/rucat_cluster")
             .arg("driver")
             .output()
             .unwrap();
     let worker =
-        Command::new("./rucat-cluster/target/debug/rucat-cluster")
+        Command::new("./rucat_cluster/target/debug/rucat_cluster")
             .arg("worker")
             .output()
             .unwrap();

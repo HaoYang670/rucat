@@ -17,6 +17,5 @@ macro_rules! convert_to_rucat_error {
     };
 }
 
-convert_to_rucat_error!(serde_json::Error, RucatError::SerializationError);
 convert_to_rucat_error!(std::io::Error, RucatError::IOError);
 convert_to_rucat_error!(String, RucatError::Other);

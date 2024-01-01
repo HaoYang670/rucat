@@ -17,6 +17,10 @@ will be sent to Cluster Manager which will return the result then.
 
 ## Cluster Manager
 
+### Cluster management
+
+### Task assignement
+
 
 ## Driver
 
@@ -34,13 +38,34 @@ Split task to several subtasks;
 send request to workers and collect the subresult back;
 merge subresult to the final result.
 
+### Pressure management
+
 ## Worker
 
 execute the subtask sent to it, and return the result back.
 
-## Task
+### Pressure management
+
+## Jobs
+
+### Job
+
+`Job` a type for users (client) to define their workload. `Job`s are sent from client to cluster manager and the manager will assign
+each `Job` to a cluster.
+`Task` -> (`Stage`1 -> `Stage2` -> ... `Stage n`)
+           /  |  \
+      Task1 Task2 Task3
+
+#### Multi Stage Task (TODO)
 
 
+`Task` can have multi stages (multi map-reduce stage).
+The `Client`(or `Cluster Manager`, or `Driver`) should have functions to convert users' workload to multi-stages.
+
+
+### SubTask
+
+Cluster driver will split the `Task` into several `subTasks` after receiving it from the cluster manager. Each `SubTask` will be sent to a `Worker` to execute.
 
 ## Lifetime
 

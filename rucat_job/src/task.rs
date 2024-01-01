@@ -22,6 +22,7 @@ type SubExecute = st::Box<dyn SubExecuteTrait>;
 /// Driver will call `get_data` and `split`, and send `SubTask` to workers.
 /// Workers simplify `SubTask`s to `SubResult`s and send them back to the driver.
 /// Driver collects `SubResult`s and call `merge` to get the final result.
+/// This is one-stage task (rename it to Stage?)
 pub struct Task<Data, SubData, SubResult, Result> {
     /// The `data` could be a constant value or a file path (e.x. you store the data on s3 bucket)
     data: Data,

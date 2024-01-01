@@ -1,6 +1,5 @@
 use clap::Parser;
 use rucat_cluster::configs::*;
-use rucat_cluster::driver::schedule_tasks;
 
 // driver-workers
 
