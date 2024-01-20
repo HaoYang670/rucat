@@ -3,8 +3,15 @@ pub type Result<T> = std::result::Result<T, RucatError>;
 #[derive(Debug, PartialEq)]
 pub enum RucatError {
     SerializationError(String),
+    IllegalArgument(String),
     IOError(String),
     Other(String),
+}
+
+impl<T> Into<Result<T>> for RucatError {
+    fn into(self) -> Result<T> {
+        Result::Err(self)
+    }
 }
 
 macro_rules! convert_to_rucat_error {
