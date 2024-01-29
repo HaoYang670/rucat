@@ -1,17 +1,15 @@
-use std::task::Context;
-
-use super::{partition::PartitionIndex, storage_level::StorageLevel};
+use super::{dependency::Dependency, partition::PartitionIndex, storage_level::StorageLevel};
 use crate::{rdd::partition::Partition, task_context::TaskContext};
 
 /// Element types of RDD
-enum RDDElem {
+pub(super) enum RDDElem {
     U8(u8),
 }
 
 /// define RDD as (Dependencies, RDDVariant) where
 /// RDDVariant is the enum of all kinds of RDDs.
 /// Unlilke the RDD in Spark, we don't define the context as an argument of RDD as it is `global`
-struct RDD {
+pub(super) struct RDD {
     dependencies: Vec<Dependency>,
     storage_level: Option<StorageLevel>,
     rdd_core: RDDVariant,
@@ -22,8 +20,28 @@ impl RDD {
         &self.dependencies
     }
 
-    fn compute(&self, split: Partition, context: Context) -> impl Iterator<Item = RDDElem> {
-        std::iter::empty()
+    /// the first parent RDD
+    fn get_first_parent(&self) -> Option<&RDD> {
+        self.dependencies.first().map(|d| d.get_rdd())
+    }
+
+    fn compute(&self, split: Partition, context: TaskContext) -> impl Iterator<Item = RDDElem> {
+        match &self.rdd_core {
+            RDDVariant::MapPartitionRDD { f } => f(
+                context,
+                split.index(),
+                Box::new(self.get_first_parent().unwrap().into_iter()),
+            ),
+        }
+    }
+}
+
+impl IntoIterator for &RDD {
+    type Item = RDDElem;
+    type IntoIter = std::vec::IntoIter<Self::Item>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        todo!()
     }
 }
 
@@ -34,17 +52,8 @@ enum RDDVariant {
             dyn Fn(
                 TaskContext,
                 PartitionIndex,
-                dyn Iterator<Item = RDDElem>,
-            ) -> dyn Iterator<Item = RDDElem>,
+                Box<dyn Iterator<Item = RDDElem>>,
+            ) -> Box<dyn Iterator<Item = RDDElem>>,
         >,
     },
-}
-
-/// [Dependency] cannnot be generic because there is no way for RDD to know the type of its each [Dependency]
-/// [Dependency] can be converted to [RDD]
-enum Dependency {
-    Narrow,
-    Shuffle,
-    OneToOne,
-    Range,
 }

@@ -1,6 +1,6 @@
 use serde_traitobject as st;
 
-use crate::task::{SubDataTrait, SubExecute, SubResultTrait, Task};
+use crate::task::{SubDataTrait, SubExecute, SubResultTrait};
 
 /// Driver will call `get_data` and `split`, and send `Task` to workers.
 /// Workers simplify `SubTask`s to `SubResult`s and send them back to the driver.

@@ -1,3 +1,4 @@
+mod dependency;
 mod deterministic_level;
 mod map_partition_rdd;
 mod partition;

@@ -7,7 +7,7 @@ pub(super) enum Partition {
 
 impl Partition {
     /// Get the identifier for a partition in an RDD
-    fn index(&self) -> PartitionIndex {
+    pub fn index(&self) -> PartitionIndex {
         match self {
             Partition::Dummy => 0,
         }
