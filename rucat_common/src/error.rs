@@ -2,6 +2,7 @@ pub type Result<T> = std::result::Result<T, RucatError>;
 
 #[derive(Debug, PartialEq)]
 pub enum RucatError {
+    CannotChangeStorageLevelError,
     SerializationError(String),
     IllegalArgument(String),
     IOError(String),

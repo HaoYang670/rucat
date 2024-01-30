@@ -1,13 +1,16 @@
+use std::rc::Rc;
+
 use super::{dependency::Dependency, partition::PartitionIndex, storage_level::StorageLevel};
 use crate::{rdd::partition::Partition, task_context::TaskContext};
+use rucat_common::error::{Result, RucatError};
 
 /// Element types of RDD
 pub(super) enum RDDElem {
     U8(u8),
+    Pair(Rc<RDDElem>, Rc<RDDElem>),
 }
 
-/// define RDD as (Dependencies, RDDVariant) where
-/// RDDVariant is the enum of all kinds of RDDs.
+/// define RDD as  where RDDVariant is the enum of all kinds of RDDs.
 /// Unlilke the RDD in Spark, we don't define the context as an argument of RDD as it is `global`
 pub(super) struct RDD {
     dependencies: Vec<Dependency>,
@@ -16,13 +19,23 @@ pub(super) struct RDD {
 }
 
 impl RDD {
-    fn get_dependencies(&self) -> &Vec<Dependency> {
+    /// Return how this RDD depends on parent RDDs.
+    fn get_dependencies(&self) -> &[Dependency] {
         &self.dependencies
     }
 
     /// the first parent RDD
     fn get_first_parent(&self) -> Option<&RDD> {
         self.dependencies.first().map(|d| d.get_rdd())
+    }
+
+    /// Return the set of partitions in the RDD.
+    /// The partitions returned must be sorted by [Partition::index].
+    /// TODO: the function now is self-recursion with no leaf. Add a leaf
+    fn get_partitions(&self) -> &[Partition] {
+        match &self.rdd_core {
+            RDDVariant::MapPartitionRDD { .. } => self.get_first_parent().unwrap().get_partitions(),
+        }
     }
 
     fn compute(&self, split: Partition, context: TaskContext) -> impl Iterator<Item = RDDElem> {
@@ -32,6 +45,17 @@ impl RDD {
                 split.index(),
                 Box::new(self.get_first_parent().unwrap().into_iter()),
             ),
+        }
+    }
+
+    fn persist(mut self, level: StorageLevel) -> Result<Self> {
+        match self.storage_level {
+            Some(_) => RucatError::CannotChangeStorageLevelError.into(),
+            None => {
+                // TODO: persist the rdd data
+                self.storage_level = Some(level);
+                Ok(self)
+            }
         }
     }
 }
