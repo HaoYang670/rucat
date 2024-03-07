@@ -9,9 +9,9 @@ pub enum RucatError {
     Other(String),
 }
 
-impl<T> Into<Result<T>> for RucatError {
-    fn into(self) -> Result<T> {
-        Result::Err(self)
+impl<T> From<RucatError> for Result<T> {
+    fn from(val: RucatError) -> Self {
+        Result::Err(val)
     }
 }
 
