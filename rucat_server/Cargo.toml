@@ -1,5 +1,5 @@
 [package]
-name = "rucat_cluster_manager"
+name = "rucat_server"
 version = "0.1.0"
 edition = "2021"
 
@@ -8,6 +8,7 @@ edition = "2021"
 [dependencies]
 rucat_common = {path = "../rucat_common"}
 axum = {"version" = "0.7.4"}
+serde = {"version" = "1.0.197", features = ["derive"]}
 tower-http = { version = "0.5.0", features = ["trace"] }
 tracing = {"version" = "0.1.40"}
 tracing-subscriber = {"version" = "0.3.18"}

@@ -1,5 +1,6 @@
 use axum::{routing::get, Router};
 use rucat_common::error::Result;
+use rucat_server::cluster_router::get_cluster_router;
 use tower_http::trace::TraceLayer;
 
 #[tokio::main]
@@ -19,11 +20,12 @@ async fn main() -> Result<()> {
 
 /// build our application with a route
 fn get_app() -> Router {
-    async fn handler() -> &'static str {
+    async fn root_handler() -> &'static str {
         "Hello, Rucat!"
     }
 
     Router::new()
-        .route("/", get(handler))
+        .route("/", get(root_handler))
+        .nest("/cluster", get_cluster_router())
         .layer(TraceLayer::new_for_http())
 }
