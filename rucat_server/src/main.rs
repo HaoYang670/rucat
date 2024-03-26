@@ -1,6 +1,6 @@
-use axum::{routing::get, Router};
+use axum::{middleware, routing::get, Router};
 use rucat_common::error::Result;
-use rucat_server::cluster_router::get_cluster_router;
+use rucat_server::{authentication::auth, cluster_router::get_cluster_router};
 use tower_http::trace::TraceLayer;
 
 #[tokio::main]
@@ -27,5 +27,6 @@ fn get_app() -> Router {
     Router::new()
         .route("/", get(root_handler))
         .nest("/cluster", get_cluster_router())
+        .layer(middleware::from_fn(auth))
         .layer(TraceLayer::new_for_http())
 }
