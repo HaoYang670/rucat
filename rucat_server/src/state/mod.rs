@@ -1,3 +1,5 @@
+//! Shared state between handlers.
+
 use self::data_store::DataStore;
 
 pub mod data_store;

@@ -10,19 +10,26 @@ enum ClusterState {
     SLEEPING,
 }
 
-/// For future
+/// Ballista first on k8s.
+#[derive(Clone)]
 enum ClusterType {
     Ballista,
     Rucat,
+}
+
+#[derive(Clone)]
+pub(super) struct ClusterInfo {
+    name: String,
+    cluster_type: ClusterType,
+    state: ClusterState,
 }
 
 pub(crate) type ClusterId = u8;
 
 #[derive(Clone)]
 pub struct Cluster {
-    name: String,
     id: ClusterId,
-    state: ClusterState,
+    info: ClusterInfo,
 }
 
 impl Cluster {

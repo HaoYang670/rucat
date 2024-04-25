@@ -2,50 +2,54 @@
 
 use std::collections::HashMap;
 
-use crate::cluster_router::{Cluster, ClusterId};
+use crate::cluster_router::{Cluster, ClusterId, ClusterInfo};
 use rucat_common::error::Result;
 
+type SurrealDBURI<'a> = &'a str;
+
 /// Store the metadata of Cluster
-/// The lifetime here reprensent that of the endpoint of the SurrealDB.
-// DO I need to add a rwlock for it? Or the mutable reference can make sure the r-w policy?
-// the problem here is that `Self` is shared between threads.
-// Achive the Component in Spring by using Axum::state?
+/// The lifetime here reprensent that of the uri of the SurrealDB.
 #[derive(Clone)]
 pub enum DataStore<'a> {
     InMemoryDataStore {
-        store: HashMap<ClusterId, Cluster>,
+        store: HashMap<ClusterId, Cluster>, // ConcurrentMap<ClusterId, RWLock<Cluster>>
     },
     /// I want to find a distributed database for storing.
-    SurrealDB {
-        endpoint: &'a str,
-    },
+    SurrealDB { uri: SurrealDBURI<'a> },
 }
 
+/// pub functions are those need to call outside from the rucat server (for example users need to construct a dataStore to create the rest server)
+/// pub(crate) are those only called inside the rucat server
 impl<'a> DataStore<'a> {
+    /// empty im memory data store
     pub fn new_in_memory() -> Self {
         Self::InMemoryDataStore {
             store: HashMap::new(),
         }
     }
 
-    fn add_cluster(&mut self, cluster: Cluster) -> Result<()> {
-        let id = cluster.get_id();
+    /// data store that connects to a SurrealDB
+    pub fn connect_serreal_db(uri: SurrealDBURI<'a>) -> Self {
+        Self::SurrealDB { uri }
+    }
+
+    pub(crate) fn add_cluster(&mut self, cluster: ClusterInfo) -> ClusterId {
         todo!()
     }
 
-    fn get_cluster(&self, id: ClusterId) -> Option<&Cluster> {
+    pub(crate) fn get_cluster(&self, id: ClusterId) -> Option<&Cluster> {
         todo!()
     }
 
-    fn delete_cluster(&mut self, id: ClusterId) -> Result<()> {
+    pub(crate) fn delete_cluster(&mut self, id: ClusterId) -> Result<()> {
         todo!()
     }
 
     // the returned reference in Box has the same lifetime as self
-    fn get_all_clusters(&self) -> Box<dyn Iterator<Item = &Cluster> + '_> {
+    pub(crate) fn get_all_clusters(&self) -> Box<dyn Iterator<Item = &Cluster> + '_> {
         match self {
             DataStore::InMemoryDataStore { store } => Box::new(store.values()),
-            DataStore::SurrealDB { endpoint: _ } => todo!(),
+            DataStore::SurrealDB { .. } => todo!(),
         }
     }
 }

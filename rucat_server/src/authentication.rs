@@ -1,3 +1,5 @@
+//! authentication middleware
+
 use axum::{
     extract::Request,
     http::{HeaderMap, StatusCode},
