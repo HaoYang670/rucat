@@ -1,36 +1,36 @@
 //! Datastore to record clusters' infomation
 
-use std::collections::HashMap;
-
 use crate::cluster_router::{Cluster, ClusterId, ClusterInfo};
 use rucat_common::error::Result;
+use surrealdb::{engine::local::Db, Surreal};
 
 type SurrealDBURI<'a> = &'a str;
 
 /// Store the metadata of Cluster
-/// The lifetime here reprensent that of the uri of the SurrealDB.
+/// The lifetime here reprensent that of the URI of the DB server.
 #[derive(Clone)]
 pub enum DataStore<'a> {
-    InMemoryDataStore {
-        store: HashMap<ClusterId, Cluster>, // ConcurrentMap<ClusterId, RWLock<Cluster>>
+    /// embedded database in memory
+    Embedded {
+        store: Surreal<Db>, //embedded surrealdb?
     },
-    /// I want to find a distributed database for storing.
-    SurrealDB { uri: SurrealDBURI<'a> },
+    /// SurrealDB server
+    Server { uri: SurrealDBURI<'a> },
 }
 
 /// pub functions are those need to call outside from the rucat server (for example users need to construct a dataStore to create the rest server)
 /// pub(crate) are those only called inside the rucat server
 impl<'a> DataStore<'a> {
     /// empty im memory data store
-    pub fn new_in_memory() -> Self {
-        Self::InMemoryDataStore {
-            store: HashMap::new(),
+    pub fn connect_embedded_db(db: Surreal<Db>) -> Self {
+        Self::Embedded {
+            store: db,
         }
     }
 
     /// data store that connects to a SurrealDB
     pub fn connect_serreal_db(uri: SurrealDBURI<'a>) -> Self {
-        Self::SurrealDB { uri }
+        Self::Server { uri }
     }
 
     pub(crate) fn add_cluster(&mut self, cluster: ClusterInfo) -> ClusterId {
@@ -48,8 +48,8 @@ impl<'a> DataStore<'a> {
     // the returned reference in Box has the same lifetime as self
     pub(crate) fn get_all_clusters(&self) -> Box<dyn Iterator<Item = &Cluster> + '_> {
         match self {
-            DataStore::InMemoryDataStore { store } => Box::new(store.values()),
-            DataStore::SurrealDB { .. } => todo!(),
+            DataStore::Embedded { store } => todo!(),
+            DataStore::Server { .. } => todo!(),
         }
     }
 }
