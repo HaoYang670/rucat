@@ -5,6 +5,7 @@ use crate::{rdd::partition::Partition, task_context::TaskContext};
 use rucat_common::error::{Result, RucatError};
 
 /// Element types of RDD
+#[derive(PartialEq, Debug)]
 pub(super) enum RDDElem {
     U8(u8),
     Pair(Rc<RDDElem>, Rc<RDDElem>),
@@ -19,6 +20,18 @@ pub(super) struct RDD {
 }
 
 impl RDD {
+    pub(super) fn new(
+        dependencies: Vec<Dependency>,
+        storage_level: Option<StorageLevel>,
+        rdd_core: RDDVariant,
+    ) -> Self {
+        RDD {
+            dependencies,
+            storage_level,
+            rdd_core,
+        }
+    }
+
     /// Return how this RDD depends on parent RDDs.
     fn get_dependencies(&self) -> &[Dependency] {
         &self.dependencies
@@ -31,19 +44,20 @@ impl RDD {
 
     /// Return the set of partitions in the RDD.
     /// The partitions returned must be sorted by [Partition::index].
-    /// TODO: the function now is self-recursion with no leaf. Add a leaf
+    /// WARNING: the function now is self-recursion with no termination.
     fn get_partitions(&self) -> &[Partition] {
         match &self.rdd_core {
             RDDVariant::MapPartitionRDD { .. } => self.get_first_parent().unwrap().get_partitions(),
         }
     }
 
-    fn compute(&self, split: Partition, context: TaskContext) -> impl Iterator<Item = RDDElem> {
+    pub fn compute(&self, split: Partition, context: TaskContext) -> impl Iterator<Item = RDDElem> {
         match &self.rdd_core {
             RDDVariant::MapPartitionRDD { f } => f(
                 context,
                 split.index(),
-                Box::new(self.get_first_parent().unwrap().into_iter()),
+                // the unwrap here is unsound
+                Box::new(self.get_first_parent().unwrap().into_iter()), // what if dependency is empty?
             ),
         }
     }
@@ -69,7 +83,7 @@ impl IntoIterator for &RDD {
     }
 }
 
-enum RDDVariant {
+pub(super) enum RDDVariant {
     /// An RDD that applies the provided function to every partition of the parent RDD.
     MapPartitionRDD {
         f: Box<

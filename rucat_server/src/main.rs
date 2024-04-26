@@ -1,4 +1,4 @@
-use axum::{middleware, routing::get, Router};
+use axum::{middleware, Router};
 use rucat_common::error::Result;
 use rucat_server::{
     authentication::auth,

@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::state::AppState;
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 enum ClusterState {
     RUNNING,
     ERROR,
@@ -11,30 +11,30 @@ enum ClusterState {
 }
 
 /// Ballista first on k8s.
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 enum ClusterType {
     Ballista,
     Rucat,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub(super) struct ClusterInfo {
     name: String,
     cluster_type: ClusterType,
     state: ClusterState,
 }
 
-pub(crate) type ClusterId = u8;
+pub(crate) type ClusterId = String;
 
-#[derive(Clone)]
+#[derive(Clone, Deserialize)]
 pub struct Cluster {
     id: ClusterId,
     info: ClusterInfo,
 }
 
 impl Cluster {
-    pub fn get_id(&self) -> ClusterId {
-        self.id
+    pub fn get_id(&self) -> &ClusterId {
+        &self.id
     }
 }
 

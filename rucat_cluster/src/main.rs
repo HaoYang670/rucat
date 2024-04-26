@@ -21,7 +21,7 @@ use rucat_cluster::configs::*;
  */
 fn main() {
     let cli = Cli::parse();
-    println!("create 1 driver and {} workers", cli.workers)
+    println!("create 1 driver and {} workers", cli.workers);
 }
 
 fn execute_tasks() {
