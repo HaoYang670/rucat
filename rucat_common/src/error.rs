@@ -1,3 +1,10 @@
+use std::fmt::Display;
+
+use axum::{
+    http::StatusCode,
+    response::{IntoResponse, Response},
+};
+
 pub type Result<T> = std::result::Result<T, RucatError>;
 
 #[derive(Debug, PartialEq)]
@@ -8,6 +15,30 @@ pub enum RucatError {
     IOError(String),
     DataStoreError(String),
     Other(String),
+}
+
+impl Display for RucatError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // TODO: rewrite this in macro
+        match self {
+            Self::CannotChangeStorageLevelError => write!(f, "Cannot change storage level error"),
+            Self::SerializationError(msg) => write!(f, "Serialization error: {}", msg),
+            Self::IllegalArgument(msg) => write!(f, "Illegal Argument error: {}", msg),
+            Self::IOError(msg) => write!(f, "IO error: {}", msg),
+            Self::DataStoreError(msg) => write!(f, "Data store error: {}", msg),
+            Self::Other(msg) => write!(f, "Other error: {}", msg),
+        }
+    }
+}
+
+impl IntoResponse for RucatError {
+    fn into_response(self) -> Response {
+        let status = match self {
+            Self::IllegalArgument(_) => StatusCode::BAD_REQUEST,
+            _ => StatusCode::INTERNAL_SERVER_ERROR,
+        };
+        (status, self.to_string()).into_response()
+    }
 }
 
 impl<T> From<RucatError> for Result<T> {

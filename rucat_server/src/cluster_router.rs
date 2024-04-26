@@ -1,18 +1,18 @@
 use axum::{extract::State, routing::post, Json, Router};
+use rucat_common::error::Result;
 use serde::{Deserialize, Serialize};
 
 use crate::state::AppState;
 
 #[derive(Clone, Serialize, Deserialize)]
 enum ClusterState {
-    RUNNING,
-    ERROR,
-    SLEEPING,
+    Pending,
+    Running,
 }
 
 /// Ballista first on k8s.
-#[derive(Clone, Serialize, Deserialize)]
-enum ClusterType {
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub(crate) enum ClusterType {
     Ballista,
     Rucat,
 }
@@ -24,31 +24,37 @@ pub(super) struct ClusterInfo {
     state: ClusterState,
 }
 
+impl From<CreateClusterRequest> for ClusterInfo {
+    fn from(value: CreateClusterRequest) -> Self {
+        ClusterInfo {
+            name: value.name,
+            cluster_type: value.cluster_type,
+            state: ClusterState::Running,
+        }
+    }
+}
+
 pub(crate) type ClusterId = String;
 
 #[derive(Clone, Deserialize)]
-pub struct Cluster {
+pub(crate) struct Cluster {
     id: ClusterId,
     info: ClusterInfo,
 }
 
-impl Cluster {
-    pub fn get_id(&self) -> &ClusterId {
-        &self.id
-    }
-}
-
 #[derive(Debug, Deserialize, Serialize)]
-struct CreateClusterRequest {
+pub(crate) struct CreateClusterRequest {
     name: String,
+    cluster_type: ClusterType,
 }
 
 /// create a cluster with cluster name in the request body
 async fn create_cluster(
     State(state): State<AppState<'_>>,
     Json(body): Json<CreateClusterRequest>,
-) -> String {
-    format!("Create a cluster with name {}", body.name)
+) -> Result<ClusterId> {
+    let data_store = state.get_data_store();
+    data_store.add_cluster(body.into()).await
 }
 
 async fn delete_cluster(State(state): State<AppState<'_>>) -> () {

@@ -7,3 +7,4 @@ edition = "2021"
 
 [dependencies]
 surrealdb = {"version" = "1.4.2"}
+axum = {"version" = "0.7.5"}

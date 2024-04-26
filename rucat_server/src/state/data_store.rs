@@ -2,9 +2,16 @@
 
 use crate::cluster_router::{Cluster, ClusterId, ClusterInfo};
 use rucat_common::error::{Result, RucatError};
-use surrealdb::{engine::local::Db, Surreal};
+use serde::Deserialize;
+use surrealdb::{engine::local::Db, sql::Thing, Surreal};
 
 type SurrealDBURI<'a> = &'a str;
+
+/// Id of the [Cluster] in [DataStore]
+#[derive(Debug, Deserialize)]
+struct Record {
+    id: Thing,
+}
 
 /// Store the metadata of Cluster
 /// The lifetime here reprensent that of the URI of the DB server.
@@ -25,9 +32,7 @@ impl<'a> DataStore<'a> {
 
     /// use an in memory data store
     pub fn connect_embedded_db(db: Surreal<Db>) -> Self {
-        Self::Embedded {
-            store: db,
-        }
+        Self::Embedded { store: db }
     }
 
     /// data store that connects to a SurrealDB
@@ -39,14 +44,12 @@ impl<'a> DataStore<'a> {
         match self {
             Self::Embedded { store } => {
                 // TODO: return an Option, not a Vec
-                let id: Vec<ClusterId> = store
-                    .create(Self::TABLE)
-                    .content(cluster).await?;
-                id.get(0).map_or(
-                    Err(RucatError::DataStoreError("add cluster fails".to_owned())), 
-                    |id| Ok(id.to_owned())
+                let record: Vec<Record> = store.create(Self::TABLE).content(cluster).await?;
+                record.first().map_or(
+                    Err(RucatError::DataStoreError("Add cluster fails".to_owned())),
+                    |rd| Ok(rd.id.id.to_string()),
                 )
-            },
+            }
             Self::Server { .. } => todo!(),
         }
     }
@@ -55,8 +58,11 @@ impl<'a> DataStore<'a> {
         match self {
             Self::Embedded { store } => {
                 let a: Option<Cluster> = store.select((Self::TABLE, id)).await?;
-                a.ok_or(RucatError::DataStoreError(format!("Cluster {} not found", id)))
-            },
+                a.ok_or(RucatError::DataStoreError(format!(
+                    "Cluster {} not found",
+                    id
+                )))
+            }
             Self::Server { .. } => {
                 todo!()
             }
@@ -76,47 +82,46 @@ impl<'a> DataStore<'a> {
     }
 }
 
-
-
+/// surreal db test for debug, need to remove.
 #[test]
 fn it_works() {
     use serde::{Deserialize, Serialize};
     use surrealdb::engine::local::Mem;
     use surrealdb::sql::Thing;
     use surrealdb::Surreal;
-    
+
     #[derive(Debug, Serialize)]
     struct Name<'a> {
         first: &'a str,
         last: &'a str,
     }
-    
+
     #[derive(Debug, Serialize)]
     struct Person<'a> {
         title: &'a str,
         name: Name<'a>,
         marketing: bool,
     }
-    
+
     #[derive(Debug, Serialize)]
     struct Responsibility {
         marketing: bool,
     }
-    
+
     #[derive(Debug, Deserialize)]
     struct Record {
         #[allow(dead_code)]
         id: Thing,
     }
-    
+
     #[tokio::main]
     async fn main() -> surrealdb::Result<()> {
         // Create database connection
         let db = Surreal::new::<Mem>(()).await?;
-    
+
         // Select a specific namespace / database
         db.use_ns("test").use_db("test").await?;
-    
+
         // Create a new person with a random id
         let created: Vec<Record> = db
             .create("person")
@@ -130,25 +135,25 @@ fn it_works() {
             })
             .await?;
         dbg!(created);
-    
+
         // Update a person record with a specific id
         let updated: Option<Record> = db
             .update(("person", "jaime"))
             .merge(Responsibility { marketing: true })
             .await?;
         dbg!(updated);
-    
+
         // Select all people records
         let people: Vec<Record> = db.select("person").await?;
         dbg!(people);
-    
+
         // Perform a custom advanced query
         let groups = db
             .query("SELECT marketing, count() FROM type::table($table) GROUP BY marketing")
             .bind(("table", "person"))
             .await?;
         dbg!(groups);
-    
+
         Ok(())
     }
 
