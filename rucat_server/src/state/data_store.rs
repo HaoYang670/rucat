@@ -54,10 +54,10 @@ impl<'a> DataStore<'a> {
         }
     }
 
-    pub(crate) async fn get_cluster(&self, id: &ClusterId) -> Result<Cluster> {
+    pub(crate) async fn get_cluster(&self, id: &ClusterId) -> Result<ClusterInfo> {
         match self {
             Self::Embedded { store } => {
-                let a: Option<Cluster> = store.select((Self::TABLE, id)).await?;
+                let a: Option<ClusterInfo> = store.select((Self::TABLE, id)).await?;
                 a.ok_or(RucatError::DataStoreError(format!(
                     "Cluster {} not found",
                     id

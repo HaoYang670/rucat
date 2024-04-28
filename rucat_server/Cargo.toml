@@ -9,7 +9,9 @@ edition = "2021"
 rucat_common = {path = "../rucat_common"}
 axum = {"version" = "0.7.5", features = ["macros"]}
 axum-extra = {"version" = "0.9.3", features = ["typed-header"]}
+bytes = {"version" = "1.6.0"}
 http = {"version" = "1.1.0"}
+http-body = {"version" = "1.0.0"}
 serde = {"version" = "1.0.197", features = ["derive"]}
 surrealdb = {"version" = "1.4.2", features = ["kv-mem"]}
 tower-http = { version = "0.5.0", features = ["trace"] }
