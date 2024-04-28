@@ -1,6 +1,11 @@
-use std::{convert::Infallible, fmt::{Debug, Display}};
+use std::fmt::{Debug, Display};
 
-use axum::{body::Body, extract::{Path, State}, response::{IntoResponse, Response}, routing::{get, post}, Json, Router};
+use axum::{
+    extract::{Path, State},
+    response::IntoResponse,
+    routing::{get, post},
+    Json, Router,
+};
 use bytes::Bytes;
 use rucat_common::error::Result;
 use serde::{Deserialize, Serialize};
@@ -77,27 +82,30 @@ async fn create_cluster(
     state.get_data_store().add_cluster(body.into()).await
 }
 
-async fn delete_cluster(State(state): State<AppState<'_>>) -> () {
+async fn delete_cluster(State(state): State<AppState<'_>>) {
     todo!()
 }
 
-async fn stop_cluster(id: ClusterId, State(state): State<AppState<'_>>) -> () {
+async fn stop_cluster(id: ClusterId, State(state): State<AppState<'_>>) {
     todo!()
 }
 
-async fn start_cluster(id: ClusterId, State(state): State<AppState<'_>>) -> () {
+async fn start_cluster(id: ClusterId, State(state): State<AppState<'_>>) {
     todo!()
 }
 
-async fn restart_cluster(id: ClusterId, State(state): State<AppState<'_>>) -> () {
+async fn restart_cluster(id: ClusterId, State(state): State<AppState<'_>>) {
     todo!()
 }
 
-async fn get_cluster(Path(id): Path<ClusterId>, State(state): State<AppState<'_>>) -> Result<ClusterInfo> {
+async fn get_cluster(
+    Path(id): Path<ClusterId>,
+    State(state): State<AppState<'_>>,
+) -> Result<ClusterInfo> {
     state.get_data_store().get_cluster(&id).await
 }
 
-async fn list_clusters(State(state): State<AppState<'_>>) -> () {
+async fn list_clusters(State(state): State<AppState<'_>>) {
     todo!()
 }
 
