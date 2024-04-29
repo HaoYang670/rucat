@@ -54,14 +54,12 @@ impl<'a> DataStore<'a> {
         }
     }
 
-    pub(crate) async fn get_cluster(&self, id: &ClusterId) -> Result<ClusterInfo> {
+    /// Return Ok(None) if the cluster does not exist
+    pub(crate) async fn get_cluster(&self, id: &ClusterId) -> Result<Option<ClusterInfo>> {
         match self {
             Self::Embedded { store } => {
-                let a: Option<ClusterInfo> = store.select((Self::TABLE, id)).await?;
-                a.ok_or(RucatError::DataStoreError(format!(
-                    "Cluster {} not found",
-                    id
-                )))
+                // have to do this redundant format to pass the type checker
+                Ok(store.select((Self::TABLE, id)).await?)
             }
             Self::Server { .. } => {
                 todo!()

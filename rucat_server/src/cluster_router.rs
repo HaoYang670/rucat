@@ -7,7 +7,7 @@ use axum::{
     Json, Router,
 };
 use bytes::Bytes;
-use rucat_common::error::Result;
+use rucat_common::error::{Result, RucatError};
 use serde::{Deserialize, Serialize};
 
 use crate::state::AppState;
@@ -102,7 +102,14 @@ async fn get_cluster(
     Path(id): Path<ClusterId>,
     State(state): State<AppState<'_>>,
 ) -> Result<ClusterInfo> {
-    state.get_data_store().get_cluster(&id).await
+    state
+        .get_data_store()
+        .get_cluster(&id)
+        .await?
+        .ok_or(RucatError::NotFoundError(format!(
+            "Cluster {} not found",
+            id
+        )))
 }
 
 async fn list_clusters(State(state): State<AppState<'_>>) {
