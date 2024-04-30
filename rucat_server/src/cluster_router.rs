@@ -117,7 +117,7 @@ async fn list_clusters(State(state): State<AppState<'_>>) {
 }
 
 /// Pass the data store endpoint later
-pub fn get_cluster_router() -> Router<AppState<'static>> {
+pub(crate) fn get_cluster_router() -> Router<AppState<'static>> {
     Router::new()
         .route("/", post(create_cluster))
         .route("/:id", get(get_cluster))

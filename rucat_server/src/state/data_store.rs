@@ -16,7 +16,7 @@ struct Record {
 /// Store the metadata of Cluster
 /// The lifetime here reprensent that of the URI of the DB server.
 #[derive(Clone)]
-pub enum DataStore<'a> {
+pub(crate) enum DataStore<'a> {
     /// embedded database in memory
     Embedded {
         store: Surreal<Db>, //embedded surrealdb?
@@ -31,12 +31,12 @@ impl<'a> DataStore<'a> {
     const TABLE: &'static str = "clusters";
 
     /// use an in memory data store
-    pub fn connect_embedded_db(db: Surreal<Db>) -> Self {
+    pub(crate) fn connect_embedded_db(db: Surreal<Db>) -> Self {
         Self::Embedded { store: db }
     }
 
     /// data store that connects to a SurrealDB
-    pub fn connect_serreal_db(uri: SurrealDBURI<'a>) -> Self {
+    pub(crate) fn connect_serreal_db(uri: SurrealDBURI<'a>) -> Self {
         Self::Server { uri }
     }
 

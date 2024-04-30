@@ -15,7 +15,7 @@ enum Credentials {
 }
 
 /// Bear authentication
-pub async fn auth(
+pub(crate) async fn auth(
     headers: HeaderMap,
     request: Request,
     next: Next,
