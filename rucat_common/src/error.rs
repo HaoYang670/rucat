@@ -60,4 +60,5 @@ macro_rules! convert_to_rucat_error {
 
 convert_to_rucat_error!(std::io::Error, RucatError::IOError);
 convert_to_rucat_error!(surrealdb::Error, RucatError::DataStoreError);
+convert_to_rucat_error!(anyhow::Error, RucatError::Other);
 convert_to_rucat_error!(String, RucatError::Other);
