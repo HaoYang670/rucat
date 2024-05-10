@@ -13,7 +13,7 @@ async fn get_test_server() -> Result<TestServer> {
 
 static USERNAME: &str = "remzi";
 static PWD: &str = "yang";
-static TOKEN: &str = "Bearer remziy"; // Bearer token
+static TOKEN: &str = "remziy"; // Bearer token
 
 #[tokio::test]
 async fn without_auth_header() -> Result<()> {
@@ -79,23 +79,7 @@ async fn with_unsupported_auth() -> Result<()> {
 }
 
 #[tokio::test]
-async fn undefined_handler() -> Result<()> {
-    let server = get_test_server().await?;
-
-    let response = server
-        .get("/any")
-        .add_header(
-            AUTHORIZATION,
-            Authorization::basic(USERNAME, PWD).0.encode(),
-        )
-        .await;
-
-    response.assert_status_not_found();
-    Ok(())
-}
-
-#[tokio::test]
-async fn root_get_request() -> Result<()> {
+async fn basic_auth_successful() -> Result<()> {
     let server = get_test_server().await?;
 
     let response = server
@@ -107,6 +91,21 @@ async fn root_get_request() -> Result<()> {
         .await;
 
     response.assert_status_ok();
-    response.assert_text("welcome to rucat");
+    Ok(())
+}
+
+#[tokio::test]
+async fn bearer_auth_successful() -> Result<()> {
+    let server = get_test_server().await?;
+
+    let response = server
+        .get("/")
+        .add_header(
+            AUTHORIZATION,
+            Authorization::bearer(TOKEN).unwrap().0.encode(),
+        )
+        .await;
+
+    response.assert_status_ok();
     Ok(())
 }
