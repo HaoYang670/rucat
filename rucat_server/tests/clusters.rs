@@ -12,9 +12,7 @@ async fn get_test_server() -> Result<TestServer> {
 async fn undefined_handler() -> Result<()> {
     let server = get_test_server().await?;
 
-    let response = server
-        .get("/any")
-        .await;
+    let response = server.get("/any").await;
 
     response.assert_status_not_found();
     Ok(())
@@ -24,9 +22,7 @@ async fn undefined_handler() -> Result<()> {
 async fn root_get_request() -> Result<()> {
     let server = get_test_server().await?;
 
-    let response = server
-        .get("/")
-        .await;
+    let response = server.get("/").await;
 
     response.assert_status_ok();
     response.assert_text("welcome to rucat");
