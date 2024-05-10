@@ -13,7 +13,7 @@ async fn get_test_server() -> Result<TestServer> {
 
 static USERNAME: &str = "remzi";
 static PWD: &str = "yang";
-static TOKEN: &str = "remziy"; // Bearer token
+static TOKEN: &str = "Bearer remziy"; // Bearer token
 
 #[tokio::test]
 async fn without_auth_header() -> Result<()> {
@@ -27,15 +27,33 @@ async fn without_auth_header() -> Result<()> {
   Ok(())
 }
 
-// #[tokio::test]
-// async fn with_wrong_basic_auth() -> Result<()> {
-//   todo!()
-// }
-// 
-// #[tokio::test]
-// async fn with_wrong_bearer_auth() -> Result<()> {
-//   todo!()
-// }
+#[tokio::test]
+async fn with_wrong_basic_auth() -> Result<()> {
+  let server = get_test_server().await?;
+
+  let response = server
+      .get("/")
+      .add_header(AUTHORIZATION, Authorization::basic("wrong", "wrong").0.encode())
+      .await;
+
+  response.assert_status_unauthorized();
+  response.assert_text("Unauthorized error: wrong credentials");
+  Ok(())
+}
+
+#[tokio::test]
+async fn with_wrong_bearer_auth() -> Result<()> {
+  let server = get_test_server().await?;
+
+  let response = server
+      .get("/any")
+      .add_header(AUTHORIZATION, Authorization::bearer("wrong").unwrap().0.encode())
+      .await;
+
+      response.assert_status_unauthorized();
+      response.assert_text("Unauthorized error: wrong credentials");
+      Ok(())
+}
 
 #[tokio::test]
 async fn with_unsupported_auth() -> Result<()> {
@@ -56,8 +74,6 @@ async fn with_unsupported_auth() -> Result<()> {
   response.assert_text("Unauthorized error: Unsupported credentials type");
   Ok(())
 }
-
-
 
 #[tokio::test]
 async fn undefined_handler() -> Result<()> {
