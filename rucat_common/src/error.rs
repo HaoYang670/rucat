@@ -12,6 +12,7 @@ pub enum RucatError {
     CannotChangeStorageLevelError,
     IllegalArgument(String),
     NotFoundError(String),
+    UnauthorizedError(String),
     IOError(String),
     DataStoreError(String),
     Other(String),
@@ -24,6 +25,7 @@ impl Display for RucatError {
             Self::CannotChangeStorageLevelError => write!(f, "Cannot change storage level error"),
             Self::IllegalArgument(msg) => write!(f, "Illegal Argument error: {}", msg),
             Self::NotFoundError(msg) => write!(f, "Not found error: {}", msg),
+            Self::UnauthorizedError(msg) => write!(f, "Unauthorized error: {}", msg),
             Self::IOError(msg) => write!(f, "IO error: {}", msg),
             Self::DataStoreError(msg) => write!(f, "Data store error: {}", msg),
             Self::Other(msg) => write!(f, "Other error: {}", msg),
@@ -36,6 +38,7 @@ impl IntoResponse for RucatError {
         let status = match self {
             Self::IllegalArgument(_) => StatusCode::BAD_REQUEST,
             Self::NotFoundError(_) => StatusCode::NOT_FOUND,
+            Self::UnauthorizedError(_) => StatusCode::UNAUTHORIZED,
             _ => StatusCode::INTERNAL_SERVER_ERROR,
         };
         (status, self.to_string()).into_response()

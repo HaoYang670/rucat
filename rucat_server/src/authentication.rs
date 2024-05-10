@@ -1,45 +1,51 @@
 //! authentication middleware
 
+use std::panic::catch_unwind;
+
 use axum::{
     extract::Request,
-    http::{HeaderMap, StatusCode},
+    http::HeaderMap,
     middleware::Next,
     response::Response,
 };
 use axum_extra::headers::authorization::{Basic, Bearer, Credentials as _};
 
-/// Authentication types supported
+use rucat_common::error::{Result, RucatError};
+
 enum Credentials {
     Basic(Basic),
     Bearer(Bearer),
 }
 
-/// Bear authentication
+/// authentication
 pub(crate) async fn auth(
     headers: HeaderMap,
     request: Request,
     next: Next,
-) -> Result<Response, StatusCode> {
-    match get_token(&headers) {
-        Some(token) if token_is_valid(&token) => {
-            let response = next.run(request).await;
-            Ok(response)
-        }
-        _ => Err(StatusCode::UNAUTHORIZED),
+) -> Result<Response> {
+    let credentials = get_credentials(&headers)?;
+    if validate_credentials(&credentials) {
+        let response = next.run(request).await;
+        Ok(response)
+    } else {
+        Err(RucatError::UnauthorizedError("wrong credentials".to_owned()))
     }
 }
 
 /// Get Basic or Bearer credentials
-fn get_token(headers: &HeaderMap) -> Option<Credentials> {
-    let token = headers.get(http::header::AUTHORIZATION);
-    token.and_then(|t| {
-        Basic::decode(t)
-            .map(Credentials::Basic)
-            .or_else(|| Bearer::decode(t).map(Credentials::Bearer))
-    })
+fn get_credentials(headers: &HeaderMap) -> Result<Credentials> {
+    let token = headers
+        .get(http::header::AUTHORIZATION)
+        .ok_or(RucatError::UnauthorizedError("Not found authorization header".to_owned()))?;
+    // Use std::panic::catch_unwind to catch the debug_assert in Basic::decode and Bearer::decode
+    catch_unwind(|| {Basic::decode(token)})
+        .unwrap_or(None)
+        .map(Credentials::Basic)
+        .or_else(|| catch_unwind(|| Bearer::decode(token)).unwrap_or(None).map(Credentials::Bearer))
+        .ok_or(RucatError::UnauthorizedError("Unsupported credentials type".to_owned()))
 }
 
-fn token_is_valid(token: &Credentials) -> bool {
+fn validate_credentials(token: &Credentials) -> bool {
     match token {
         Credentials::Basic(basic) => basic.username().eq("remzi") && basic.password().eq("yang"),
         Credentials::Bearer(bearer) => bearer.token().eq("remziy"),
