@@ -11,16 +11,27 @@ pub(crate) mod cluster_router;
 pub(crate) mod state;
 
 /// This is the only entry for users to get the rucat server.
-pub async fn get_server() -> Result<Router> {
+pub async fn get_server(auth_enable: bool) -> Result<Router> {
     let db = Surreal::new::<Mem>(()).await?;
     db.use_ns("test").use_db("test").await?;
 
     let app_state = AppState::new(DataStore::connect_embedded_db(db));
 
-    Ok(Router::new()
-        .route("/", get(|_: State<AppState<'_>>| async {"welcome to rucat"}))
-        .nest("/cluster", get_cluster_router())
-        .layer(middleware::from_fn(auth))
+    let router = Router::new()
+        .route(
+            "/",
+            get(|_: State<AppState<'_>>| async { "welcome to rucat" }),
+        )
+        .nest("/cluster", get_cluster_router());
+
+    // add middle layers
+    let router = if auth_enable {
+        router.layer(middleware::from_fn(auth))
+    } else {
+        router
+    };
+
+    Ok(router
         .layer(TraceLayer::new_for_http())
         .with_state(app_state))
 }
