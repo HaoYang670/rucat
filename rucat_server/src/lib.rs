@@ -1,5 +1,6 @@
 use authentication::auth;
 use axum::{extract::State, middleware, routing::get, Router};
+use axum_extra::middleware::option_layer;
 use cluster_router::get_cluster_router;
 use rucat_common::error::Result;
 use state::{data_store::DataStore, AppState};
@@ -17,21 +18,16 @@ pub async fn get_server(auth_enable: bool) -> Result<Router> {
 
     let app_state = AppState::new(DataStore::connect_embedded_db(db));
 
-    let router = Router::new()
+    // go through the router from outer to inner
+    Ok(Router::new()
         .route(
             "/",
             get(|_: State<AppState<'_>>| async { "welcome to rucat" }),
         )
-        .nest("/cluster", get_cluster_router());
-
-    // add middle layers
-    let router = if auth_enable {
-        router.layer(middleware::from_fn(auth))
-    } else {
-        router
-    };
-
-    Ok(router
+        .nest("/cluster", get_cluster_router())
+        // TODO: use tower::ServiceBuilder to build the middleware stack
+        // but need to be careful with the order of the middleware and the compatibility with axum::option_layer
+        .layer(option_layer(auth_enable.then(|| middleware::from_fn(auth))))
         .layer(TraceLayer::new_for_http())
         .with_state(app_state))
 }
