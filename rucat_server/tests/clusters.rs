@@ -1,4 +1,5 @@
 use axum_test::TestServer;
+use http::StatusCode;
 use rucat_common::error::Result;
 use rucat_server::get_server;
 use serde_json::json;
@@ -41,18 +42,68 @@ async fn get_cluster_not_found() -> Result<()> {
 }
 
 #[tokio::test]
+async fn create_cluster_with_missing_field() -> Result<()> {
+    let server = get_test_server().await?;
+
+    let response = server
+        .post("/cluster")
+        .json(&json!({
+            "name": "test"
+        }))
+        .await;
+
+    response.assert_status(StatusCode::UNPROCESSABLE_ENTITY);
+    response.assert_text("Failed to deserialize the JSON body into the target type: missing field `cluster_type` at line 1 column 15");
+    Ok(())
+}
+
+#[tokio::test]
+async fn create_cluster_with_invalid_cluster_type() -> Result<()> {
+    let server = get_test_server().await?;
+
+    let response = server
+        .post("/cluster")
+        .json(&json!({
+            "name": "test",
+            "cluster_type": "Invalid"
+        }))
+        .await;
+
+    response.assert_status(StatusCode::UNPROCESSABLE_ENTITY);
+    response.assert_text("Failed to deserialize the JSON body into the target type: cluster_type: unknown variant `Invalid`, expected `Ballista` or `Rucat` at line 1 column 39");
+    Ok(())
+}
+
+#[tokio::test]
+async fn create_cluster_with_unknown_field() -> Result<()> {
+    let server = get_test_server().await?;
+
+    let response = server
+        .post("/cluster")
+        .json(&json!({
+            "name": "test",
+            "cluster_type": "Ballista",
+            "invalid": "invalid"
+        }))
+        .await;
+
+    response.assert_status(StatusCode::UNPROCESSABLE_ENTITY);
+    response.assert_text("Failed to deserialize the JSON body into the target type: invalid: unknown field `invalid`, expected `name` or `cluster_type` at line 1 column 50");
+    Ok(())
+}
+
+#[tokio::test]
 async fn create_and_get_cluster() -> Result<()> {
     let server = get_test_server().await?;
     let response = server
         .post("/cluster")
-        //.json(r#"{"name": "test","cluster_type": "Ballista"}"#).await;
         .json(&json!({
             "name": "test",
             "cluster_type": "Ballista"
         }))
         .await;
 
-    //response.assert_status_ok();
+    response.assert_status_ok();
 
     let cluster_id = response.text();
     let response = server.get(&format!("/cluster/{}", cluster_id)).await;
