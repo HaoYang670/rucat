@@ -70,7 +70,7 @@ async fn create_cluster_with_invalid_cluster_type() -> Result<()> {
         .await;
 
     response.assert_status(StatusCode::UNPROCESSABLE_ENTITY);
-    response.assert_text("Failed to deserialize the JSON body into the target type: cluster_type: unknown variant `Invalid`, expected `Ballista` or `Rucat` at line 1 column 39");
+    response.assert_text("Failed to deserialize the JSON body into the target type: cluster_type: unknown variant `Invalid`, expected one of `BallistaLocal`, `BallistaRemote`, `Rucat` at line 1 column 39");
     Ok(())
 }
 
@@ -82,13 +82,13 @@ async fn create_cluster_with_unknown_field() -> Result<()> {
         .post("/cluster")
         .json(&json!({
             "name": "test",
-            "cluster_type": "Ballista",
+            "cluster_type": "BallistaLocal",
             "invalid": "invalid"
         }))
         .await;
 
     response.assert_status(StatusCode::UNPROCESSABLE_ENTITY);
-    response.assert_text("Failed to deserialize the JSON body into the target type: invalid: unknown field `invalid`, expected `name` or `cluster_type` at line 1 column 50");
+    response.assert_text("Failed to deserialize the JSON body into the target type: invalid: unknown field `invalid`, expected `name` or `cluster_type` at line 1 column 55");
     Ok(())
 }
 
@@ -99,7 +99,7 @@ async fn create_and_get_cluster() -> Result<()> {
         .post("/cluster")
         .json(&json!({
             "name": "test",
-            "cluster_type": "Ballista"
+            "cluster_type": "BallistaLocal"
         }))
         .await;
 
@@ -108,7 +108,7 @@ async fn create_and_get_cluster() -> Result<()> {
     let cluster_id = response.text();
     let response = server.get(&format!("/cluster/{}", cluster_id)).await;
     response.assert_status_ok();
-    response.assert_text(r#"ClusterInfo { name: "test", cluster_type: Ballista, state: Pending }"#);
+    response.assert_text(r#"ClusterInfo { name: "test", cluster_type: BallistaLocal, state: Pending }"#);
 
     Ok(())
 }

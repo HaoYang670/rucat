@@ -21,7 +21,10 @@ enum ClusterState {
 /// Ballista first on k8s.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) enum ClusterType {
-    Ballista,
+    /// Ballista in local mode
+    BallistaLocal,
+    /// Ballista in remote mode, e.g. on k8s.
+    BallistaRemote,
     Rucat,
 }
 
