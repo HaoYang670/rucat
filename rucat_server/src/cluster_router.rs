@@ -129,5 +129,5 @@ async fn list_clusters(State(state): State<AppState<'_>>) {
 pub(crate) fn get_cluster_router() -> Router<AppState<'static>> {
     Router::new()
         .route("/", post(create_cluster))
-        .route("/:id", get(get_cluster))
+        .route("/:id", get(get_cluster).delete(delete_cluster))
 }

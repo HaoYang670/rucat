@@ -114,3 +114,33 @@ async fn create_and_get_cluster() -> Result<()> {
 
     Ok(())
 }
+
+#[tokio::test]
+async fn delete_nonexistent_cluster() -> Result<()> {
+    let server = get_test_server().await?;
+
+    let response = server.delete("/cluster/any").await;
+
+    response.assert_status_not_found();
+    Ok(())
+}
+
+#[tokio::test]
+async fn create_and_delete_cluster() -> Result<()> {
+    let server = get_test_server().await?;
+    let response = server
+        .post("/cluster")
+        .json(&json!({
+            "name": "test",
+            "cluster_type": "BallistaLocal"
+        }))
+        .await;
+
+    response.assert_status_ok();
+
+    let cluster_id = response.text();
+    let response = server.delete(&format!("/cluster/{}", cluster_id)).await;
+    response.assert_status_ok();
+
+    Ok(())
+}
