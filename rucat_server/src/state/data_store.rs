@@ -67,8 +67,13 @@ impl<'a> DataStore<'a> {
         }
     }
 
-    pub(crate) fn delete_cluster(&self, id: &ClusterId) -> Result<()> {
-        todo!()
+    pub(crate) async fn delete_cluster(&self, id: &ClusterId) -> Result<Option<ClusterInfo>> {
+        match self {
+            Self::Embedded { store } => Ok(store.delete((Self::TABLE, id)).await?),
+            Self::Server { .. } => {
+                todo!()
+            }
+        }
     }
 
     // the returned reference in Box has the same lifetime as self

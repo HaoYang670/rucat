@@ -86,8 +86,16 @@ async fn create_cluster(
     state.get_data_store().add_cluster(body.into()).await
 }
 
-async fn delete_cluster(State(state): State<AppState<'_>>) {
-    todo!()
+async fn delete_cluster(
+    Path(id): Path<ClusterId>,
+    State(state): State<AppState<'_>>,
+) -> Result<()> {
+    state
+        .get_data_store()
+        .delete_cluster(&id)
+        .await?
+        .map(|_| ())
+        .ok_or_else(|| RucatError::NotFoundError(format!("Cluster {} not found", id)))
 }
 
 async fn stop_cluster(id: ClusterId, State(state): State<AppState<'_>>) {
@@ -110,10 +118,7 @@ async fn get_cluster(
         .get_data_store()
         .get_cluster(&id)
         .await?
-        .ok_or(RucatError::NotFoundError(format!(
-            "Cluster {} not found",
-            id
-        )))
+        .ok_or_else(|| RucatError::NotFoundError(format!("Cluster {} not found", id)))
 }
 
 async fn list_clusters(State(state): State<AppState<'_>>) {
