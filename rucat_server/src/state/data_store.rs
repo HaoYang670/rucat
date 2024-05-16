@@ -45,8 +45,8 @@ impl<'a> DataStore<'a> {
             Self::Embedded { store } => {
                 // TODO: return an Option, not a Vec
                 let record: Vec<Record> = store.create(Self::TABLE).content(cluster).await?;
-                record.first().map_or(
-                    Err(RucatError::DataStoreError("Add cluster fails".to_owned())),
+                record.first().map_or_else(
+                    || Err(RucatError::DataStoreError("Add cluster fails".to_owned())),
                     |rd| Ok(rd.id.id.to_string()),
                 )
             }
