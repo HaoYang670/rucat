@@ -22,7 +22,7 @@ pub(crate) enum DataStore<'a> {
         store: Surreal<Db>, //embedded surrealdb?
     },
     /// SurrealDB server
-    Server { uri: SurrealDBURI<'a> },
+    Remote { uri: SurrealDBURI<'a> },
 }
 
 /// pub functions are those need to call outside from the rucat server (for example users need to construct a dataStore to create the rest server)
@@ -37,7 +37,7 @@ impl<'a> DataStore<'a> {
 
     /// data store that connects to a SurrealDB
     pub(crate) fn connect_serreal_db(uri: SurrealDBURI<'a>) -> Self {
-        Self::Server { uri }
+        Self::Remote { uri }
     }
 
     pub(crate) async fn add_cluster(&self, cluster: ClusterInfo) -> Result<ClusterId> {
@@ -50,7 +50,7 @@ impl<'a> DataStore<'a> {
                     |rd| Ok(rd.id.id.to_string()),
                 )
             }
-            Self::Server { .. } => todo!(),
+            Self::Remote { .. } => todo!(),
         }
     }
 
@@ -61,7 +61,7 @@ impl<'a> DataStore<'a> {
                 // have to do this redundant format to pass the type checker
                 Ok(store.select((Self::TABLE, id)).await?)
             }
-            Self::Server { .. } => {
+            Self::Remote { .. } => {
                 todo!()
             }
         }
@@ -70,7 +70,7 @@ impl<'a> DataStore<'a> {
     pub(crate) async fn delete_cluster(&self, id: &ClusterId) -> Result<Option<ClusterInfo>> {
         match self {
             Self::Embedded { store } => Ok(store.delete((Self::TABLE, id)).await?),
-            Self::Server { .. } => {
+            Self::Remote { .. } => {
                 todo!()
             }
         }
@@ -80,7 +80,7 @@ impl<'a> DataStore<'a> {
     pub(crate) fn get_all_clusters(&self) -> Box<dyn Iterator<Item = &Cluster> + '_> {
         match self {
             DataStore::Embedded { .. } => todo!(),
-            DataStore::Server { .. } => todo!(),
+            DataStore::Remote { .. } => todo!(),
         }
     }
 }

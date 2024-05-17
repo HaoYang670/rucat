@@ -139,7 +139,8 @@ async fn create_and_delete_cluster() -> Result<()> {
     response.assert_status_ok();
 
     let cluster_id = response.text();
-    let response = server.delete(&format!("/cluster/{}", cluster_id)).await;
+    let response = server.delete
+    (&format!("/cluster/{}", cluster_id)).await;
     response.assert_status_ok();
 
     Ok(())
