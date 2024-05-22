@@ -65,12 +65,6 @@ impl IntoResponse for ClusterInfo {
 
 pub(crate) type ClusterId = String;
 
-#[derive(Clone, Deserialize)]
-pub(crate) struct Cluster {
-    id: ClusterId,
-    info: ClusterInfo,
-}
-
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct CreateClusterRequest {
@@ -121,13 +115,13 @@ async fn get_cluster(
         .ok_or_else(|| RucatError::NotFoundError(format!("Cluster {} not found", id)))
 }
 
-async fn list_clusters(State(state): State<AppState<'_>>) {
-    todo!()
+async fn list_clusters(State(state): State<AppState<'_>>) -> Result<Json<Vec<ClusterId>>> {
+    state.get_data_store().get_all_clusters().await.map(Json)
 }
 
 /// Pass the data store endpoint later
 pub(crate) fn get_cluster_router() -> Router<AppState<'static>> {
     Router::new()
-        .route("/", post(create_cluster))
+        .route("/", post(create_cluster).get(list_clusters))
         .route("/:id", get(get_cluster).delete(delete_cluster))
 }

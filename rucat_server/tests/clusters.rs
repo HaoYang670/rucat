@@ -139,9 +139,42 @@ async fn create_and_delete_cluster() -> Result<()> {
     response.assert_status_ok();
 
     let cluster_id = response.text();
-    let response = server.delete
-    (&format!("/cluster/{}", cluster_id)).await;
+    let response = server.delete(&format!("/cluster/{}", cluster_id)).await;
     response.assert_status_ok();
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn list_clusters_empty() -> Result<()> {
+    let server = get_test_server().await?;
+    let response = server.get("/cluster").await;
+    response.assert_status_ok();
+    response.assert_text("[]");
+    Ok(())
+}
+
+#[tokio::test]
+async fn list_2_clusters() -> Result<()> {
+    let server = get_test_server().await?;
+    let create_cluster = || async {
+        let response = server
+            .post("/cluster")
+            .json(&json!({
+                "name": "test",
+                "cluster_type": "BallistaLocal"
+            }))
+            .await;
+        response.assert_status_ok();
+        response.text()
+    };
+
+    let mut ids = [create_cluster().await, create_cluster().await];
+    ids.sort();
+
+    let response = server.get("/cluster").await;
+    response.assert_status_ok();
+    response.assert_text(format!("[\"{}\",\"{}\"]", ids[0], ids[1]));
 
     Ok(())
 }

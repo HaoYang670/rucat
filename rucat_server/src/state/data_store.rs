@@ -1,6 +1,6 @@
 //! Datastore to record clusters' infomation
 
-use crate::cluster_router::{Cluster, ClusterId, ClusterInfo};
+use crate::cluster_router::{ClusterId, ClusterInfo};
 use rucat_common::error::{Result, RucatError};
 use serde::Deserialize;
 use surrealdb::{engine::local::Db, sql::Thing, Surreal};
@@ -11,6 +11,12 @@ type SurrealDBURI<'a> = &'a str;
 #[derive(Debug, Deserialize)]
 struct Record {
     id: Thing,
+}
+
+impl From<Record> for ClusterId {
+    fn from(record: Record) -> Self {
+        record.id.id.to_string()
+    }
 }
 
 /// Store the metadata of Cluster
@@ -36,7 +42,7 @@ impl<'a> DataStore<'a> {
     }
 
     /// data store that connects to a SurrealDB
-    pub(crate) fn connect_serreal_db(uri: SurrealDBURI<'a>) -> Self {
+    pub(crate) fn connect_remote_db(uri: SurrealDBURI<'a>) -> Self {
         Self::Remote { uri }
     }
 
@@ -76,10 +82,16 @@ impl<'a> DataStore<'a> {
         }
     }
 
-    // the returned reference in Box has the same lifetime as self
-    pub(crate) fn get_all_clusters(&self) -> Box<dyn Iterator<Item = &Cluster> + '_> {
+    /// Return a sorted list of all cluster ids
+    pub(crate) async fn get_all_clusters(&self) -> Result<Vec<ClusterId>> {
         match self {
-            DataStore::Embedded { .. } => todo!(),
+            DataStore::Embedded { store } => {
+                let records: Vec<Record> = store.select(Self::TABLE).await?;
+                let mut ids: Vec<ClusterId> = records.into_iter().map(Record::into).collect();
+
+                ids.sort();
+                Ok(ids)
+            }
             DataStore::Remote { .. } => todo!(),
         }
     }
