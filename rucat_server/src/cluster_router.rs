@@ -35,12 +35,6 @@ pub(super) struct ClusterInfo {
     state: ClusterState,
 }
 
-impl Display for ClusterInfo {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        Debug::fmt(&self, f)
-    }
-}
-
 impl From<CreateClusterRequest> for ClusterInfo {
     fn from(value: CreateClusterRequest) -> Self {
         ClusterInfo {
@@ -48,18 +42,6 @@ impl From<CreateClusterRequest> for ClusterInfo {
             cluster_type: value.cluster_type,
             state: ClusterState::Pending,
         }
-    }
-}
-
-impl From<ClusterInfo> for Bytes {
-    fn from(value: ClusterInfo) -> Self {
-        value.to_string().into()
-    }
-}
-
-impl IntoResponse for ClusterInfo {
-    fn into_response(self) -> axum::response::Response {
-        Bytes::from(self).into_response()
     }
 }
 
@@ -107,11 +89,12 @@ async fn restart_cluster(id: ClusterId, State(state): State<AppState<'_>>) {
 async fn get_cluster(
     Path(id): Path<ClusterId>,
     State(state): State<AppState<'_>>,
-) -> Result<ClusterInfo> {
+) -> Result<Json<ClusterInfo>> {
     state
         .get_data_store()
         .get_cluster(&id)
         .await?
+        .map(Json)
         .ok_or_else(|| RucatError::NotFoundError(format!("Cluster {} not found", id)))
 }
 

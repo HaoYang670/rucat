@@ -109,7 +109,7 @@ async fn create_and_get_cluster() -> Result<()> {
     let response = server.get(&format!("/cluster/{}", cluster_id)).await;
     response.assert_status_ok();
     response.assert_text(
-        r#"ClusterInfo { name: "test", cluster_type: BallistaLocal, state: Pending }"#,
+        r#"{"name":"test","cluster_type":"BallistaLocal","state":"Pending"}"#,
     );
 
     Ok(())
