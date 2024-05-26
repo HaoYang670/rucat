@@ -1,4 +1,4 @@
-use axum_test::TestServer;
+use axum_test::{TestResponse, TestServer};
 use http::StatusCode;
 use rucat_common::error::Result;
 use rucat_server::get_server;
@@ -8,6 +8,19 @@ use serde_json::json;
 async fn get_test_server() -> Result<TestServer> {
     let app = get_server(false).await?;
     TestServer::new(app).map_err(|e| e.into())
+}
+
+/// This is a helper function to create a cluster.
+/// 
+/// **DO NOT** use this function when testing corner cases in create_cluster
+async fn create_cluster_helper(server: &TestServer) -> TestResponse {
+    server
+        .post("/cluster")
+        .json(&json!({
+            "name": "test",
+            "cluster_type": "BallistaLocal"
+        }))
+        .await
 }
 
 #[tokio::test]
@@ -93,19 +106,10 @@ async fn create_cluster_with_unknown_field() -> Result<()> {
 }
 
 #[tokio::test]
-async fn create_and_get_cluster() -> Result<()> {
+async fn get_cluster() -> Result<()> {
     let server = get_test_server().await?;
-    let response = server
-        .post("/cluster")
-        .json(&json!({
-            "name": "test",
-            "cluster_type": "BallistaLocal"
-        }))
-        .await;
+    let cluster_id = create_cluster_helper(&server).await.text();
 
-    response.assert_status_ok();
-
-    let cluster_id = response.text();
     let response = server.get(&format!("/cluster/{}", cluster_id)).await;
     response.assert_status_ok();
     response.assert_text(
@@ -118,29 +122,93 @@ async fn create_and_get_cluster() -> Result<()> {
 #[tokio::test]
 async fn delete_nonexistent_cluster() -> Result<()> {
     let server = get_test_server().await?;
-
     let response = server.delete("/cluster/any").await;
-
     response.assert_status_not_found();
     Ok(())
 }
 
 #[tokio::test]
-async fn create_and_delete_cluster() -> Result<()> {
+async fn delete_cluster() -> Result<()> {
     let server = get_test_server().await?;
-    let response = server
-        .post("/cluster")
-        .json(&json!({
-            "name": "test",
-            "cluster_type": "BallistaLocal"
-        }))
-        .await;
+    let cluster_id = create_cluster_helper(&server).await.text();
 
-    response.assert_status_ok();
-
-    let cluster_id = response.text();
     let response = server.delete(&format!("/cluster/{}", cluster_id)).await;
     response.assert_status_ok();
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn stop_cluster() -> Result<()> {
+    let server = get_test_server().await?;
+    let cluster_id = create_cluster_helper(&server).await.text();
+
+    let response = server.post(&format!("/cluster/{}/stop", cluster_id)).await;
+    response.assert_status_ok();
+
+    let response = server.get(&format!("/cluster/{}", cluster_id)).await;
+    response.assert_text(
+        r#"{"name":"test","cluster_type":"BallistaLocal","state":"Stopped"}"#,
+    );
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn stop_nonexistent_cluster() -> Result<()> {
+    let server = get_test_server().await?;
+    let response = server.post("/cluster/any/stop").await;
+    response.assert_status_not_found();
+    Ok(())
+}
+
+#[tokio::test]
+async fn stop_cluster_twice() -> Result<()> {
+    let server = get_test_server().await?;
+    let cluster_id = create_cluster_helper(&server).await.text();
+
+    server.post(&format!("/cluster/{}/stop", cluster_id)).await;
+
+    let response = server.post(&format!("/cluster/{}/stop", cluster_id)).await;
+    response.assert_status_forbidden();
+    response.assert_text(format!("Not allowed error: Cluster {} is already stopped", cluster_id));
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn restart_cluster() -> Result<()> {
+    let server = get_test_server().await?;
+    let cluster_id = create_cluster_helper(&server).await.text();
+
+    server.post(&format!("/cluster/{}/stop", cluster_id)).await;
+    let response = server.post(&format!("/cluster/{}/restart", cluster_id)).await;
+    response.assert_status_ok();
+
+    let response = server.get(&format!("/cluster/{}", cluster_id)).await;
+    response.assert_text(
+        r#"{"name":"test","cluster_type":"BallistaLocal","state":"Pending"}"#,
+    );
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn restart_nonexistent_cluster() -> Result<()> {
+    let server = get_test_server().await?;
+    let response = server.post("/cluster/any/restart").await;
+    response.assert_status_not_found();
+    Ok(())
+}
+
+#[tokio::test]
+async fn cannot_restart_pending_cluster() -> Result<()> {
+    let server = get_test_server().await?;
+    let cluster_id = create_cluster_helper(&server).await.text();
+
+    let response = server.post(&format!("/cluster/{}/restart", cluster_id)).await;
+    response.assert_status_forbidden();
+    response.assert_text(format!("Not allowed error: Cluster {} is in Pending state, cannot be restart", cluster_id));
 
     Ok(())
 }
@@ -157,19 +225,8 @@ async fn list_clusters_empty() -> Result<()> {
 #[tokio::test]
 async fn list_2_clusters() -> Result<()> {
     let server = get_test_server().await?;
-    let create_cluster = || async {
-        let response = server
-            .post("/cluster")
-            .json(&json!({
-                "name": "test",
-                "cluster_type": "BallistaLocal"
-            }))
-            .await;
-        response.assert_status_ok();
-        response.text()
-    };
 
-    let mut ids = [create_cluster().await, create_cluster().await];
+    let mut ids = [create_cluster_helper(&server).await.text(), create_cluster_helper(&server).await.text()];
     ids.sort();
 
     let response = server.get("/cluster").await;

@@ -13,6 +13,7 @@ pub enum RucatError {
     IllegalArgument(String),
     NotFoundError(String),
     UnauthorizedError(String),
+    NotAllowedError(String),
     IOError(String),
     DataStoreError(String),
     Other(String),
@@ -26,6 +27,7 @@ impl Display for RucatError {
             Self::IllegalArgument(msg) => write!(f, "Illegal Argument error: {}", msg),
             Self::NotFoundError(msg) => write!(f, "Not found error: {}", msg),
             Self::UnauthorizedError(msg) => write!(f, "Unauthorized error: {}", msg),
+            Self::NotAllowedError(msg) => write!(f, "Not allowed error: {}", msg),
             Self::IOError(msg) => write!(f, "IO error: {}", msg),
             Self::DataStoreError(msg) => write!(f, "Data store error: {}", msg),
             Self::Other(msg) => write!(f, "Other error: {}", msg),
@@ -39,6 +41,7 @@ impl IntoResponse for RucatError {
             Self::IllegalArgument(_) => StatusCode::BAD_REQUEST,
             Self::NotFoundError(_) => StatusCode::NOT_FOUND,
             Self::UnauthorizedError(_) => StatusCode::UNAUTHORIZED,
+            Self::NotAllowedError(_) => StatusCode::FORBIDDEN,
             _ => StatusCode::INTERNAL_SERVER_ERROR,
         };
         (status, self.to_string()).into_response()

@@ -1,6 +1,6 @@
 //! Datastore to record clusters' infomation
 
-use crate::cluster_router::{ClusterId, ClusterInfo};
+use crate::cluster_router::{ClusterId, ClusterInfo, ClusterState};
 use rucat_common::error::{Result, RucatError};
 use serde::Deserialize;
 use surrealdb::{engine::local::Db, sql::Thing, Surreal};
@@ -49,6 +49,7 @@ impl<'a> DataStore<'a> {
     pub(crate) async fn add_cluster(&self, cluster: ClusterInfo) -> Result<ClusterId> {
         match self {
             Self::Embedded { store } => {
+
                 // TODO: return an Option, not a Vec
                 let record: Vec<Record> = store.create(Self::TABLE).content(cluster).await?;
                 record.first().map_or_else(
@@ -57,6 +58,28 @@ impl<'a> DataStore<'a> {
                 )
             }
             Self::Remote { .. } => todo!(),
+        }
+    }
+
+    pub(crate) async fn delete_cluster(&self, id: &ClusterId) -> Result<Option<ClusterInfo>> {
+        match self {
+            Self::Embedded { store } => Ok(store.delete((Self::TABLE, id)).await?),
+            Self::Remote { .. } => {
+                todo!()
+            }
+        }
+    }
+
+    /// Update the cluster with the given info
+    pub(crate) async fn update_cluster(&self, id: &ClusterId, cluster: ClusterInfo) -> Result<()> {
+        match self {
+            Self::Embedded { store } => {
+                let _: Option<Record> = store.update((Self::TABLE, id)).content(cluster).await?;
+                Ok(())
+            }
+            Self::Remote { .. } => {
+                todo!()
+            }
         }
     }
 
@@ -73,17 +96,8 @@ impl<'a> DataStore<'a> {
         }
     }
 
-    pub(crate) async fn delete_cluster(&self, id: &ClusterId) -> Result<Option<ClusterInfo>> {
-        match self {
-            Self::Embedded { store } => Ok(store.delete((Self::TABLE, id)).await?),
-            Self::Remote { .. } => {
-                todo!()
-            }
-        }
-    }
-
     /// Return a sorted list of all cluster ids
-    pub(crate) async fn get_all_clusters(&self) -> Result<Vec<ClusterId>> {
+    pub(crate) async fn list_clusters(&self) -> Result<Vec<ClusterId>> {
         match self {
             DataStore::Embedded { store } => {
                 let records: Vec<Record> = store.select(Self::TABLE).await?;
