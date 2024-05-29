@@ -1,25 +1,25 @@
-//! Datastore to record clusters' infomation
+//! Datastore to record engines' infomation
 
-use crate::cluster_router::{ClusterId, ClusterInfo, ClusterState};
+use crate::engine_router::{EngineId, EngineInfo};
 use rucat_common::error::{Result, RucatError};
 use serde::Deserialize;
 use surrealdb::{engine::local::Db, sql::Thing, Surreal};
 
 type SurrealDBURI<'a> = &'a str;
 
-/// Id of the [Cluster] in [DataStore]
+/// Id of the [Engine] in [DataStore]
 #[derive(Debug, Deserialize)]
 struct Record {
     id: Thing,
 }
 
-impl From<Record> for ClusterId {
+impl From<Record> for EngineId {
     fn from(record: Record) -> Self {
         record.id.id.to_string()
     }
 }
 
-/// Store the metadata of Cluster
+/// Store the metadata of Engine
 /// The lifetime here reprensent that of the URI of the DB server.
 #[derive(Clone)]
 pub(crate) enum DataStore<'a> {
@@ -34,7 +34,7 @@ pub(crate) enum DataStore<'a> {
 /// pub functions are those need to call outside from the rucat server (for example users need to construct a dataStore to create the rest server)
 /// pub(crate) are those only called inside the rucat server
 impl<'a> DataStore<'a> {
-    const TABLE: &'static str = "clusters";
+    const TABLE: &'static str = "engines";
 
     /// use an in memory data store
     pub(crate) fn connect_embedded_db(db: Surreal<Db>) -> Self {
@@ -46,14 +46,13 @@ impl<'a> DataStore<'a> {
         Self::Remote { uri }
     }
 
-    pub(crate) async fn add_cluster(&self, cluster: ClusterInfo) -> Result<ClusterId> {
+    pub(crate) async fn add_engine(&self, engine: EngineInfo) -> Result<EngineId> {
         match self {
             Self::Embedded { store } => {
-
                 // TODO: return an Option, not a Vec
-                let record: Vec<Record> = store.create(Self::TABLE).content(cluster).await?;
+                let record: Vec<Record> = store.create(Self::TABLE).content(engine).await?;
                 record.first().map_or_else(
-                    || Err(RucatError::DataStoreError("Add cluster fails".to_owned())),
+                    || Err(RucatError::DataStoreError("Add engine fails".to_owned())),
                     |rd| Ok(rd.id.id.to_string()),
                 )
             }
@@ -61,7 +60,7 @@ impl<'a> DataStore<'a> {
         }
     }
 
-    pub(crate) async fn delete_cluster(&self, id: &ClusterId) -> Result<Option<ClusterInfo>> {
+    pub(crate) async fn delete_engine(&self, id: &EngineId) -> Result<Option<EngineInfo>> {
         match self {
             Self::Embedded { store } => Ok(store.delete((Self::TABLE, id)).await?),
             Self::Remote { .. } => {
@@ -70,11 +69,11 @@ impl<'a> DataStore<'a> {
         }
     }
 
-    /// Update the cluster with the given info
-    pub(crate) async fn update_cluster(&self, id: &ClusterId, cluster: ClusterInfo) -> Result<()> {
+    /// Update the engine with the given info
+    pub(crate) async fn update_engine(&self, id: &EngineId, engine: EngineInfo) -> Result<()> {
         match self {
             Self::Embedded { store } => {
-                let _: Option<Record> = store.update((Self::TABLE, id)).content(cluster).await?;
+                let _: Option<Record> = store.update((Self::TABLE, id)).content(engine).await?;
                 Ok(())
             }
             Self::Remote { .. } => {
@@ -83,8 +82,8 @@ impl<'a> DataStore<'a> {
         }
     }
 
-    /// Return Ok(None) if the cluster does not exist
-    pub(crate) async fn get_cluster(&self, id: &ClusterId) -> Result<Option<ClusterInfo>> {
+    /// Return Ok(None) if the engine does not exist
+    pub(crate) async fn get_engine(&self, id: &EngineId) -> Result<Option<EngineInfo>> {
         match self {
             Self::Embedded { store } => {
                 // have to do this redundant format to pass the type checker
@@ -96,12 +95,12 @@ impl<'a> DataStore<'a> {
         }
     }
 
-    /// Return a sorted list of all cluster ids
-    pub(crate) async fn list_clusters(&self) -> Result<Vec<ClusterId>> {
+    /// Return a sorted list of all engine ids
+    pub(crate) async fn list_engines(&self) -> Result<Vec<EngineId>> {
         match self {
             DataStore::Embedded { store } => {
                 let records: Vec<Record> = store.select(Self::TABLE).await?;
-                let mut ids: Vec<ClusterId> = records.into_iter().map(Record::into).collect();
+                let mut ids: Vec<EngineId> = records.into_iter().map(Record::into).collect();
 
                 ids.sort();
                 Ok(ids)

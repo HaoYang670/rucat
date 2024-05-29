@@ -1,14 +1,14 @@
 use authentication::auth;
 use axum::{extract::State, middleware, routing::get, Router};
 use axum_extra::middleware::option_layer;
-use cluster_router::get_cluster_router;
+use engine_router::get_engine_router;
 use rucat_common::error::Result;
 use state::{data_store::DataStore, AppState};
 use surrealdb::{engine::local::Mem, Surreal};
 use tower_http::trace::TraceLayer;
 
 pub(crate) mod authentication;
-pub(crate) mod cluster_router;
+pub(crate) mod engine_router;
 pub(crate) mod state;
 
 /// This is the only entry for users to get the rucat server.
@@ -24,7 +24,7 @@ pub async fn get_server(auth_enable: bool) -> Result<Router> {
             "/",
             get(|_: State<AppState<'_>>| async { "welcome to rucat" }),
         )
-        .nest("/cluster", get_cluster_router())
+        .nest("/engine", get_engine_router())
         // TODO: use tower::ServiceBuilder to build the middleware stack
         // but need to be careful with the order of the middleware and the compatibility with axum::option_layer
         .layer(option_layer(auth_enable.then(|| middleware::from_fn(auth))))
