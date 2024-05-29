@@ -1,5 +1,6 @@
 use rucat_common::error::Result;
 use rucat_server::get_server;
+use tracing::info;
 
 #[tokio::main]
 /// Start Rucat server
@@ -11,7 +12,7 @@ async fn main() -> Result<()> {
 
     // run it
     let listener = tokio::net::TcpListener::bind(ENDPOINT).await?;
-    println!("Rucat server is listening on {}", listener.local_addr()?);
+    info!("Rucat server is listening on {}", listener.local_addr()?);
     axum::serve(listener, app).await?;
     Ok(())
 }

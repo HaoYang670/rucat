@@ -1,2 +1,2 @@
 # run rucat server
-RUST_LOG=tower_http=trace cargo run --release
+RUST_LOG=debug cargo run --release
