@@ -136,7 +136,6 @@ async fn delete_engine() -> Result<()> {
 
     let response = server.delete(&format!("/engine/{}", engine_id)).await;
     response.assert_status_ok();
-
     Ok(())
 }
 
@@ -172,7 +171,7 @@ async fn stop_engine_twice() -> Result<()> {
     let response = server.post(&format!("/engine/{}/stop", engine_id)).await;
     response.assert_status_forbidden();
     response.assert_text(format!(
-        "Not allowed error: Engine {} is already stopped",
+        "Not allowed error: Engine {} is in Stopped state, cannot be stopped",
         engine_id
     ));
 
@@ -210,11 +209,17 @@ async fn cannot_restart_pending_engine() -> Result<()> {
     let response = server.post(&format!("/engine/{}/restart", engine_id)).await;
     response.assert_status_forbidden();
     response.assert_text(format!(
-        "Not allowed error: Engine {} is in Pending state, cannot be restart",
+        "Not allowed error: Engine {} is in Pending state, cannot be restarted",
         engine_id
     ));
 
     Ok(())
+}
+
+#[tokio::test]
+#[should_panic(expected = "not yet implemented")]
+async fn cannot_restart_running_engine() {
+    todo!("not yet implemented")
 }
 
 #[tokio::test]
