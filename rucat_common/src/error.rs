@@ -9,7 +9,6 @@ pub type Result<T> = std::result::Result<T, RucatError>;
 
 #[derive(Debug, PartialEq)]
 pub enum RucatError {
-    CannotChangeStorageLevelError,
     IllegalArgument(String),
     NotFoundError(String),
     UnauthorizedError(String),
@@ -23,7 +22,6 @@ impl Display for RucatError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         // TODO: rewrite this in macro
         match self {
-            Self::CannotChangeStorageLevelError => write!(f, "Cannot change storage level error"),
             Self::IllegalArgument(msg) => write!(f, "Illegal Argument error: {}", msg),
             Self::NotFoundError(msg) => write!(f, "Not found error: {}", msg),
             Self::UnauthorizedError(msg) => write!(f, "Unauthorized error: {}", msg),
