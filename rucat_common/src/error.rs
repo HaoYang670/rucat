@@ -5,12 +5,14 @@ use axum::{
     response::{IntoResponse, Response},
 };
 
+use crate::EngineId;
+
 pub type Result<T> = std::result::Result<T, RucatError>;
 
 #[derive(Debug, PartialEq)]
 pub enum RucatError {
     IllegalArgument(String),
-    NotFoundError(String),
+    NotFoundError(EngineId),
     UnauthorizedError(String),
     NotAllowedError(String),
     IOError(String),
@@ -23,7 +25,7 @@ impl Display for RucatError {
         // TODO: rewrite this in macro
         match self {
             Self::IllegalArgument(msg) => write!(f, "Illegal Argument error: {}", msg),
-            Self::NotFoundError(msg) => write!(f, "Not found error: {}", msg),
+            Self::NotFoundError(engine_id) => write!(f, "Not found error: engine {} not found.", engine_id),
             Self::UnauthorizedError(msg) => write!(f, "Unauthorized error: {}", msg),
             Self::NotAllowedError(msg) => write!(f, "Not allowed error: {}", msg),
             Self::IOError(msg) => write!(f, "IO error: {}", msg),

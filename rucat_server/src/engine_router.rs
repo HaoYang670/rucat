@@ -5,7 +5,10 @@ use axum::{
     routing::{get, post},
     Json, Router,
 };
-use rucat_common::error::{Result, RucatError};
+use rucat_common::{
+    error::{Result, RucatError},
+    EngineId,
+};
 use serde::{Deserialize, Serialize};
 
 use crate::state::AppState;
@@ -65,8 +68,6 @@ pub(crate) struct CreateEngineRequest {
     engine_type: EngineType,
 }
 
-pub(crate) type EngineId = String;
-
 /// create an engine with the given configuration
 async fn create_engine(
     State(state): State<AppState<'_>>,
@@ -81,7 +82,7 @@ async fn delete_engine(Path(id): Path<EngineId>, State(state): State<AppState<'_
         .delete_engine(&id)
         .await?
         .map(|_| ())
-        .ok_or_else(|| engine_not_found(&id))
+        .ok_or(RucatError::NotFoundError(id))
 }
 
 /// Stop an engine to release resources. But engine info is still kept in the data store.
@@ -91,12 +92,7 @@ async fn stop_engine(Path(id): Path<EngineId>, State(state): State<AppState<'_>>
         .update_engine_state(&id, [Pending, Running], Stopped)
         .await?
         .map_or_else(
-            || {
-                Err(RucatError::NotFoundError(format!(
-                    "Engine {} not found",
-                    id
-                )))
-            },
+            || Err(RucatError::NotFoundError(id.clone())),
             |response| {
                 if response.update_success() {
                     Ok(())
@@ -118,12 +114,7 @@ async fn restart_engine(Path(id): Path<EngineId>, State(state): State<AppState<'
         .update_engine_state(&id, [Stopped], Pending)
         .await?
         .map_or_else(
-            || {
-                Err(RucatError::NotFoundError(format!(
-                    "Engine {} not found",
-                    id
-                )))
-            },
+            || Err(RucatError::NotFoundError(id.clone())),
             |response| {
                 if response.update_success() {
                     Ok(())
@@ -147,7 +138,7 @@ async fn get_engine(
         .get_engine(&id)
         .await?
         .map(Json)
-        .ok_or_else(|| engine_not_found(&id))
+        .ok_or(RucatError::NotFoundError(id))
 }
 
 async fn list_engines(State(state): State<AppState<'_>>) -> Result<Json<Vec<EngineId>>> {
@@ -161,11 +152,4 @@ pub(crate) fn get_engine_router() -> Router<AppState<'static>> {
         .route("/:id", get(get_engine).delete(delete_engine))
         .route("/:id/stop", post(stop_engine))
         .route("/:id/restart", post(restart_engine))
-}
-
-// ----------------- helper functions -----------------
-
-/// helper function to create a NotFoundError
-fn engine_not_found(id: &EngineId) -> RucatError {
-    RucatError::NotFoundError(format!("Engine {} not found", id))
 }

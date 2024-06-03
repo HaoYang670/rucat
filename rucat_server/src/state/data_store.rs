@@ -1,7 +1,10 @@
 //! Datastore to record engines' infomation
 
-use crate::engine_router::{EngineId, EngineInfo, EngineState};
-use rucat_common::error::{Result, RucatError};
+use crate::engine_router::{EngineInfo, EngineState};
+use rucat_common::{
+    error::{Result, RucatError},
+    EngineId,
+};
 use serde::Deserialize;
 use surrealdb::{engine::local::Db, Surreal};
 
