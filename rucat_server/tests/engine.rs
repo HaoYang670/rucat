@@ -6,13 +6,13 @@ use serde_json::json;
 
 /// server with embedded datastore and authentication disabled
 async fn get_test_server() -> Result<TestServer> {
-    let app = get_server(false).await?;
+    let app = get_server(false, "../target/debug/rucat_engine".to_owned()).await?;
     TestServer::new(app).map_err(|e| e.into())
 }
 
 /// This is a helper function to create an engine.
 ///
-/// **DO NOT** use this function when testing corner cases in create_engine
+/// **DO NOT** use this function when testing failed cases in create_engine
 async fn create_engine_helper(server: &TestServer) -> TestResponse {
     server
         .post("/engine")

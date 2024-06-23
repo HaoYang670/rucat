@@ -1,22 +1,22 @@
 use authentication::auth;
 use axum::{extract::State, middleware, routing::get, Router};
 use axum_extra::middleware::option_layer;
-use engine_router::get_engine_router;
+use engine::router::get_engine_router;
 use rucat_common::error::Result;
 use state::{data_store::DataStore, AppState};
 use surrealdb::{engine::local::Mem, Surreal};
 use tower_http::trace::TraceLayer;
 
 pub(crate) mod authentication;
-pub(crate) mod engine_router;
+pub(crate) mod engine;
 pub(crate) mod state;
 
 /// This is the only entry for users to get the rucat server.
-pub async fn get_server(auth_enable: bool) -> Result<Router> {
+pub async fn get_server(auth_enable: bool, engine_binary_path: String) -> Result<Router> {
     let db = Surreal::new::<Mem>(()).await?;
     db.use_ns("test").use_db("test").await?;
 
-    let app_state = AppState::new(DataStore::connect_embedded_db(db));
+    let app_state = AppState::new(DataStore::connect_embedded_db(db), engine_binary_path);
 
     // go through the router from outer to inner
     Ok(Router::new()

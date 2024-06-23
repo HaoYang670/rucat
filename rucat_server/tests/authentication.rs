@@ -7,7 +7,7 @@ use rucat_server::get_server;
 
 /// server with embedded datastore and authentication enabled
 async fn get_test_server() -> Result<TestServer> {
-    let app = get_server(true).await?;
+    let app = get_server(true, "../target/debug/rucat_engine".to_owned()).await?;
     TestServer::new(app).map_err(|e| e.into())
 }
 

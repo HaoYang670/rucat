@@ -1,3 +1,5 @@
+//! Restful API for engine management.
+
 use std::fmt::{Debug, Display};
 
 use axum::{
@@ -13,6 +15,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::state::AppState;
 use EngineState::*;
+
+use super::rpc;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub(crate) enum EngineState {
@@ -73,6 +77,7 @@ async fn create_engine(
     State(state): State<AppState<'_>>,
     Json(body): Json<CreateEngineRequest>,
 ) -> Result<EngineId> {
+    rpc::create_engine(state.get_engine_binary_path(), 3131).await?;
     state.get_data_store().add_engine(body.into()).await
 }
 

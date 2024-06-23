@@ -75,7 +75,7 @@ Cluster driver will split the `Task` into several `subTasks` after receiving it 
 
 ## TODO
 
-Add rdd tests
-what happens if get_first_parent returns None?
 K8s support for rucat manager
 Ballista deployment on K8s
+surrealdb, support local process mode for rucat engine to connect
+support specifying the path of rucat engine binary

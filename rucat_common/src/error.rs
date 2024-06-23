@@ -1,4 +1,4 @@
-use std::fmt::Display;
+use std::{fmt::Display, string::FromUtf8Error};
 
 use axum::{
     http::StatusCode,
@@ -17,6 +17,7 @@ pub enum RucatError {
     NotAllowedError(String),
     IOError(String),
     DataStoreError(String),
+    FailedToStartEngine(String),
     Other(String),
 }
 
@@ -25,11 +26,14 @@ impl Display for RucatError {
         // TODO: rewrite this in macro
         match self {
             Self::IllegalArgument(msg) => write!(f, "Illegal Argument error: {}", msg),
-            Self::NotFoundError(engine_id) => write!(f, "Not found error: engine {} not found.", engine_id),
+            Self::NotFoundError(engine_id) => {
+                write!(f, "Not found error: engine {} not found.", engine_id)
+            }
             Self::UnauthorizedError(msg) => write!(f, "Unauthorized error: {}", msg),
             Self::NotAllowedError(msg) => write!(f, "Not allowed error: {}", msg),
             Self::IOError(msg) => write!(f, "IO error: {}", msg),
             Self::DataStoreError(msg) => write!(f, "Data store error: {}", msg),
+            Self::FailedToStartEngine(msg) => write!(f, "Failed to start engine: {}", msg),
             Self::Other(msg) => write!(f, "Other error: {}", msg),
         }
     }
@@ -67,4 +71,5 @@ macro_rules! convert_to_rucat_error {
 convert_to_rucat_error!(std::io::Error, RucatError::IOError);
 convert_to_rucat_error!(surrealdb::Error, RucatError::DataStoreError);
 convert_to_rucat_error!(anyhow::Error, RucatError::Other);
+convert_to_rucat_error!(FromUtf8Error, RucatError::Other);
 convert_to_rucat_error!(String, RucatError::Other);

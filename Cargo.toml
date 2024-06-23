@@ -1,6 +1,8 @@
 [workspace]
 resolver = "2"
+
 members = [
   "rucat_server",
-  "rucat_common"
+  "rucat_common",
+  "rucat_engine"
 ]

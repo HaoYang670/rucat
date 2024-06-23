@@ -1,0 +1,11 @@
+[package]
+name = "rucat_engine"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+rucat_common = {path = "../rucat_common"}
+clap = { version = "4.5.7", features = ["derive"] }
+clap_derive = "4.5.5"
+tonic = "0.11.0"
+tokio = { version = "1.38.0", features = ["macros", "rt-multi-thread"] }
