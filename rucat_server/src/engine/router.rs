@@ -74,14 +74,14 @@ pub(crate) struct CreateEngineRequest {
 
 /// create an engine with the given configuration
 async fn create_engine(
-    State(state): State<AppState<'_>>,
+    State(state): State<AppState>,
     Json(body): Json<CreateEngineRequest>,
 ) -> Result<EngineId> {
-    rpc::create_engine(state.get_engine_binary_path(), 3131).await?;
+    rpc::create_engine(state.get_engine_binary_path()).await?;
     state.get_data_store().add_engine(body.into()).await
 }
 
-async fn delete_engine(Path(id): Path<EngineId>, State(state): State<AppState<'_>>) -> Result<()> {
+async fn delete_engine(Path(id): Path<EngineId>, State(state): State<AppState>) -> Result<()> {
     state
         .get_data_store()
         .delete_engine(&id)
@@ -91,7 +91,7 @@ async fn delete_engine(Path(id): Path<EngineId>, State(state): State<AppState<'_
 }
 
 /// Stop an engine to release resources. But engine info is still kept in the data store.
-async fn stop_engine(Path(id): Path<EngineId>, State(state): State<AppState<'_>>) -> Result<()> {
+async fn stop_engine(Path(id): Path<EngineId>, State(state): State<AppState>) -> Result<()> {
     state
         .get_data_store()
         .update_engine_state(&id, [Pending, Running], Stopped)
@@ -113,7 +113,7 @@ async fn stop_engine(Path(id): Path<EngineId>, State(state): State<AppState<'_>>
 }
 
 /// Restart a stopped engine with the same configuration.
-async fn restart_engine(Path(id): Path<EngineId>, State(state): State<AppState<'_>>) -> Result<()> {
+async fn restart_engine(Path(id): Path<EngineId>, State(state): State<AppState>) -> Result<()> {
     state
         .get_data_store()
         .update_engine_state(&id, [Stopped], Pending)
@@ -136,7 +136,7 @@ async fn restart_engine(Path(id): Path<EngineId>, State(state): State<AppState<'
 
 async fn get_engine(
     Path(id): Path<EngineId>,
-    State(state): State<AppState<'_>>,
+    State(state): State<AppState>,
 ) -> Result<Json<EngineInfo>> {
     state
         .get_data_store()
@@ -146,12 +146,12 @@ async fn get_engine(
         .ok_or(RucatError::NotFoundError(id))
 }
 
-async fn list_engines(State(state): State<AppState<'_>>) -> Result<Json<Vec<EngineId>>> {
+async fn list_engines(State(state): State<AppState>) -> Result<Json<Vec<EngineId>>> {
     state.get_data_store().list_engines().await.map(Json)
 }
 
 /// Pass the data store endpoint later
-pub(crate) fn get_engine_router() -> Router<AppState<'static>> {
+pub(crate) fn get_engine_router() -> Router<AppState> {
     Router::new()
         .route("/", post(create_engine).get(list_engines))
         .route("/:id", get(get_engine).delete(delete_engine))

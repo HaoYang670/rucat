@@ -1,5 +1,6 @@
-use clap::Parser;
-use std::net::{Ipv6Addr, SocketAddr, SocketAddrV6};
+use std::net::{Ipv6Addr, SocketAddrV6};
+use tokio::net::TcpListener;
+use tonic::transport::server::TcpIncoming;
 use tonic::{transport::Server, Request, Response, Status};
 
 use rucat_common::engine_grpc::greeter_server::{Greeter, GreeterServer};
@@ -24,29 +25,23 @@ impl Greeter for MyGreeter {
     }
 }
 
-#[derive(Parser, Debug)]
-#[command(version, about, long_about = None)]
-struct Args {
-    /// IPv6 address of the engine
-    #[arg(long, default_value_t = Ipv6Addr::LOCALHOST)]
-    ip: Ipv6Addr,
-
-    /// Port of the engine binding
-    #[arg(long)]
-    port: u16,
-}
-
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let Args { ip, port } = Args::parse();
-    let addr = SocketAddrV6::new(ip, port, 0, 0);
-    let greeter = MyGreeter::default();
+async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    // set port to 0 to let the OS choose a free port
+    let addr = SocketAddrV6::new(Ipv6Addr::LOCALHOST, 0, 0, 0);
+    let listener = TcpListener::bind(addr).await?;
+    let addr = listener.local_addr()?;
 
-    println!("start from rucat engine!");
+    println!("Rucat engine is listening on: {}", addr);
+
+    // same default value of `nodelay` and `keepalive`` as those in `Server``
+    let tinc = TcpIncoming::from_listener(listener, false, None)?;
+
+    let greeter = MyGreeter::default();
 
     Server::builder()
         .add_service(GreeterServer::new(greeter))
-        .serve(SocketAddr::V6(addr))
+        .serve_with_incoming(tinc)
         .await?;
 
     println!("Hello, world from rucat engine!");

@@ -8,7 +8,7 @@ use rucat_common::{
 use serde::Deserialize;
 use surrealdb::{engine::local::Db, Surreal};
 
-type SurrealDBURI<'a> = &'a str;
+type SurrealDBURI = &'static str;
 
 /// Response of updating engine state
 /// The response contains the engine state before the update
@@ -32,18 +32,18 @@ impl UpdateEngineStateResponse {
 /// Store the metadata of Engine
 /// The lifetime here reprensent that of the URI of the DB server.
 #[derive(Clone)]
-pub(crate) enum DataStore<'a> {
+pub(crate) enum DataStore {
     /// embedded database in memory
     Embedded {
         store: Surreal<Db>, //embedded surrealdb?
     },
     /// SurrealDB server
-    Remote { uri: SurrealDBURI<'a> },
+    Remote { uri: SurrealDBURI },
 }
 
 /// pub functions are those need to call outside from the rucat server (for example users need to construct a dataStore to create the rest server)
 /// pub(crate) are those only called inside the rucat server
-impl<'a> DataStore<'a> {
+impl DataStore {
     const TABLE: &'static str = "engines";
 
     /// use an in memory data store
@@ -52,7 +52,7 @@ impl<'a> DataStore<'a> {
     }
 
     /// data store that connects to a SurrealDB
-    pub(crate) fn connect_remote_db(uri: SurrealDBURI<'a>) -> Self {
+    pub(crate) fn connect_remote_db(uri: SurrealDBURI) -> Self {
         Self::Remote { uri }
     }
 

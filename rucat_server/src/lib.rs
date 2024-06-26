@@ -22,7 +22,7 @@ pub async fn get_server(auth_enable: bool, engine_binary_path: String) -> Result
     Ok(Router::new()
         .route(
             "/",
-            get(|_: State<AppState<'_>>| async { "welcome to rucat" }),
+            get(|_: State<AppState>| async { "welcome to rucat" }),
         )
         .nest("/engine", get_engine_router())
         // TODO: use tower::ServiceBuilder to build the middleware stack

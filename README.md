@@ -75,7 +75,11 @@ Cluster driver will split the `Task` into several `subTasks` after receiving it 
 
 ## TODO
 
-K8s support for rucat manager
-Ballista deployment on K8s
+
 surrealdb, support local process mode for rucat engine to connect
-support specifying the path of rucat engine binary
+unique port for each rucat engine (how does rucat server know the port of engine? write into the db?)
+mock rucat engine for testing / embedded rucat engine ? 
+3 mode for rucat server:
+  embedded mode: use in memory db, can only create engine in the same process (embedded)
+  local mode: use local mode db, can create enines embeddly or locally
+  remote mode: use remote db, can create engines embedded, locally or remotely.
