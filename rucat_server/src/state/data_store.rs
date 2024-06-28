@@ -6,7 +6,14 @@ use rucat_common::{
     EngineId,
 };
 use serde::Deserialize;
-use surrealdb::{engine::local::Db, Surreal};
+use surrealdb::{
+    engine::{
+        local::Db,
+        remote::ws::{Client, Ws},
+    },
+    Surreal,
+};
+use DataStore::*;
 
 type SurrealDBURI = &'static str;
 
@@ -34,11 +41,9 @@ impl UpdateEngineStateResponse {
 #[derive(Clone)]
 pub(crate) enum DataStore {
     /// embedded database in memory
-    Embedded {
-        store: Surreal<Db>, //embedded surrealdb?
-    },
-    /// SurrealDB server
-    Remote { uri: SurrealDBURI },
+    Embedded(Surreal<Db>),
+    /// local database
+    Local(Surreal<Client>),
 }
 
 /// pub functions are those need to call outside from the rucat server (for example users need to construct a dataStore to create the rest server)
@@ -48,53 +53,60 @@ impl DataStore {
 
     /// use an in memory data store
     pub(crate) fn connect_embedded_db(db: Surreal<Db>) -> Self {
-        Self::Embedded { store: db }
+        Embedded(db)
     }
 
     /// data store that connects to a SurrealDB
-    pub(crate) fn connect_remote_db(uri: SurrealDBURI) -> Self {
-        Self::Remote { uri }
+    pub(crate) async fn connect_local_db(uri: SurrealDBURI) -> Result<Self> {
+        let db = Surreal::new::<Ws>(uri).await?;
+        Ok(Local(db))
     }
 
     pub(crate) async fn add_engine(&self, engine: EngineInfo) -> Result<EngineId> {
-        match self {
-            Self::Embedded { store } => {
+        macro_rules! execute_sql {
+            ($db:expr) => {{
                 let sql = r#"
                     CREATE ONLY type::table($table)
                     SET info = $engine
                     RETURN VALUE meta::id(id);
                 "#;
 
-                let record: Option<EngineId> = store
+                let record: Option<EngineId> = $db
                     .query(sql)
                     .bind(("table", Self::TABLE))
                     .bind(("engine", engine))
                     .await?
                     .take(0)?;
                 record.ok_or_else(|| RucatError::DataStoreError("Add engine fails".to_owned()))
-            }
-            Self::Remote { .. } => todo!(),
+            }};
+        }
+
+        match self {
+            Embedded(db) => execute_sql!(db),
+            Local(db) => execute_sql!(db),
         }
     }
 
     pub(crate) async fn delete_engine(&self, id: &EngineId) -> Result<Option<EngineInfo>> {
-        match self {
-            Self::Embedded { store } => {
+        macro_rules! execute_sql {
+            ($db:expr) => {{
                 let sql = r#"
                     SELECT VALUE info from
                     (DELETE ONLY type::thing($tb, $id) RETURN BEFORE);
                 "#;
-                let result: Option<EngineInfo> = store
+                let result: Option<EngineInfo> = $db
                     .query(sql)
                     .bind(("tb", Self::TABLE))
                     .bind(("id", id))
                     .await?
                     .take(0)?;
                 Ok(result)
-            }
-            Self::Remote { .. } => {
-                todo!()
-            }
+            }};
+        }
+
+        match self {
+            Embedded(db) => execute_sql!(db),
+            Local(db) => execute_sql!(db),
         }
     }
 
@@ -109,8 +121,8 @@ impl DataStore {
         before: [EngineState; N],
         after: EngineState,
     ) -> Result<Option<UpdateEngineStateResponse>> {
-        match self {
-            Self::Embedded { store } => {
+        macro_rules! execute_sql {
+            ($db:expr) => {{
                 // The query returns None if the engine does not exist
                 // Throws an error if the engine state is not in the expected state
                 // Otherwise, update the engine state and returns the engine state before update
@@ -129,7 +141,7 @@ impl DataStore {
                     COMMIT TRANSACTION;
                 "#;
 
-                let before_state: Option<UpdateEngineStateResponse> = store
+                let before_state: Option<UpdateEngineStateResponse> = $db
                     .query(sql)
                     .bind(("tb", Self::TABLE))
                     .bind(("id", id))
@@ -140,49 +152,57 @@ impl DataStore {
                     .take(2)?; // The 3rd statement is the if-else which is what we want
 
                 Ok(before_state)
-            }
-            Self::Remote { .. } => {
-                todo!()
-            }
+            }};
+        }
+
+        match self {
+            Embedded(db) => execute_sql!(db),
+            Local(db) => execute_sql!(db),
         }
     }
 
     /// Return Ok(None) if the engine does not exist
     pub(crate) async fn get_engine(&self, id: &EngineId) -> Result<Option<EngineInfo>> {
-        match self {
-            Self::Embedded { store } => {
+        macro_rules! execute_sql {
+            ($db:expr) => {{
                 let sql = r#"
                     SELECT VALUE info
                     FROM ONLY type::thing($tb, $id);
                 "#;
-                let info: Option<EngineInfo> = store
+                let info: Option<EngineInfo> = $db
                     .query(sql)
                     .bind(("tb", Self::TABLE))
                     .bind(("id", id))
                     .await?
                     .take(0)?;
                 Ok(info)
-            }
-            Self::Remote { .. } => {
-                todo!()
-            }
+            }};
+        }
+
+        match self {
+            Embedded(db) => execute_sql!(db),
+            Local(db) => execute_sql!(db),
         }
     }
 
     /// Return a sorted list of all engine ids
     pub(crate) async fn list_engines(&self) -> Result<Vec<EngineId>> {
-        match self {
-            DataStore::Embedded { store } => {
+        macro_rules! execute_sql {
+            ($db:expr) => {{
                 let sql = r#"
                     SELECT VALUE meta::id(id) FROM type::table($tb);
                 "#;
 
                 let mut ids: Vec<EngineId> =
-                    store.query(sql).bind(("tb", Self::TABLE)).await?.take(0)?;
+                    $db.query(sql).bind(("tb", Self::TABLE)).await?.take(0)?;
                 ids.sort();
                 Ok(ids)
-            }
-            DataStore::Remote { .. } => todo!(),
+            }};
+        }
+
+        match self {
+            Embedded(db) => execute_sql!(db),
+            Local(db) => execute_sql!(db),
         }
     }
 }
