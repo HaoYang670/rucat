@@ -1,8 +1,8 @@
 //! Shared state between handlers.
 
-use self::data_base::DataBase;
+use self::database::DataBase;
 
-pub(crate) mod data_base;
+pub(crate) mod database;
 
 #[derive(Clone)]
 pub(crate) struct AppState {
