@@ -15,8 +15,7 @@ use tracing::info;
 /// The engine will be listening on a random port.
 pub(super) async fn create_engine(engine_binary_path: &str) -> Result<()> {
     // Start the engine process.
-    Command::new(engine_binary_path)
-        .spawn()?;
+    Command::new(engine_binary_path).spawn()?;
 
     // TODO: better way to wait for the engine to start.
     tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
@@ -24,16 +23,16 @@ pub(super) async fn create_engine(engine_binary_path: &str) -> Result<()> {
     //let mut client = GreeterClient::connect(format!("http://[::1]:{}"))
     //    .await
     //    .map_err(|e| RucatError::FailedToStartEngine(e.to_string()))?;
-//
+    //
     //let request = tonic::Request::new(HelloRequest {
     //    name: "Tonic".into(),
     //});
-//
+    //
     //let response = client
     //    .say_hello(request)
     //    .await
     //    .map_err(|e| RucatError::FailedToStartEngine(e.to_string()))?;
-//
+    //
     //info!("RESPONSE={:?}", response.into_inner().message);
 
     Ok(())

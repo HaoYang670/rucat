@@ -1,0 +1,8 @@
+{
+  "auth_enable": false,
+  "engine_binary_path": "../target/release/rucat_engine",
+  "database": {
+    "type": "Local",
+    "content": "localhost:8000"
+  }
+}

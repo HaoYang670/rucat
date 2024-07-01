@@ -8,14 +8,12 @@ use rucat_common::{
 use serde::Deserialize;
 use surrealdb::{
     engine::{
-        local::Db,
+        local::{Db, Mem},
         remote::ws::{Client, Ws},
     },
     Surreal,
 };
-use DataStore::*;
-
-type SurrealDBURI = &'static str;
+use DataBase::*;
 
 /// Response of updating engine state
 /// The response contains the engine state before the update
@@ -39,7 +37,7 @@ impl UpdateEngineStateResponse {
 /// Store the metadata of Engine
 /// The lifetime here reprensent that of the URI of the DB server.
 #[derive(Clone)]
-pub(crate) enum DataStore {
+pub(crate) enum DataBase {
     /// embedded database in memory
     Embedded(Surreal<Db>),
     /// local database
@@ -48,17 +46,22 @@ pub(crate) enum DataStore {
 
 /// pub functions are those need to call outside from the rucat server (for example users need to construct a dataStore to create the rest server)
 /// pub(crate) are those only called inside the rucat server
-impl DataStore {
+impl DataBase {
     const TABLE: &'static str = "engines";
+    const NAMESPACE: &'static str = "rucat";
+    const DATABASE: &'static str = "rucat";
 
     /// use an in memory data store
-    pub(crate) fn connect_embedded_db(db: Surreal<Db>) -> Self {
-        Embedded(db)
+    pub(crate) async fn create_embedded_db() -> Result<Self> {
+        let db = Surreal::new::<Mem>(()).await?;
+        db.use_ns(Self::NAMESPACE).use_db(Self::DATABASE).await?;
+        Ok(Embedded(db))
     }
 
     /// data store that connects to a SurrealDB
-    pub(crate) async fn connect_local_db(uri: SurrealDBURI) -> Result<Self> {
+    pub(crate) async fn connect_local_db(uri: String) -> Result<Self> {
         let db = Surreal::new::<Ws>(uri).await?;
+        db.use_ns(Self::NAMESPACE).use_db(Self::DATABASE).await?;
         Ok(Local(db))
     }
 

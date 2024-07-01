@@ -8,20 +8,20 @@ use tracing::info;
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 struct Args {
-    /// path to the engine binary (local)
+    /// path to the config file
     #[arg(long)]
-    engine_binary_path: String,
+    config_path: String,
 }
 
 #[tokio::main]
 /// Start Rucat server
 async fn main() -> Result<()> {
-    let Args { engine_binary_path } = Args::parse();
     // setup tracing
+    let Args { config_path } = Args::parse();
     tracing_subscriber::fmt::init();
 
     let endpoint = SocketAddrV6::new(Ipv6Addr::LOCALHOST, 3000, 0, 0);
-    let app = get_server(true, engine_binary_path).await?;
+    let app = get_server(config_path.as_str()).await?;
 
     // run it
     let listener = tokio::net::TcpListener::bind(endpoint).await?;

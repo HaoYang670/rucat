@@ -1,25 +1,25 @@
 //! Shared state between handlers.
 
-use self::data_store::DataStore;
+use self::data_base::DataBase;
 
-pub(crate) mod data_store;
+pub(crate) mod data_base;
 
 #[derive(Clone)]
 pub(crate) struct AppState {
-    data_store: DataStore,
+    db: DataBase,
     engine_binary_path: String,
 }
 
 impl AppState {
-    pub(crate) fn new(data_store: DataStore, engine_binary_path: String) -> Self {
+    pub(crate) fn new(db: DataBase, engine_binary_path: String) -> Self {
         Self {
-            data_store,
+            db,
             engine_binary_path,
         }
     }
 
-    pub(crate) fn get_data_store(&self) -> &DataStore {
-        &self.data_store
+    pub(crate) fn get_data_store(&self) -> &DataBase {
+        &self.db
     }
 
     pub(crate) fn get_engine_binary_path(&self) -> &str {

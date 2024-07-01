@@ -6,7 +6,7 @@ use serde_json::json;
 
 /// server with embedded datastore and authentication disabled
 async fn get_test_server() -> Result<TestServer> {
-    let app = get_server(false, "../target/debug/rucat_engine".to_owned()).await?;
+    let app = get_server("./tests/configs/engine_test_config.json").await?;
     TestServer::new(app).map_err(|e| e.into())
 }
 
