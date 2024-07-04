@@ -29,7 +29,5 @@ impl Config {
         let reader = BufReader::new(file);
         let config = from_reader(reader)?;
         Ok(config)
-            
     }
 }
-

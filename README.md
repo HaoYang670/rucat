@@ -74,14 +74,9 @@ Cluster driver will split the `Task` into several `subTasks` after receiving it 
 `Cluster Manager` >= `Driver` >= `Worker`
 
 ## TODO
-
-
-replace Clap with Json config file to support enum
-use cargo-udeps to detect unused dependencies
-surrealdb, support local process mode for rucat engine to connect
-unique port for each rucat engine (how does rucat server know the port of engine? write into the db?)
 mock rucat engine for testing / embedded rucat engine ? 
-profile rust
+rucat engine update engine state in database
+profile rucat server
 3 mode for rucat server:
   embedded mode: use in memory db, can only create engine in the same process (embedded)
   local mode: use local mode db, can create enines embeddly or locally

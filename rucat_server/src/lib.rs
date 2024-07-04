@@ -8,9 +8,9 @@ use state::{database::DataBase, AppState};
 use tower_http::trace::TraceLayer;
 
 pub(crate) mod authentication;
+mod config;
 pub(crate) mod engine;
 pub(crate) mod state;
-mod config;
 
 /// This is the only entry for users to get the rucat server.
 pub async fn get_server(config_path: &str) -> Result<Router> {

@@ -1,6 +1,6 @@
 //! Restful API for engine management.
 
-use std::fmt::{Debug, Display};
+use std::fmt::Debug;
 
 use axum::{
     extract::{Path, State},
@@ -26,16 +26,6 @@ pub(crate) enum EngineState {
     Running,
     /// Engine is stopped.
     Stopped,
-}
-
-impl Display for EngineState {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Pending => write!(f, "Pending"),
-            Running => write!(f, "Running"),
-            Stopped => write!(f, "Stopped"),
-        }
-    }
 }
 
 /// Ballista first on k8s.
@@ -103,7 +93,7 @@ async fn stop_engine(Path(id): Path<EngineId>, State(state): State<AppState>) ->
                     Ok(())
                 } else {
                     Err(RucatError::NotAllowedError(format!(
-                        "Engine {} is in {} state, cannot be stopped",
+                        "Engine {} is in {:?} state, cannot be stopped",
                         id,
                         response.get_before_state()
                     )))
@@ -125,7 +115,7 @@ async fn restart_engine(Path(id): Path<EngineId>, State(state): State<AppState>)
                     Ok(())
                 } else {
                     Err(RucatError::NotAllowedError(format!(
-                        "Engine {} is in {} state, cannot be restarted",
+                        "Engine {} is in {:?} state, cannot be restarted",
                         id,
                         response.get_before_state()
                     )))
