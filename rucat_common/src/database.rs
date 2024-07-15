@@ -1,10 +1,8 @@
-//! Datastore to record engines' infomation
+//! Datastore to record engines' information
 
-use crate::engine::router::{EngineInfo, EngineState};
-use rucat_common::{
-    error::{Result, RucatError},
-    EngineId,
-};
+use crate::engine::{EngineInfo, EngineState};
+use crate::error::{Result, RucatError};
+use crate::EngineId;
 use serde::Deserialize;
 use surrealdb::{
     engine::{
@@ -19,53 +17,51 @@ use DataBase::*;
 /// The response contains the engine state before the update
 /// and whether the update is successful.
 #[derive(Deserialize)]
-pub(crate) struct UpdateEngineStateResponse {
+pub struct UpdateEngineStateResponse {
     before: EngineState,
     success: bool,
 }
 
 impl UpdateEngineStateResponse {
-    pub(crate) fn update_success(&self) -> bool {
+    pub fn update_success(&self) -> bool {
         self.success
     }
 
-    pub(crate) fn get_before_state(&self) -> &EngineState {
+    pub fn get_before_state(&self) -> &EngineState {
         &self.before
     }
 }
 
 /// Store the metadata of Engine
-/// The lifetime here reprensent that of the URI of the DB server.
+/// The lifetime here represents that of the URI of the DB server.
 #[derive(Clone)]
-pub(crate) enum DataBase {
+pub enum DataBase {
     /// embedded database in memory
     Embedded(Surreal<Db>),
     /// local database
     Local(Surreal<Client>),
 }
 
-/// pub functions are those need to call outside from the rucat server (for example users need to construct a dataStore to create the rest server)
-/// pub(crate) are those only called inside the rucat server
 impl DataBase {
     const TABLE: &'static str = "engines";
     const NAMESPACE: &'static str = "rucat";
     const DATABASE: &'static str = "rucat";
 
     /// use an in memory data store
-    pub(crate) async fn create_embedded_db() -> Result<Self> {
+    pub async fn create_embedded_db() -> Result<Self> {
         let db = Surreal::new::<Mem>(()).await?;
         db.use_ns(Self::NAMESPACE).use_db(Self::DATABASE).await?;
         Ok(Embedded(db))
     }
 
     /// data store that connects to a SurrealDB
-    pub(crate) async fn connect_local_db(uri: String) -> Result<Self> {
+    pub async fn connect_local_db(uri: String) -> Result<Self> {
         let db = Surreal::new::<Ws>(uri).await?;
         db.use_ns(Self::NAMESPACE).use_db(Self::DATABASE).await?;
         Ok(Local(db))
     }
 
-    pub(crate) async fn add_engine(&self, engine: EngineInfo) -> Result<EngineId> {
+    pub async fn add_engine(&self, engine: EngineInfo) -> Result<EngineId> {
         macro_rules! execute_sql {
             ($db:expr) => {{
                 let sql = r#"
@@ -90,7 +86,7 @@ impl DataBase {
         }
     }
 
-    pub(crate) async fn delete_engine(&self, id: &EngineId) -> Result<Option<EngineInfo>> {
+    pub async fn delete_engine(&self, id: &EngineId) -> Result<Option<EngineInfo>> {
         macro_rules! execute_sql {
             ($db:expr) => {{
                 let sql = r#"
@@ -118,7 +114,7 @@ impl DataBase {
     /// Return the engine state before the update.
     /// Return None if the engine does not exist.
     /// Throws an error if the engine state is not in the expected state.
-    pub(crate) async fn update_engine_state<const N: usize>(
+    pub async fn update_engine_state<const N: usize>(
         &self,
         id: &EngineId,
         before: [EngineState; N],
@@ -164,8 +160,8 @@ impl DataBase {
         }
     }
 
-    /// Return Ok(None) if the engine does not exist
-    pub(crate) async fn get_engine(&self, id: &EngineId) -> Result<Option<EngineInfo>> {
+    /// Return `Ok(None)` if the engine does not exist
+    pub async fn get_engine(&self, id: &EngineId) -> Result<Option<EngineInfo>> {
         macro_rules! execute_sql {
             ($db:expr) => {{
                 let sql = r#"
@@ -189,7 +185,7 @@ impl DataBase {
     }
 
     /// Return a sorted list of all engine ids
-    pub(crate) async fn list_engines(&self) -> Result<Vec<EngineId>> {
+    pub async fn list_engines(&self) -> Result<Vec<EngineId>> {
         macro_rules! execute_sql {
             ($db:expr) => {{
                 let sql = r#"

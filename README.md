@@ -76,8 +76,11 @@ Cluster driver will split the `Task` into several `subTasks` after receiving it 
 ## TODO
 mock rucat engine for testing / embedded rucat engine ? 
 rucat engine update engine state in database
+Add connect engine function to connect to the engine that is not created by rucat. (by spark-connect-rs for instance)
+move database.rs to rucat_common
+create rucat_engine with config file?
 profile rucat server
 3 mode for rucat server:
   embedded mode: use in memory db, can only create engine in the same process (embedded)
-  local mode: use local mode db, can create enines embeddly or locally
+  local mode: use local mode db, can create engines embedded or locally
   remote mode: use remote db, can create engines embedded, locally or remotely.

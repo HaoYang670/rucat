@@ -1,8 +1,6 @@
 //! Shared state between handlers.
 
-use self::database::DataBase;
-
-pub(crate) mod database;
+use rucat_common::database::DataBase;
 
 #[derive(Clone)]
 pub(crate) struct AppState {

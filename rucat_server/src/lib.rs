@@ -1,14 +1,16 @@
 use authentication::auth;
 use axum::{extract::State, middleware, routing::get, Router};
 use axum_extra::middleware::option_layer;
-use config::{Config, DataBaseType};
 use engine::router::get_engine_router;
-use rucat_common::error::Result;
-use state::{database::DataBase, AppState};
+use rucat_common::database::DataBase;
+use rucat_common::{
+    config::{Config, DataBaseType},
+    error::Result,
+};
+use state::AppState;
 use tower_http::trace::TraceLayer;
 
 pub(crate) mod authentication;
-mod config;
 pub(crate) mod engine;
 pub(crate) mod state;
 

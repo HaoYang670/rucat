@@ -8,50 +8,19 @@ use axum::{
     Json, Router,
 };
 use rucat_common::{
+    engine::{EngineInfo, EngineState::*, EngineType},
     error::{Result, RucatError},
     EngineId,
 };
 use serde::{Deserialize, Serialize};
 
 use crate::state::AppState;
-use EngineState::*;
 
 use super::rpc;
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub(crate) enum EngineState {
-    /// Engine is pending to be started.
-    Pending,
-    /// Engine is running.
-    Running,
-    /// Engine is stopped.
-    Stopped,
-}
-
-/// Ballista first on k8s.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub(crate) enum EngineType {
-    /// Ballista in local mode
-    BallistaLocal,
-    /// Ballista in remote mode, e.g. on k8s.
-    BallistaRemote,
-    Rucat,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub(crate) struct EngineInfo {
-    name: String,
-    engine_type: EngineType,
-    state: EngineState,
-}
-
 impl From<CreateEngineRequest> for EngineInfo {
     fn from(value: CreateEngineRequest) -> Self {
-        EngineInfo {
-            name: value.name,
-            engine_type: value.engine_type,
-            state: Pending,
-        }
+        EngineInfo::new(value.name, value.engine_type, Pending)
     }
 }
 

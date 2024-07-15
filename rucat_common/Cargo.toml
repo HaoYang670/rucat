@@ -6,12 +6,15 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-surrealdb = {"version" = "1"}
 axum = {"version" = "0"}
 anyhow = {"version" = "1"}
+clap = { version = "4", features = ["derive"] }
+clap_derive = "4"
 tonic = "0"
 prost = "0"
+serde = {"version" = "1", features = ["derive"]}
 serde_json = "1"
+surrealdb = {"version" = "1", features = ["kv-mem"]}
 
 [build-dependencies]
 tonic-build = "0"
