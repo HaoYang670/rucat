@@ -1,7 +1,7 @@
 {
   "auth_enable": true,
   "engine_binary_path": "../target/debug/rucat_engine",
-  "database": {
+  "db_type": {
     "type": "Embedded"
   }
 }

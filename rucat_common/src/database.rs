@@ -1,17 +1,18 @@
 //! Datastore to record engines' information
 
+use std::process::{Child, Command, Stdio};
+use std::thread::sleep;
+use std::time::Duration;
+
 use crate::engine::{EngineInfo, EngineState};
 use crate::error::{Result, RucatError};
 use crate::EngineId;
+use rand::Rng;
 use serde::Deserialize;
 use surrealdb::{
-    engine::{
-        local::{Db, Mem},
-        remote::ws::{Client, Ws},
-    },
+    engine::remote::ws::{Client, Ws},
     Surreal,
 };
-use DataBase::*;
 
 /// Response of updating engine state
 /// The response contains the engine state before the update
@@ -32,81 +33,90 @@ impl UpdateEngineStateResponse {
     }
 }
 
-/// Store the metadata of Engine
-/// The lifetime here represents that of the URI of the DB server.
+/// Store the metadata of Engines
 #[derive(Clone)]
-pub enum DataBase {
-    /// embedded database in memory
-    Embedded(Surreal<Db>),
-    /// local database
-    Local(Surreal<Client>),
+pub struct DataBase {
+    /// preserve `address` for easily converting to [DatabaseType]
+    address: String,
+    /// database client
+    db: Surreal<Client>,
 }
 
 impl DataBase {
     const TABLE: &'static str = "engines";
     const NAMESPACE: &'static str = "rucat";
     const DATABASE: &'static str = "rucat";
+    const MAX_ATTEMPTS_TO_CONNECT_EMBEDDED_DB: u8 = 10;
 
-    /// use an in memory data store
-    pub async fn create_embedded_db() -> Result<Self> {
-        let db = Surreal::new::<Mem>(()).await?;
-        db.use_ns(Self::NAMESPACE).use_db(Self::DATABASE).await?;
-        Ok(Embedded(db))
+    pub fn get_address(&self) -> &str {
+        &self.address
+    }
+
+    /// embedded db will be killed when the server is killed
+    /// Return the [DataBase] and the db process.
+    pub async fn create_embedded_db() -> Result<(Self, Child)> {
+        // create db using command line and connect to it.
+        let port = rand::thread_rng().gen_range(1024..=65535);
+        let address = format!("127.0.0.1:{}", port);
+        let process = Command::new("surreal")
+            .args(["start", "-b", &address])
+            // TODO: store database's log in a file
+            .stdout(Stdio::null())
+            .spawn()?;
+
+        // Wait for the database to be ready
+        let mut attempts = 0;
+        let delay = Duration::from_secs(1);
+
+        loop {
+            match Self::connect_local_db(address.clone()).await {
+                Ok(db) => return Ok((db, process)),
+                Err(_) if attempts < Self::MAX_ATTEMPTS_TO_CONNECT_EMBEDDED_DB => {
+                    attempts += 1;
+                    sleep(delay);
+                }
+                Err(e) => return Err(e),
+            }
+        }
     }
 
     /// data store that connects to a SurrealDB
-    pub async fn connect_local_db(uri: String) -> Result<Self> {
-        let db = Surreal::new::<Ws>(uri).await?;
+    pub async fn connect_local_db(address: String) -> Result<Self> {
+        let db = Surreal::new::<Ws>(&address).await?;
         db.use_ns(Self::NAMESPACE).use_db(Self::DATABASE).await?;
-        Ok(Local(db))
+        Ok(Self { address, db })
     }
 
     pub async fn add_engine(&self, engine: EngineInfo) -> Result<EngineId> {
-        macro_rules! execute_sql {
-            ($db:expr) => {{
-                let sql = r#"
-                    CREATE ONLY type::table($table)
-                    SET info = $engine
-                    RETURN VALUE meta::id(id);
-                "#;
+        let sql = r#"
+            CREATE ONLY type::table($table)
+            SET info = $engine
+            RETURN VALUE meta::id(id);
+        "#;
 
-                let record: Option<EngineId> = $db
-                    .query(sql)
-                    .bind(("table", Self::TABLE))
-                    .bind(("engine", engine))
-                    .await?
-                    .take(0)?;
-                record.ok_or_else(|| RucatError::DataStoreError("Add engine fails".to_owned()))
-            }};
-        }
-
-        match self {
-            Embedded(db) => execute_sql!(db),
-            Local(db) => execute_sql!(db),
-        }
+        let record: Option<EngineId> = self
+            .db
+            .query(sql)
+            .bind(("table", Self::TABLE))
+            .bind(("engine", engine))
+            .await?
+            .take(0)?;
+        record.ok_or_else(|| RucatError::DataStoreError("Add engine fails".to_owned()))
     }
 
     pub async fn delete_engine(&self, id: &EngineId) -> Result<Option<EngineInfo>> {
-        macro_rules! execute_sql {
-            ($db:expr) => {{
-                let sql = r#"
-                    SELECT VALUE info from
-                    (DELETE ONLY type::thing($tb, $id) RETURN BEFORE);
-                "#;
-                let result: Option<EngineInfo> = $db
-                    .query(sql)
-                    .bind(("tb", Self::TABLE))
-                    .bind(("id", id))
-                    .await?
-                    .take(0)?;
-                Ok(result)
-            }};
-        }
-
-        match self {
-            Embedded(db) => execute_sql!(db),
-            Local(db) => execute_sql!(db),
-        }
+        let sql = r#"
+            SELECT VALUE info from
+            (DELETE ONLY type::thing($tb, $id) RETURN BEFORE);
+        "#;
+        let result: Option<EngineInfo> = self
+            .db
+            .query(sql)
+            .bind(("tb", Self::TABLE))
+            .bind(("id", id))
+            .await?
+            .take(0)?;
+        Ok(result)
     }
 
     /// Update the engine state to **after** only when
@@ -120,88 +130,67 @@ impl DataBase {
         before: [EngineState; N],
         after: EngineState,
     ) -> Result<Option<UpdateEngineStateResponse>> {
-        macro_rules! execute_sql {
-            ($db:expr) => {{
-                // The query returns None if the engine does not exist
-                // Throws an error if the engine state is not in the expected state
-                // Otherwise, update the engine state and returns the engine state before update
-                let sql = r#"
-                    let $record_id = type::thing($tb, $id);             // 0th return value
-                    BEGIN TRANSACTION;
-                    LET $current_state = (SELECT VALUE info.state from only $record_id); // 1st return value
-                    IF $current_state IS NONE {
-                        RETURN NONE;                                                     // 2nd return value
-                    } ELSE IF $current_state IN $before {
-                        UPDATE ONLY $record_id SET info.state = $after;
-                        RETURN {before: $current_state, success: true};                  // 2nd return value
-                    } ELSE {
-                        RETURN {before: $current_state, success: false};                 // 2nd return value
-                    };
-                    COMMIT TRANSACTION;
-                "#;
+        // The query returns None if the engine does not exist
+        // Throws an error if the engine state is not in the expected state
+        // Otherwise, update the engine state and returns the engine state before update
+        let sql = r#"
+            let $record_id = type::thing($tb, $id);             // 0th return value
+            BEGIN TRANSACTION;
+            LET $current_state = (SELECT VALUE info.state from only $record_id); // 1st return value
+            IF $current_state IS NONE {
+                RETURN NONE;                                                     // 2nd return value
+            } ELSE IF $current_state IN $before {
+                UPDATE ONLY $record_id SET info.state = $after;
+                RETURN {before: $current_state, success: true};                  // 2nd return value
+            } ELSE {
+                RETURN {before: $current_state, success: false};                 // 2nd return value
+            };
+            COMMIT TRANSACTION;
+        "#;
 
-                let before_state: Option<UpdateEngineStateResponse> = $db
-                    .query(sql)
-                    .bind(("tb", Self::TABLE))
-                    .bind(("id", id))
-                    // convert to vec because array cannot be serialized
-                    .bind(("before", before.to_vec()))
-                    .bind(("after", after))
-                    .await?
-                    .take(2)?; // The 3rd statement is the if-else which is what we want
+        let before_state: Option<UpdateEngineStateResponse> = self
+            .db
+            .query(sql)
+            .bind(("tb", Self::TABLE))
+            .bind(("id", id))
+            // convert to vec because array cannot be serialized
+            .bind(("before", before.to_vec()))
+            .bind(("after", after))
+            .await?
+            .take(2)?; // The 3rd statement is the if-else which is what we want
 
-                Ok(before_state)
-            }};
-        }
-
-        match self {
-            Embedded(db) => execute_sql!(db),
-            Local(db) => execute_sql!(db),
-        }
+        Ok(before_state)
     }
 
     /// Return `Ok(None)` if the engine does not exist
     pub async fn get_engine(&self, id: &EngineId) -> Result<Option<EngineInfo>> {
-        macro_rules! execute_sql {
-            ($db:expr) => {{
-                let sql = r#"
-                    SELECT VALUE info
-                    FROM ONLY type::thing($tb, $id);
-                "#;
-                let info: Option<EngineInfo> = $db
-                    .query(sql)
-                    .bind(("tb", Self::TABLE))
-                    .bind(("id", id))
-                    .await?
-                    .take(0)?;
-                Ok(info)
-            }};
-        }
-
-        match self {
-            Embedded(db) => execute_sql!(db),
-            Local(db) => execute_sql!(db),
-        }
+        let sql = r#"
+            SELECT VALUE info
+            FROM ONLY type::thing($tb, $id);
+        "#;
+        let info: Option<EngineInfo> = self
+            .db
+            .query(sql)
+            .bind(("tb", Self::TABLE))
+            .bind(("id", id))
+            .await?
+            .take(0)?;
+        Ok(info)
     }
 
     /// Return a sorted list of all engine ids
     pub async fn list_engines(&self) -> Result<Vec<EngineId>> {
-        macro_rules! execute_sql {
-            ($db:expr) => {{
-                let sql = r#"
-                    SELECT VALUE meta::id(id) FROM type::table($tb);
-                "#;
+        let sql = r#"
+            SELECT VALUE meta::id(id) FROM type::table($tb);
+        "#;
 
-                let mut ids: Vec<EngineId> =
-                    $db.query(sql).bind(("tb", Self::TABLE)).await?.take(0)?;
-                ids.sort();
-                Ok(ids)
-            }};
-        }
-
-        match self {
-            Embedded(db) => execute_sql!(db),
-            Local(db) => execute_sql!(db),
-        }
+        let mut ids: Vec<EngineId> = self
+            .db
+            .query(sql)
+            .bind(("tb", Self::TABLE))
+            .await?
+            .take(0)?;
+        ids.sort();
+        Ok(ids)
     }
 }

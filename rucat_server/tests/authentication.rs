@@ -7,7 +7,7 @@ use rucat_server::get_server;
 
 /// server with embedded datastore and authentication enabled
 async fn get_test_server() -> Result<TestServer> {
-    let app = get_server("./tests/configs/authentication_test_config.json").await?;
+    let (app, _) = get_server("./tests/configs/authentication_test_config.json").await?;
     TestServer::new(app).map_err(|e| e.into())
 }
 

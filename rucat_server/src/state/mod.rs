@@ -16,7 +16,7 @@ impl AppState {
         }
     }
 
-    pub(crate) fn get_data_store(&self) -> &DataBase {
+    pub(crate) fn get_db(&self) -> &DataBase {
         &self.db
     }
 

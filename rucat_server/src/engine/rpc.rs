@@ -3,37 +3,46 @@
 //! Create a new process for the engine and start the gRPC server.
 //! The engine will be listening on the given port. (localhost for now)
 
+use std::process::Stdio;
+
 use rucat_common::{
-    engine_grpc::{greeter_client::GreeterClient, HelloRequest},
+    config::EngineConfig,
     error::{Result, RucatError},
 };
 
-use tokio::process::Command;
-use tracing::info;
+use tokio::{io::AsyncWriteExt, process::Command};
 
 /// Create a new process for the engine and start the gRPC server.
 /// The engine will be listening on a random port.
-pub(super) async fn create_engine(engine_binary_path: &str) -> Result<()> {
+pub(super) async fn create_engine(engine_binary_path: &str, config: EngineConfig) -> Result<()> {
     // Start the engine process.
-    Command::new(engine_binary_path).spawn()?;
+    let mut engine = Command::new(engine_binary_path)
+        .stdin(Stdio::piped())
+        .spawn()?;
 
-    // TODO: better way to wait for the engine to start.
-    tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
-
-    //let mut client = GreeterClient::connect(format!("http://[::1]:{}"))
-    //    .await
-    //    .map_err(|e| RucatError::FailedToStartEngine(e.to_string()))?;
-    //
-    //let request = tonic::Request::new(HelloRequest {
-    //    name: "Tonic".into(),
-    //});
-    //
-    //let response = client
-    //    .say_hello(request)
-    //    .await
-    //    .map_err(|e| RucatError::FailedToStartEngine(e.to_string()))?;
-    //
-    //info!("RESPONSE={:?}", response.into_inner().message);
-
-    Ok(())
+    // Send the configuration to the engine.
+    // TODO: write to stdin directly (serde_json::to_writer)
+    match engine.stdin {
+        Some(mut stdin) => {
+            stdin.write_all(&serde_json::to_vec(&config)?).await?;
+            stdin.flush().await?;
+            // The creation is async and the engine will be started in the background.
+            // do not wait for the engine to start.
+            // TODO: engines may meet all kinds of error before the rpc server starts
+            // How to catch them?
+            Ok(())
+        }
+        None => {
+            let stdin_err_msg = "Failed to open engine's stdin";
+            // kill the engine process if failed to open stdin
+            let err = match engine.kill().await {
+                Ok(_) => RucatError::FailedToStartEngine(stdin_err_msg.to_string()),
+                Err(e) => RucatError::FailedToStartEngine(format!(
+                    "{} and failed to kill the engine process: {}",
+                    stdin_err_msg, e,
+                )),
+            };
+            Err(err)
+        }
+    }
 }

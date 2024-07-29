@@ -8,6 +8,7 @@ use axum::{
     Json, Router,
 };
 use rucat_common::{
+    config::EngineConfig,
     engine::{EngineInfo, EngineState::*, EngineType},
     error::{Result, RucatError},
     EngineId,
@@ -36,13 +37,33 @@ async fn create_engine(
     State(state): State<AppState>,
     Json(body): Json<CreateEngineRequest>,
 ) -> Result<EngineId> {
-    rpc::create_engine(state.get_engine_binary_path()).await?;
-    state.get_data_store().add_engine(body.into()).await
+    // TODO: whether need to make the adding engine and deleting engine atomic?
+    let engine_id = state.get_db().add_engine(body.into()).await?;
+    let engine_config = EngineConfig {
+        engine_id: engine_id.clone(),
+        db_endpoint: state.get_db().get_address().to_owned(),
+    };
+    let success = rpc::create_engine(state.get_engine_binary_path(), engine_config).await;
+    // If fail to create the engine, delete the engine record from database.
+    match success {
+        Ok(()) => Ok(engine_id),
+        Err(e0) => {
+            delete_engine(Path(engine_id), State(state))
+                .await
+                .map_err(|e1| {
+                    RucatError::FailedToStartEngine(format!(
+                        "Failed to start engine: {} and failed to clean up: {}",
+                        e0, e1
+                    ))
+                })?;
+            Err(e0)
+        }
+    }
 }
 
 async fn delete_engine(Path(id): Path<EngineId>, State(state): State<AppState>) -> Result<()> {
     state
-        .get_data_store()
+        .get_db()
         .delete_engine(&id)
         .await?
         .map(|_| ())
@@ -52,7 +73,7 @@ async fn delete_engine(Path(id): Path<EngineId>, State(state): State<AppState>) 
 /// Stop an engine to release resources. But engine info is still kept in the data store.
 async fn stop_engine(Path(id): Path<EngineId>, State(state): State<AppState>) -> Result<()> {
     state
-        .get_data_store()
+        .get_db()
         .update_engine_state(&id, [Pending, Running], Stopped)
         .await?
         .map_or_else(
@@ -74,7 +95,7 @@ async fn stop_engine(Path(id): Path<EngineId>, State(state): State<AppState>) ->
 /// Restart a stopped engine with the same configuration.
 async fn restart_engine(Path(id): Path<EngineId>, State(state): State<AppState>) -> Result<()> {
     state
-        .get_data_store()
+        .get_db()
         .update_engine_state(&id, [Stopped], Pending)
         .await?
         .map_or_else(
@@ -98,7 +119,7 @@ async fn get_engine(
     State(state): State<AppState>,
 ) -> Result<Json<EngineInfo>> {
     state
-        .get_data_store()
+        .get_db()
         .get_engine(&id)
         .await?
         .map(Json)
@@ -106,7 +127,7 @@ async fn get_engine(
 }
 
 async fn list_engines(State(state): State<AppState>) -> Result<Json<Vec<EngineId>>> {
-    state.get_data_store().list_engines().await.map(Json)
+    state.get_db().list_engines().await.map(Json)
 }
 
 /// Pass the data store endpoint later
