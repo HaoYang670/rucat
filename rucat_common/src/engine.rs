@@ -1,6 +1,12 @@
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+/// ```mermaid
+/// graph TD;
+///    Pending --> Running
+///   Running --> Stopped
+///  Stopped --> Running
+/// ```
 pub enum EngineState {
     /// Engine is pending to be started.
     Pending,

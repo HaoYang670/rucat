@@ -1,4 +1,6 @@
 use rucat_common::config::EngineConfig;
+use rucat_common::database::DataBase;
+use rucat_common::engine::EngineState;
 use rucat_common::engine_grpc::greeter_server::{Greeter, GreeterServer};
 use rucat_common::engine_grpc::{HelloReply, HelloRequest};
 use rucat_common::error::RucatError;
@@ -42,13 +44,30 @@ async fn main() -> rucat_common::error::Result<()> {
         io::stdin().read_to_end(&mut buf).await?;
         serde_json::from_slice(&buf)?
     };
-    debug!(
+    info!(
         "Received configs from server: engine_id: {}, db_endpoint: {}",
         engine_id, db_endpoint
     );
 
-    // TODO: check in the database if the engine_id is valid and engine is PENDING
-    // update the state to RUNNING
+    let db = DataBase::connect_local_db(db_endpoint).await?;
+    let response = db
+        .update_engine_state(&engine_id, [EngineState::Pending], EngineState::Running)
+        .await?;
+    match response {
+        None => Err(RucatError::FailedToStartEngine(
+            "Not register engine in the database".to_string(),
+        )),
+        Some(response) => {
+            if response.update_success {
+                debug!("Engine state updated successfully");
+                Ok(())
+            } else {
+                Err(RucatError::FailedToStartEngine(
+                    "Failed to update engine state".to_string(),
+                ))
+            }
+        }
+    }?;
 
     // set port to 0 to let the OS choose a free port
     let addr = SocketAddrV6::new(Ipv6Addr::LOCALHOST, 0, 0, 0);

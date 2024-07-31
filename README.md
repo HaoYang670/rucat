@@ -33,6 +33,7 @@ stateDiagram
 ## TODO
 
 Add heartbeat for rucat engine
+running state with endpoint
 mock rucat engine for testing / embedded rucat engine ?
 rucat engine update engine state in database? Is it really needed?
 Add connect engine function to connect to the engine that is not created by rucat. (by spark-connect-rs for instance)

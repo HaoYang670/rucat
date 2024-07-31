@@ -14,23 +14,14 @@ use surrealdb::{
     Surreal,
 };
 
-/// Response of updating engine state
-/// The response contains the engine state before the update
-/// and whether the update is successful.
+/// Response of updating an engine state.
+/// # Fields
+/// - `before_state`: The engine state before the update.
+/// - `update_success`: Whether the update is successful.
 #[derive(Deserialize)]
 pub struct UpdateEngineStateResponse {
-    before: EngineState,
-    success: bool,
-}
-
-impl UpdateEngineStateResponse {
-    pub fn update_success(&self) -> bool {
-        self.success
-    }
-
-    pub fn get_before_state(&self) -> &EngineState {
-        &self.before
-    }
+    pub before_state: EngineState,
+    pub update_success: bool,
 }
 
 /// Store the metadata of Engines
@@ -119,11 +110,12 @@ impl DataBase {
         Ok(result)
     }
 
-    /// Update the engine state to **after** only when
-    /// the engine exists and the current state is the same as the **before**.
-    /// Return the engine state before the update.
-    /// Return None if the engine does not exist.
-    /// Throws an error if the engine state is not in the expected state.
+    /// Update the engine state to `after` only when
+    /// the engine exists and the current state is in `before`.
+    /// # Return
+    /// - `Ok(None)` if the engine does not exist.
+    /// - `Ok(Some(UpdateEngineStateResponse))` if the engine exists.
+    /// - `Err(_)` if any error occurs in the database.
     pub async fn update_engine_state<const N: usize>(
         &self,
         id: &EngineId,
@@ -141,9 +133,9 @@ impl DataBase {
                 RETURN NONE;                                                     // 2nd return value
             } ELSE IF $current_state IN $before {
                 UPDATE ONLY $record_id SET info.state = $after;
-                RETURN {before: $current_state, success: true};                  // 2nd return value
+                RETURN {before_state: $current_state, update_success: true};                  // 2nd return value
             } ELSE {
-                RETURN {before: $current_state, success: false};                 // 2nd return value
+                RETURN {before_state: $current_state, update_success: false};                 // 2nd return value
             };
             COMMIT TRANSACTION;
         "#;

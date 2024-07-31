@@ -79,13 +79,12 @@ async fn stop_engine(Path(id): Path<EngineId>, State(state): State<AppState>) ->
         .map_or_else(
             || Err(RucatError::NotFoundError(id.clone())),
             |response| {
-                if response.update_success() {
+                if response.update_success {
                     Ok(())
                 } else {
                     Err(RucatError::NotAllowedError(format!(
                         "Engine {} is in {:?} state, cannot be stopped",
-                        id,
-                        response.get_before_state()
+                        id, response.before_state
                     )))
                 }
             },
@@ -101,13 +100,12 @@ async fn restart_engine(Path(id): Path<EngineId>, State(state): State<AppState>)
         .map_or_else(
             || Err(RucatError::NotFoundError(id.clone())),
             |response| {
-                if response.update_success() {
+                if response.update_success {
                     Ok(())
                 } else {
                     Err(RucatError::NotAllowedError(format!(
                         "Engine {} is in {:?} state, cannot be restarted",
-                        id,
-                        response.get_before_state()
+                        id, response.before_state
                     )))
                 }
             },
