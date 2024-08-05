@@ -1,6 +1,6 @@
 use rucat_common::config::EngineConfig;
 use rucat_common::database::DataBase;
-use rucat_common::engine::EngineState;
+use rucat_common::engine::EngineState::*;
 use rucat_common::engine_grpc::greeter_server::{Greeter, GreeterServer};
 use rucat_common::engine_grpc::{HelloReply, HelloRequest};
 use rucat_common::error::RucatError;
@@ -49,9 +49,22 @@ async fn main() -> rucat_common::error::Result<()> {
         engine_id, db_endpoint
     );
 
+    // set port to 0 to let the OS choose a free port
+    let addr = SocketAddrV6::new(Ipv6Addr::LOCALHOST, 0, 0, 0);
+    let listener = TcpListener::bind(addr).await?;
+    let addr = listener.local_addr()?;
+
+    info!("Rucat engine is listening on: {}", addr);
+
     let db = DataBase::connect_local_db(db_endpoint).await?;
     let response = db
-        .update_engine_state(&engine_id, [EngineState::Pending], EngineState::Running)
+        .update_engine_state(
+            &engine_id,
+            [Pending],
+            Running {
+                endpoint: addr.to_string(),
+            },
+        )
         .await?;
     match response {
         None => Err(RucatError::FailedToStartEngine(
@@ -68,13 +81,6 @@ async fn main() -> rucat_common::error::Result<()> {
             }
         }
     }?;
-
-    // set port to 0 to let the OS choose a free port
-    let addr = SocketAddrV6::new(Ipv6Addr::LOCALHOST, 0, 0, 0);
-    let listener = TcpListener::bind(addr).await?;
-    let addr = listener.local_addr()?;
-
-    info!("Rucat engine is listening on: {}", addr);
 
     // same default value of `nodelay` and `keepalive` as those in [Server]
     let tpc_incoming = TcpIncoming::from_listener(listener, false, None)

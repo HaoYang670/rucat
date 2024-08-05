@@ -74,7 +74,7 @@ async fn delete_engine(Path(id): Path<EngineId>, State(state): State<AppState>) 
 async fn stop_engine(Path(id): Path<EngineId>, State(state): State<AppState>) -> Result<()> {
     state
         .get_db()
-        .update_engine_state(&id, [Pending, Running], Stopped)
+        .update_engine_state(&id, [Pending], Stopped)
         .await?
         .map_or_else(
             || Err(RucatError::NotFoundError(id.clone())),
