@@ -1,3 +1,5 @@
+use time::OffsetDateTime;
+
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -28,6 +30,8 @@ pub struct EngineInfo {
     name: String,
     engine_type: EngineType,
     state: EngineState,
+    // Use String type but not OffsetDateTime to get a more readable response.
+    created_time: String,
 }
 
 impl EngineInfo {
@@ -36,6 +40,7 @@ impl EngineInfo {
             name,
             engine_type,
             state,
+            created_time: OffsetDateTime::now_utc().to_string(),
         }
     }
 

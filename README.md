@@ -10,13 +10,12 @@ flowchart
     db[(surreal db)]
     engine(rucat engine)
     spark(Apache Spark)
-    ballista(Apache Ballista)
     user -- http requests --> server
     server -- read / write engine info --> db
     server -- create / stop / restart --> engine
     engine -- update engine info --> db
-    engine -- create / connect --> spark
-    engine -- create / connect --> ballista
+    engine -- create --> spark
+    engine -- connect --> spark
 ```
 
 ## Rucat Engine State
@@ -32,12 +31,13 @@ stateDiagram
 
 ## TODO
 
-Add heartbeat for rucat engine
-running state with endpoint
-mock rucat engine for testing / embedded rucat engine ?
-rucat engine update engine state in database? Is it really needed?
-Add connect engine function to connect to the engine that is not created by rucat. (by spark-connect-rs for instance)
-3 mode for rucat server:
+1. Add engine create time and discovery time
+2. Add heartbeat for rucat engine -> rucat engine update the discovery time in database regularly, if rucat server finds the time is outdated, it assume the engine has failed and mark the state to be error.
+3. server sends requests to engine by RPC.
+4. implement spark submit. (standalone, local mode for now, k8s mode in the future)
+5. mock rucat engine for testing / embedded rucat engine ?
+6. Add connect engine function to connect to the engine that is not created by rucat. (by spark-connect-rs for instance)
+7. 3 mode for rucat server:
   embedded mode: use in memory db, can only create engine in the same process (embedded)
   local mode: use local mode db, can create engines embedded or locally
   remote mode: use remote db, can create engines embedded, locally or remotely.

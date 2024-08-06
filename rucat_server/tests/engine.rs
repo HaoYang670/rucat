@@ -116,7 +116,9 @@ async fn get_engine() -> Result<()> {
 
     let response = server.get(&format!("/engine/{}", engine_id)).await;
     response.assert_status_ok();
-    response.assert_text(r#"{"name":"test","engine_type":"BallistaLocal","state":"Pending"}"#);
+    response.assert_text_contains(
+        r#"{"name":"test","engine_type":"BallistaLocal","state":"Pending","created_time":"#,
+    );
 
     Ok(())
 }
@@ -148,7 +150,9 @@ async fn stop_engine() -> Result<()> {
     response.assert_status_ok();
 
     let response = server.get(&format!("/engine/{}", engine_id)).await;
-    response.assert_text(r#"{"name":"test","engine_type":"BallistaLocal","state":"Stopped"}"#);
+    response.assert_text_contains(
+        r#"{"name":"test","engine_type":"BallistaLocal","state":"Stopped","created_time":"#,
+    );
 
     Ok(())
 }
@@ -188,7 +192,9 @@ async fn restart_engine() -> Result<()> {
     response.assert_status_ok();
 
     let response = server.get(&format!("/engine/{}", engine_id)).await;
-    response.assert_text(r#"{"name":"test","engine_type":"BallistaLocal","state":"Pending"}"#);
+    response.assert_text_contains(
+        r#"{"name":"test","engine_type":"BallistaLocal","state":"Pending","created_time":"#,
+    );
 
     Ok(())
 }
