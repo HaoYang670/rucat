@@ -135,7 +135,7 @@ impl DataBase {
             IF $current_state IS NONE {
                 RETURN NONE;                                                     // 2nd return value
             } ELSE IF $current_state IN $before {
-                UPDATE ONLY $record_id SET info.state = $after;
+                UPDATE ONLY $record_id SET info.state = $after, info.endpoint = $endpoint;
                 RETURN {before_state: $current_state, update_success: true};                  // 2nd return value
             } ELSE {
                 RETURN {before_state: $current_state, update_success: false};                 // 2nd return value
@@ -151,6 +151,7 @@ impl DataBase {
             // convert to vec because array cannot be serialized
             .bind(("before", before.to_vec()))
             .bind(("after", after))
+            .bind(("endpoint", endpoint))
             .await?
             .take(2)?; // The 3rd statement is the if-else which is what we want
 
