@@ -121,6 +121,9 @@ impl DataBase {
         id: &EngineId,
         before: [EngineState; N],
         after: EngineState,
+        // There are some cases that we need to update the endpoint
+        // e.g. updating from Pending to Running
+        endpoint: Option<String>,
     ) -> Result<Option<UpdateEngineStateResponse>> {
         // The query returns None if the engine does not exist
         // Throws an error if the engine state is not in the expected state

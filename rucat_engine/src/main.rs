@@ -61,9 +61,8 @@ async fn main() -> rucat_common::error::Result<()> {
         .update_engine_state(
             &engine_id,
             [Pending],
-            Running {
-                endpoint: addr.to_string(),
-            },
+            Running,
+            Some(addr.to_string())
         )
         .await?;
     match response {

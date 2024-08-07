@@ -21,7 +21,7 @@ use super::rpc;
 
 impl From<CreateEngineRequest> for EngineInfo {
     fn from(value: CreateEngineRequest) -> Self {
-        EngineInfo::new(value.name, value.engine_type, Pending)
+        EngineInfo::new(value.name, value.engine_type, Pending, None)
     }
 }
 
@@ -74,7 +74,8 @@ async fn delete_engine(Path(id): Path<EngineId>, State(state): State<AppState>) 
 async fn stop_engine(Path(id): Path<EngineId>, State(state): State<AppState>) -> Result<()> {
     state
         .get_db()
-        .update_engine_state(&id, [Pending], Stopped)
+        // TODO: bring back Running state
+        .update_engine_state(&id, [Pending, Running], Stopped, None)
         .await?
         .map_or_else(
             || Err(RucatError::NotFoundError(id.clone())),
@@ -95,7 +96,7 @@ async fn stop_engine(Path(id): Path<EngineId>, State(state): State<AppState>) ->
 async fn restart_engine(Path(id): Path<EngineId>, State(state): State<AppState>) -> Result<()> {
     state
         .get_db()
-        .update_engine_state(&id, [Stopped], Pending)
+        .update_engine_state(&id, [Stopped], Pending, None)
         .await?
         .map_or_else(
             || Err(RucatError::NotFoundError(id.clone())),

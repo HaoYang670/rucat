@@ -7,10 +7,7 @@ pub enum EngineState {
     /// Engine is pending to be started.
     Pending,
     /// Engine is running.
-    Running {
-        /// The address of the engine.
-        endpoint: String,
-    },
+    Running,
     /// Engine is stopped.
     Stopped,
 }
@@ -29,17 +26,21 @@ pub enum EngineType {
 pub struct EngineInfo {
     name: String,
     engine_type: EngineType,
+    /// The address of the engine.
+    // We don't define `endpoint` in `EngineState` because SurrealQL doesn't support pattern matching.`
+    endpoint: Option<String>,
     state: EngineState,
     // Use String type but not OffsetDateTime to get a more readable response.
     created_time: String,
 }
 
 impl EngineInfo {
-    pub fn new(name: String, engine_type: EngineType, state: EngineState) -> Self {
+    pub fn new(name: String, engine_type: EngineType, state: EngineState, endpoint: Option<String>) -> Self {
         Self {
             name,
             engine_type,
             state,
+            endpoint,
             created_time: OffsetDateTime::now_utc().to_string(),
         }
     }
