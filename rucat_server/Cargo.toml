@@ -7,22 +7,22 @@ edition = "2021"
 
 [dependencies]
 rucat_common = {path = "../rucat_common"}
-axum = {"version" = "0", features = ["macros"]}
-axum-extra = {"version" = "0", features = ["typed-header"]}
-bytes = {"version" = "1"}
-http = {"version" = "1"}
-http-body = {"version" = "1"}
-serde = {"version" = "1", features = ["derive"]}
-surrealdb = {"version" = "1", features = ["kv-mem"]}
-serde_json = "1"
-tower-http = { "version" = "0", features = ["trace"] }
-tracing = {"version" = "0"}
-tracing-subscriber = {"version" = "0"}
-tokio = {"version" = "1", features = ["full"]}
-tonic = "0"
+axum = {"version" = "0.7.5", features = ["macros"]}
+axum-extra = {"version" = "0.9.3", features = ["typed-header"]}
+bytes = {"version" = "1.7.1"}
+http = {"version" = "1.1.0"}
+http-body = {"version" = "1.0.1"}
+serde = {"version" = "1.0.204", features = ["derive"]}
+surrealdb = {"version" = "1.5.4", features = ["kv-mem"]}
+serde_json = "1.0.122"
+tower-http = { "version" = "0.5.2", features = ["trace"] }
+tracing = {"version" = "0.1.40"}
+tracing-subscriber = {"version" = "0.3.18"}
+tokio = {"version" = "1.39.2", features = ["full"]}
+tonic = "0.12.1"
 
 # test dependencies
 
 [dev-dependencies]
 axum-test = {"version" = "15.3.0"}
-headers = {"version" = "0"}
+headers = {"version" = "0.4.0"}

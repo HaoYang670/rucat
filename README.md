@@ -31,7 +31,7 @@ stateDiagram
 
 ## TODO
 
-1. Add engine create time and discovery time
+1. Add engine discovery time
 2. Add heartbeat for rucat engine -> rucat engine update the discovery time in database regularly, if rucat server finds the time is outdated, it assume the engine has failed and mark the state to be error.
 3. server sends requests to engine by RPC.
 4. implement spark submit. (standalone, local mode for now, k8s mode in the future)
@@ -41,3 +41,4 @@ stateDiagram
   embedded mode: use in memory db, can only create engine in the same process (embedded)
   local mode: use local mode db, can create engines embedded or locally
   remote mode: use remote db, can create engines embedded, locally or remotely.
+8. Strong typed engineId and engine endpoint

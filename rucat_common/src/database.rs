@@ -50,7 +50,7 @@ impl DataBase {
         let port = rand::thread_rng().gen_range(1024..=65535);
         let address = format!("127.0.0.1:{}", port);
         let process = Command::new("surreal")
-            .args(["start", "-b", &address])
+            .args(["start", "-b", &address, "--log", "none"])
             // TODO: store database's log in a file
             .stdout(Stdio::null())
             .spawn()?;
