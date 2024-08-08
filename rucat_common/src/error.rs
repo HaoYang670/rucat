@@ -29,7 +29,7 @@ impl Display for RucatError {
             Self::IllegalArgument(msg) => write!(f, "Illegal Argument error: {}", msg),
             Self::DeserializeError(msg) => write!(f, "Deserialize error: {}", msg),
             Self::NotFoundError(engine_id) => {
-                write!(f, "Not found error: engine {} not found.", engine_id)
+                write!(f, "Not found error: engine {:?} not found.", engine_id)
             }
             Self::UnauthorizedError(msg) => write!(f, "Unauthorized error: {}", msg),
             Self::NotAllowedError(msg) => write!(f, "Not allowed error: {}", msg),

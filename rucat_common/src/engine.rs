@@ -35,7 +35,12 @@ pub struct EngineInfo {
 }
 
 impl EngineInfo {
-    pub fn new(name: String, engine_type: EngineType, state: EngineState, endpoint: Option<String>) -> Self {
+    pub fn new(
+        name: String,
+        engine_type: EngineType,
+        state: EngineState,
+        endpoint: Option<String>,
+    ) -> Self {
         Self {
             name,
             engine_type,

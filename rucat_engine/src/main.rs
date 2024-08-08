@@ -45,7 +45,7 @@ async fn main() -> rucat_common::error::Result<()> {
         serde_json::from_slice(&buf)?
     };
     info!(
-        "Received configs from server: engine_id: {}, db_endpoint: {}",
+        "Received configs from server: engine_id: {:?}, db_endpoint: {}",
         engine_id, db_endpoint
     );
 
@@ -58,12 +58,7 @@ async fn main() -> rucat_common::error::Result<()> {
 
     let db = DataBase::connect_local_db(db_endpoint).await?;
     let response = db
-        .update_engine_state(
-            &engine_id,
-            [Pending],
-            Running,
-            Some(addr.to_string())
-        )
+        .update_engine_state(&engine_id, [Pending], Running, Some(addr.to_string()))
         .await?;
     match response {
         None => Err(RucatError::FailedToStartEngine(

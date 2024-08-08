@@ -36,7 +36,7 @@ pub(crate) struct CreateEngineRequest {
 async fn create_engine(
     State(state): State<AppState>,
     Json(body): Json<CreateEngineRequest>,
-) -> Result<EngineId> {
+) -> Result<Json<EngineId>> {
     // TODO: whether need to make the adding engine and deleting engine atomic?
     let engine_id = state.get_db().add_engine(body.into()).await?;
     let engine_config = EngineConfig {
@@ -46,7 +46,7 @@ async fn create_engine(
     let success = rpc::create_engine(state.get_engine_binary_path(), engine_config).await;
     // If fail to create the engine, delete the engine record from database.
     match success {
-        Ok(()) => Ok(engine_id),
+        Ok(()) => Ok(Json(engine_id)),
         Err(e0) => {
             delete_engine(Path(engine_id), State(state))
                 .await
@@ -85,7 +85,8 @@ async fn stop_engine(Path(id): Path<EngineId>, State(state): State<AppState>) ->
                 } else {
                     Err(RucatError::NotAllowedError(format!(
                         "Engine {} is in {:?} state, cannot be stopped",
-                        id, response.before_state
+                        id.as_str(),
+                        response.before_state
                     )))
                 }
             },
@@ -106,7 +107,8 @@ async fn restart_engine(Path(id): Path<EngineId>, State(state): State<AppState>)
                 } else {
                     Err(RucatError::NotAllowedError(format!(
                         "Engine {} is in {:?} state, cannot be restarted",
-                        id, response.before_state
+                        id.as_str(),
+                        response.before_state
                     )))
                 }
             },

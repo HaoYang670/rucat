@@ -85,14 +85,15 @@ impl DataBase {
             RETURN VALUE meta::id(id);
         "#;
 
-        let record: Option<EngineId> = self
+        let record: Option<String> = self
             .db
             .query(sql)
             .bind(("table", Self::TABLE))
             .bind(("engine", engine))
             .await?
             .take(0)?;
-        record.ok_or_else(|| RucatError::DataStoreError("Add engine fails".to_owned()))
+        let id = record.map(EngineId::from);
+        id.ok_or_else(|| RucatError::DataStoreError("Add engine fails".to_owned()))
     }
 
     pub async fn delete_engine(&self, id: &EngineId) -> Result<Option<EngineInfo>> {
@@ -104,7 +105,7 @@ impl DataBase {
             .db
             .query(sql)
             .bind(("tb", Self::TABLE))
-            .bind(("id", id))
+            .bind(("id", id.as_str()))
             .await?
             .take(0)?;
         Ok(result)
@@ -147,7 +148,7 @@ impl DataBase {
             .db
             .query(sql)
             .bind(("tb", Self::TABLE))
-            .bind(("id", id))
+            .bind(("id", id.as_str()))
             // convert to vec because array cannot be serialized
             .bind(("before", before.to_vec()))
             .bind(("after", after))
@@ -168,7 +169,7 @@ impl DataBase {
             .db
             .query(sql)
             .bind(("tb", Self::TABLE))
-            .bind(("id", id))
+            .bind(("id", id.as_str()))
             .await?
             .take(0)?;
         Ok(info)
@@ -180,12 +181,13 @@ impl DataBase {
             SELECT VALUE meta::id(id) FROM type::table($tb);
         "#;
 
-        let mut ids: Vec<EngineId> = self
+        let ids: Vec<String> = self
             .db
             .query(sql)
             .bind(("tb", Self::TABLE))
             .await?
             .take(0)?;
+        let mut ids: Vec<_> = ids.into_iter().map(EngineId::from).collect();
         ids.sort();
         Ok(ids)
     }
