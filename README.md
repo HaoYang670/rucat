@@ -29,6 +29,18 @@ stateDiagram
     Stopped --> [*]
 ```
 
+## How to test
+
+```bash
+bash test.sh
+```
+
+## How to run
+
+```bash
+bash ./example/run.sh
+```
+
 ## TODO
 
 1. Add engine discovery time
@@ -41,4 +53,4 @@ stateDiagram
   embedded mode: use in memory db, can only create engine in the same process (embedded)
   local mode: use local mode db, can create engines embedded or locally
   remote mode: use remote db, can create engines embedded, locally or remotely.
-8. Strong typed engineId and engine endpoint
+8. Strong typed engine endpoint

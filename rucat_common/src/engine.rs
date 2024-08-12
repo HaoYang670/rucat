@@ -1,3 +1,5 @@
+use std::net::SocketAddr;
+
 use time::OffsetDateTime;
 
 use serde::{Deserialize, Serialize};
@@ -23,12 +25,25 @@ pub enum EngineType {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EngineAddr {
+    endpoint: String,
+}
+
+impl From<SocketAddr> for EngineAddr {
+    fn from(addr: SocketAddr) -> Self {
+        Self {
+            endpoint: addr.to_string(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EngineInfo {
     name: String,
     engine_type: EngineType,
     /// The address of the engine.
     // We don't define `endpoint` in `EngineState` because SurrealQL doesn't support pattern matching.`
-    endpoint: Option<String>,
+    endpoint: Option<EngineAddr>,
     state: EngineState,
     // Use String type but not OffsetDateTime to get a more readable response.
     created_time: String,
@@ -39,7 +54,7 @@ impl EngineInfo {
         name: String,
         engine_type: EngineType,
         state: EngineState,
-        endpoint: Option<String>,
+        endpoint: Option<EngineAddr>,
     ) -> Self {
         Self {
             name,

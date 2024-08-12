@@ -53,12 +53,11 @@ async fn main() -> rucat_common::error::Result<()> {
     let addr = SocketAddrV6::new(Ipv6Addr::LOCALHOST, 0, 0, 0);
     let listener = TcpListener::bind(addr).await?;
     let addr = listener.local_addr()?;
-
     info!("Rucat engine is listening on: {}", addr);
 
     let db = DataBase::connect_local_db(db_endpoint).await?;
     let response = db
-        .update_engine_state(&engine_id, [Pending], Running, Some(addr.to_string()))
+        .update_engine_state(&engine_id, [Pending], Running, Some(addr.into()))
         .await?;
     match response {
         None => Err(RucatError::FailedToStartEngine(

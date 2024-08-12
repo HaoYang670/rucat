@@ -4,7 +4,7 @@ use std::process::{Child, Command, Stdio};
 use std::thread::sleep;
 use std::time::Duration;
 
-use crate::engine::{EngineInfo, EngineState};
+use crate::engine::{EngineAddr, EngineInfo, EngineState};
 use crate::error::{Result, RucatError};
 use crate::EngineId;
 use rand::Rng;
@@ -124,7 +124,7 @@ impl DataBase {
         after: EngineState,
         // There are some cases that we need to update the endpoint
         // e.g. updating from Pending to Running
-        endpoint: Option<String>,
+        endpoint: Option<EngineAddr>,
     ) -> Result<Option<UpdateEngineStateResponse>> {
         // The query returns None if the engine does not exist
         // Throws an error if the engine state is not in the expected state
