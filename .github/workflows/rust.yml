@@ -15,13 +15,15 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - name: Install Protoc
       uses: arduino/setup-protoc@v3
     - name: Install Surrealdb
       run: |
         curl -ssf https://install.surrealdb.com | sh
         PATH=${_loc}:\$PATH
+    - name: Switch to nightly rust toolchain
+      run: rustup default nightly
     - name: Build
       run: cargo build
     - name: Refactor
