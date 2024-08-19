@@ -4,7 +4,7 @@ use std::process::{Child, Command, Stdio};
 use std::thread::sleep;
 use std::time::Duration;
 
-use crate::engine::{EngineAddr, EngineInfo, EngineState};
+use crate::engine::{EngineConnection, EngineInfo, EngineState};
 use crate::error::{Result, RucatError};
 use crate::EngineId;
 use rand::Rng;
@@ -124,7 +124,7 @@ impl DataBase {
         after: EngineState,
         // There are some cases that we need to update the endpoint
         // e.g. updating from Pending to Running
-        endpoint: Option<EngineAddr>,
+        connection: Option<EngineConnection>,
     ) -> Result<Option<UpdateEngineStateResponse>> {
         // The query returns None if the engine does not exist
         // Throws an error if the engine state is not in the expected state
@@ -136,7 +136,7 @@ impl DataBase {
             IF $current_state IS NONE {
                 RETURN NONE;                                                     // 2nd return value
             } ELSE IF $current_state IN $before {
-                UPDATE ONLY $record_id SET info.state = $after, info.endpoint = $endpoint;
+                UPDATE ONLY $record_id SET info.state = $after, info.connection = $connection;
                 RETURN {before_state: $current_state, update_success: true};                  // 2nd return value
             } ELSE {
                 RETURN {before_state: $current_state, update_success: false};                 // 2nd return value
@@ -152,7 +152,7 @@ impl DataBase {
             // convert to vec because array cannot be serialized
             .bind(("before", before.to_vec()))
             .bind(("after", after))
-            .bind(("endpoint", endpoint))
+            .bind(("connection", connection))
             .await?
             .take(2)?; // The 3rd statement is the if-else which is what we want
 

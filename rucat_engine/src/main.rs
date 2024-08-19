@@ -9,7 +9,7 @@ use tokio::io::{self, AsyncReadExt};
 use tokio::net::TcpListener;
 use tonic::transport::server::TcpIncoming;
 use tonic::{transport::Server, Request, Response, Status};
-use tracing::{debug, info};
+use tracing::{error, info};
 
 #[derive(Debug, Default)]
 pub struct MyGreeter {}
@@ -65,12 +65,12 @@ async fn main() -> rucat_common::error::Result<()> {
         )),
         Some(response) => {
             if response.update_success {
-                debug!("Engine state updated successfully");
+                info!("Engine state updated successfully");
                 Ok(())
             } else {
-                Err(RucatError::FailedToStartEngine(
-                    "Failed to update engine state".to_string(),
-                ))
+                let err_msg = "Failed to update engine state";
+                error!(err_msg);
+                Err(RucatError::FailedToStartEngine(err_msg.to_string()))
             }
         }
     }?;

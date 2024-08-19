@@ -44,13 +44,14 @@ bash ./example/run.sh
 ## TODO
 
 1. Add engine discovery time
-2. Add heartbeat for rucat engine -> rucat engine update the discovery time in database regularly, if rucat server finds the time is outdated, it assume the engine has failed and mark the state to be error.
-3. server sends requests to engine by RPC.
-4. implement spark submit. (standalone, local mode for now, k8s mode in the future)
-5. mock rucat engine for testing / embedded rucat engine ?
-6. Add connect engine function to connect to the engine that is not created by rucat. (by spark-connect-rs for instance)
-7. 3 mode for rucat server:
+2. Add heartbeat for rucat engine -> rucat engine update the discovery time in database regularly.
+3. Implement rucat monitor to check the database regularly and detect unhealthy engines
+4. server sends requests to engine by RPC.
+5. implement spark submit. (standalone, local mode for now, k8s mode in the future)
+6. mock rucat engine for testing / embedded rucat engine ?
+7. Add connect engine function to connect to the engine that is not created by rucat. (by spark-connect-rs for instance)
+8. 3 mode for rucat server:
   embedded mode: use in memory db, can only create engine in the same process (embedded)
   local mode: use local mode db, can create engines embedded or locally
   remote mode: use remote db, can create engines embedded, locally or remotely.
-8. Strong typed engine endpoint
+9. run docker using <https://orbstack.dev/>

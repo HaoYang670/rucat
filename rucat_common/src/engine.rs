@@ -1,9 +1,41 @@
 use std::net::SocketAddr;
 
-use time::OffsetDateTime;
+use time::{
+    format_description::BorrowedFormatItem, macros::format_description, Duration, OffsetDateTime,
+};
 
 use serde::{Deserialize, Serialize};
 
+/// Type of time in engine.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EngineTime {
+    time: String,
+}
+
+impl EngineTime {
+    /// The format description of the time in engine.
+    const FORMAT_DESC: &[BorrowedFormatItem<'_>] = format_description!(
+        "[year]-[month]-[day] [hour]:[minute]:[second] [offset_hour sign:mandatory]:[offset_minute]:[offset_second]"
+    );
+
+    /// Create a new [EngineTime] with the current time.
+    pub fn now() -> Self {
+        Self {
+            // Use `unwrap` because the format is fixed.
+            time: OffsetDateTime::now_utc().format(Self::FORMAT_DESC).unwrap(),
+        }
+    }
+
+    /// Get the elapsed time from the time of this [EngineTime].
+    pub fn elapsed_time(&self) -> Duration {
+        let now = OffsetDateTime::now_utc();
+        // Use `unwrap` because the format is fixed.
+        let time = OffsetDateTime::parse(&self.time, Self::FORMAT_DESC).unwrap();
+        now - time
+    }
+}
+
+/// States of Rucat engine
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum EngineState {
     /// Engine is pending to be started.
@@ -14,7 +46,7 @@ pub enum EngineState {
     Stopped,
 }
 
-/// Ballista first on k8s.
+/// Types of Rucat engine
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum EngineType {
     /// Ballista in local mode
@@ -24,12 +56,13 @@ pub enum EngineType {
     Rucat,
 }
 
+/// Connection information of an engine.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct EngineAddr {
+pub struct EngineConnection {
     endpoint: String,
 }
 
-impl From<SocketAddr> for EngineAddr {
+impl From<SocketAddr> for EngineConnection {
     fn from(addr: SocketAddr) -> Self {
         Self {
             endpoint: addr.to_string(),
@@ -37,16 +70,16 @@ impl From<SocketAddr> for EngineAddr {
     }
 }
 
+/// Whole information of an engine.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EngineInfo {
     name: String,
     engine_type: EngineType,
     /// The address of the engine.
-    // We don't define `endpoint` in `EngineState` because SurrealQL doesn't support pattern matching.`
-    endpoint: Option<EngineAddr>,
+    // We don't embed `endpoint` in `EngineState` because SurrealQL doesn't support pattern matching.`
+    connection: Option<EngineConnection>,
     state: EngineState,
-    // Use String type but not OffsetDateTime to get a more readable response.
-    created_time: String,
+    created_time: EngineTime,
 }
 
 impl EngineInfo {
@@ -54,14 +87,14 @@ impl EngineInfo {
         name: String,
         engine_type: EngineType,
         state: EngineState,
-        endpoint: Option<EngineAddr>,
+        endpoint: Option<EngineConnection>,
     ) -> Self {
         Self {
             name,
             engine_type,
             state,
-            endpoint,
-            created_time: OffsetDateTime::now_utc().to_string(),
+            connection: endpoint,
+            created_time: EngineTime::now(),
         }
     }
 
