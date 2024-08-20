@@ -8,12 +8,12 @@ edition = "2021"
 [dependencies]
 axum = {"version" = "0.7.5"}
 anyhow = {"version" = "1.0.86"}
-clap = { version = "4.5.13", features = ["derive"] }
+clap = { version = "4.5.16", features = ["derive"] }
 clap_derive = "4.5.13"
 prost = "0.13.1"
 rand = "0.8.5"
-serde = {"version" = "1.0.204", features = ["derive"]}
-serde_json = "1.0.122"
+serde = {"version" = "1.0.208", features = ["derive"]}
+serde_json = "1.0.125"
 surrealdb = {"version" = "1.5.4", features = ["kv-mem", "native-tls"]}
 tonic = "0.12.1"
 time = {version = "0.3.36", features = ["serde-well-known", "parsing", "macros"]}
