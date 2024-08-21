@@ -1,6 +1,12 @@
+use std::{thread::sleep, time::Duration};
+
 use axum_test::{TestResponse, TestServer};
 use http::StatusCode;
-use rucat_common::{error::Result, EngineId};
+use rucat_common::{
+    engine::{EngineInfo, EngineState::*, EngineType::*},
+    error::Result,
+    EngineId,
+};
 use rucat_server::get_server;
 use serde_json::json;
 
@@ -21,6 +27,11 @@ async fn create_engine_helper(server: &TestServer) -> TestResponse {
             "engine_type": "BallistaLocal"
         }))
         .await
+}
+
+#[inline(always)]
+fn wait_one_second() {
+    sleep(Duration::from_secs(1));
 }
 
 #[tokio::test]
@@ -113,12 +124,14 @@ async fn create_engine_with_unknown_field() -> Result<()> {
 async fn get_engine() -> Result<()> {
     let server = get_test_server().await?;
     let id: EngineId = create_engine_helper(&server).await.json();
+    // wait for the engine to be created
+    wait_one_second();
 
-    let response = server.get(&format!("/engine/{}", id.as_str())).await;
-    response.assert_status_ok();
-    response.assert_text_contains(
-        r#"{"name":"test","engine_type":"BallistaLocal","connection":null,"state":"Pending","created_time":"#,
-    );
+    let response: EngineInfo = server.get(&format!("/engine/{}", id.as_str())).await.json();
+    assert_eq!(response.get_name(), "test");
+    assert_eq!(response.get_engine_type(), &BallistaLocal);
+    assert!(response.get_connection().is_some());
+    assert_eq!(response.get_state(), &Running);
 
     Ok(())
 }
@@ -146,14 +159,17 @@ async fn stop_engine() -> Result<()> {
     let server = get_test_server().await?;
     let id: EngineId = create_engine_helper(&server).await.json();
     let id = id.as_str();
+    // wait for the engine to be created
+    wait_one_second();
 
     let response = server.post(&format!("/engine/{}/stop", id)).await;
     response.assert_status_ok();
 
-    let response = server.get(&format!("/engine/{}", id)).await;
-    response.assert_text_contains(
-        r#"{"name":"test","engine_type":"BallistaLocal","connection":null,"state":"Stopped","created_time":"#,
-    );
+    let response: EngineInfo = server.get(&format!("/engine/{}", id)).await.json();
+    assert_eq!(response.get_name(), "test");
+    assert_eq!(response.get_engine_type(), &BallistaLocal);
+    assert!(response.get_connection().is_none());
+    assert_eq!(response.get_state(), &Stopped);
 
     Ok(())
 }
@@ -171,6 +187,8 @@ async fn stop_engine_twice() -> Result<()> {
     let server = get_test_server().await?;
     let id: EngineId = create_engine_helper(&server).await.json();
     let id = id.as_str();
+    // wait for the engine to be created
+    wait_one_second();
 
     server.post(&format!("/engine/{}/stop", id)).await;
 
@@ -189,14 +207,19 @@ async fn restart_engine() -> Result<()> {
     let server = get_test_server().await?;
     let id: EngineId = create_engine_helper(&server).await.json();
     let id = id.as_str();
+    // wait for the engine to be created
+    wait_one_second();
+
     server.post(&format!("/engine/{}/stop", id)).await;
     let response = server.post(&format!("/engine/{}/restart", id)).await;
     response.assert_status_ok();
 
-    let response = server.get(&format!("/engine/{}", id)).await;
-    response.assert_text_contains(
-        r#"{"name":"test","engine_type":"BallistaLocal","connection":null,"state":"Pending","created_time":"#,
-    );
+    let response: EngineInfo = server.get(&format!("/engine/{}", id)).await.json();
+    assert_eq!(response.get_name(), "test");
+    assert_eq!(response.get_engine_type(), &BallistaLocal);
+    // we haven't implemented reconnection yet
+    assert!(response.get_connection().is_none());
+    assert_eq!(response.get_state(), &Pending);
 
     Ok(())
 }
@@ -225,9 +248,21 @@ async fn cannot_restart_pending_engine() -> Result<()> {
 }
 
 #[tokio::test]
-#[should_panic(expected = "not yet implemented")]
-async fn cannot_restart_running_engine() {
-    todo!("not yet implemented")
+async fn cannot_restart_running_engine() -> Result<()> {
+    let server = get_test_server().await?;
+    let id: EngineId = create_engine_helper(&server).await.json();
+    let id = id.as_str();
+    // wait for the engine to be created
+    wait_one_second();
+
+    let response = server.post(&format!("/engine/{}/restart", id)).await;
+    response.assert_status_forbidden();
+    response.assert_text(format!(
+        "Not allowed error: Engine {} is in Running state, cannot be restarted",
+        id
+    ));
+
+    Ok(())
 }
 
 #[tokio::test]

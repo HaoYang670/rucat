@@ -36,7 +36,7 @@ impl EngineTime {
 }
 
 /// States of Rucat engine
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub enum EngineState {
     /// Engine is pending to be started.
     Pending,
@@ -47,7 +47,7 @@ pub enum EngineState {
 }
 
 /// Types of Rucat engine
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum EngineType {
     /// Ballista in local mode
     BallistaLocal,
@@ -87,19 +87,23 @@ impl EngineInfo {
         name: String,
         engine_type: EngineType,
         state: EngineState,
-        endpoint: Option<EngineConnection>,
+        connection: Option<EngineConnection>,
     ) -> Self {
         Self {
             name,
             engine_type,
             state,
-            connection: endpoint,
+            connection,
             created_time: EngineTime::now(),
         }
     }
 
     pub fn get_name(&self) -> &str {
         &self.name
+    }
+
+    pub fn get_connection(&self) -> Option<&EngineConnection> {
+        self.connection.as_ref()
     }
 
     pub fn get_engine_type(&self) -> &EngineType {

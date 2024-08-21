@@ -7,15 +7,16 @@ Rucat name meaning is Guider, Discipline, Adventurer and Rucat is a Boy / Girl n
 ```mermaid
 flowchart
     server(rucat server)
-    db[(surreal db)]
     engine(rucat engine)
     spark(Apache Spark)
+    monitor(rucat monitor)
+    db[(surreal db)]
     user -- http requests --> server
+    monitor -- regular healthy check --> db
     server -- read / write engine info --> db
     server -- create / stop / restart --> engine
     engine -- update engine info --> db
-    engine -- create --> spark
-    engine -- connect --> spark
+    engine -- create / connect --> spark
 ```
 
 ## Rucat Engine State
@@ -54,4 +55,3 @@ bash ./example/run.sh
   embedded mode: use in memory db, can only create engine in the same process (embedded)
   local mode: use local mode db, can create engines embedded or locally
   remote mode: use remote db, can create engines embedded, locally or remotely.
-9. add sleep in test to wait for engine to update the state to running
