@@ -54,4 +54,4 @@ bash ./example/run.sh
   embedded mode: use in memory db, can only create engine in the same process (embedded)
   local mode: use local mode db, can create engines embedded or locally
   remote mode: use remote db, can create engines embedded, locally or remotely.
-9. run docker using <https://orbstack.dev/>
+9. add sleep in test to wait for engine to update the state to running

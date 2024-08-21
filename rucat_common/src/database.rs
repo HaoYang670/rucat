@@ -105,7 +105,7 @@ impl DataBase {
             .db
             .query(sql)
             .bind(("tb", Self::TABLE))
-            .bind(("id", id.as_str()))
+            .bind(("id", id.as_str().to_owned()))
             .await?
             .take(0)?;
         Ok(result)
@@ -148,7 +148,7 @@ impl DataBase {
             .db
             .query(sql)
             .bind(("tb", Self::TABLE))
-            .bind(("id", id.as_str()))
+            .bind(("id", id.as_str().to_owned()))
             // convert to vec because array cannot be serialized
             .bind(("before", before.to_vec()))
             .bind(("after", after))
@@ -169,7 +169,7 @@ impl DataBase {
             .db
             .query(sql)
             .bind(("tb", Self::TABLE))
-            .bind(("id", id.as_str()))
+            .bind(("id", id.as_str().to_owned()))
             .await?
             .take(0)?;
         Ok(info)

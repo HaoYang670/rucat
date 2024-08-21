@@ -3,5 +3,6 @@
 
 cargo build
 cargo test
+# kill all the leaked processes
 pkill surreal
 pkill rucat_engine
