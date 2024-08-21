@@ -14,7 +14,7 @@ pub struct EngineTime {
 
 impl EngineTime {
     /// The format description of the time in engine.
-    const FORMAT_DESC: &[BorrowedFormatItem<'_>] = format_description!(
+    const FORMAT_DESC: &'static [BorrowedFormatItem<'static>] = format_description!(
         "[year]-[month]-[day] [hour]:[minute]:[second] [offset_hour sign:mandatory]:[offset_minute]:[offset_second]"
     );
 
