@@ -8,9 +8,7 @@ use serde::{Deserialize, Serialize};
 
 /// Type of time in engine.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct EngineTime {
-    time: String,
-}
+pub struct EngineTime(String);
 
 impl EngineTime {
     /// The format description of the time in engine.
@@ -20,17 +18,17 @@ impl EngineTime {
 
     /// Create a new [EngineTime] with the current time.
     pub fn now() -> Self {
-        Self {
+        Self(
             // Use `unwrap` because the format is fixed.
-            time: OffsetDateTime::now_utc().format(Self::FORMAT_DESC).unwrap(),
-        }
+            OffsetDateTime::now_utc().format(Self::FORMAT_DESC).unwrap(),
+        )
     }
 
     /// Get the elapsed time from the time of this [EngineTime].
     pub fn elapsed_time(&self) -> Duration {
         let now = OffsetDateTime::now_utc();
         // Use `unwrap` because the format is fixed.
-        let time = OffsetDateTime::parse(&self.time, Self::FORMAT_DESC).unwrap();
+        let time = OffsetDateTime::parse(&self.0, Self::FORMAT_DESC).unwrap();
         now - time
     }
 }
@@ -60,13 +58,21 @@ pub enum EngineType {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EngineConnection {
     endpoint: String,
+    update_time: EngineTime,
 }
 
 impl From<SocketAddr> for EngineConnection {
     fn from(addr: SocketAddr) -> Self {
         Self {
             endpoint: addr.to_string(),
+            update_time: EngineTime::now(),
         }
+    }
+}
+
+impl EngineConnection {
+    pub fn renew(&mut self) {
+        self.update_time = EngineTime::now();
     }
 }
 
