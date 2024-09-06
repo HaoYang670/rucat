@@ -49,8 +49,9 @@ bash ./example/run.sh
 3. server sends requests to engine by RPC.
 4. implement spark submit. (standalone, local mode for now, k8s mode in the future)
 5. mock rucat engine for testing / embedded rucat engine ?
-6. Add connect engine function to connect to the engine that is not created by rucat. (by spark-connect-rs for instance)
+6. Add connect engine function to connect to the engine. (by spark-connect-rs for instance)
 7. 3 mode for rucat server:
   embedded mode: use in memory db, can only create engine in the same process (embedded)
   local mode: use local mode db, can create engines embedded or locally
   remote mode: use remote db, can create engines embedded, locally or remotely.
+8. support kubernetes
