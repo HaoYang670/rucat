@@ -22,7 +22,7 @@ pub async fn get_server(config_path: &str) -> Result<(Router, Option<Child>)> {
     let ServerConfig {
         auth_enable,
         engine_binary_path,
-        db_type,
+        database: db_type,
     } = read_config(config_path)?;
 
     let (db, embedded_db_ps) = match db_type {

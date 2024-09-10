@@ -26,7 +26,8 @@ impl Args {
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(tag = "type", content = "content")]
 pub enum DataBaseType {
-    /// Embedded database runs in the same process as the rucat server
+    /// Embedded database has the same lifetime as the server
+    /// and cannot be shared between servers
     Embedded,
     /// database runs in a separate process locally
     Local(String),
@@ -36,7 +37,7 @@ pub enum DataBaseType {
 pub struct ServerConfig {
     pub auth_enable: bool,
     pub engine_binary_path: String,
-    pub db_type: DataBaseType,
+    pub database: DataBaseType,
 }
 
 #[derive(Deserialize, Serialize)]
