@@ -50,7 +50,7 @@ impl DataBase {
         let port = rand::thread_rng().gen_range(1024..=65535);
         let address = format!("127.0.0.1:{}", port);
         let process = Command::new("surreal")
-            .args(["start", "-b", &address, "--log", "none"])
+            .args(["start", "-b", &address, "--log", "none", "--unauthenticated"])
             // TODO: store database's log in a file
             .stdout(Stdio::null())
             .spawn()?;
@@ -82,7 +82,7 @@ impl DataBase {
         let sql = r#"
             CREATE ONLY type::table($table)
             SET info = $engine
-            RETURN VALUE meta::id(id);
+            RETURN VALUE record::id(id);
         "#;
 
         let record: Option<String> = self
@@ -98,8 +98,12 @@ impl DataBase {
 
     pub async fn delete_engine(&self, id: &EngineId) -> Result<Option<EngineInfo>> {
         let sql = r#"
-            SELECT VALUE info from
-            (DELETE ONLY type::thing($tb, $id) RETURN BEFORE);
+            LET $id = type::thing($tb, $id);
+            IF $id.exists() THEN
+                SELECT VALUE info from (DELETE ONLY $id RETURN BEFORE)
+            ELSE
+                None
+            END;
         "#;
         let result: Option<EngineInfo> = self
             .db
@@ -107,7 +111,7 @@ impl DataBase {
             .bind(("tb", Self::TABLE))
             .bind(("id", id.as_str().to_owned()))
             .await?
-            .take(0)?;
+            .take(1)?;
         Ok(result)
     }
 
@@ -132,14 +136,16 @@ impl DataBase {
         let sql = r#"
             let $record_id = type::thing($tb, $id);             // 0th return value
             BEGIN TRANSACTION;
-            LET $current_state = (SELECT VALUE info.state from only $record_id); // 1st return value
-            IF $current_state IS NONE {
-                RETURN NONE;                                                     // 2nd return value
-            } ELSE IF $current_state IN $before {
-                UPDATE ONLY $record_id SET info.state = $after, info.connection = $connection;
-                RETURN {before_state: $current_state, update_success: true};                  // 2nd return value
-            } ELSE {
-                RETURN {before_state: $current_state, update_success: false};                 // 2nd return value
+            {
+                LET $current_state = (SELECT VALUE info.state from only $record_id);
+                IF $current_state IS NONE {
+                    RETURN NONE;                                                     // 1st return value
+                } ELSE IF $current_state IN $before {
+                    UPDATE ONLY $record_id SET info.state = $after, info.connection = $connection;
+                    RETURN {before_state: $current_state, update_success: true};                  // 1st return value
+                } ELSE {
+                    RETURN {before_state: $current_state, update_success: false};                 // 1st return value
+                }
             };
             COMMIT TRANSACTION;
         "#;
@@ -154,7 +160,7 @@ impl DataBase {
             .bind(("after", after))
             .bind(("connection", connection))
             .await?
-            .take(2)?; // The 3rd statement is the if-else which is what we want
+            .take(1)?; // The 1st statement is the if-else which is what we want
 
         Ok(before_state)
     }
@@ -178,7 +184,7 @@ impl DataBase {
     /// Return a sorted list of all engine ids
     pub async fn list_engines(&self) -> Result<Vec<EngineId>> {
         let sql = r#"
-            SELECT VALUE meta::id(id) FROM type::table($tb);
+            SELECT VALUE record::id(id) FROM type::table($tb);
         "#;
 
         let ids: Vec<String> = self

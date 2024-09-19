@@ -7,14 +7,14 @@ edition = "2021"
 
 [dependencies]
 axum = {"version" = "0.7.5"}
-anyhow = {"version" = "1.0.86"}
+anyhow = {"version" = "1.0.89"}
 clap = { version = "4.5.17", features = ["derive"] }
 clap_derive = "4.5.13"
 prost = "0.13.2"
 rand = "0.8.5"
-serde = {"version" = "1.0.209", features = ["derive"]}
+serde = {"version" = "1.0.210", features = ["derive"]}
 serde_json = "1.0.128"
-surrealdb = {"version" = "1.5.4", features = ["kv-mem", "native-tls"]}
+surrealdb = {"version" = "2.0.1", features = ["kv-mem", "native-tls"]}
 tonic = "0.12.2"
 time = {version = "0.3.36", features = ["serde-well-known", "parsing", "macros"]}
 
