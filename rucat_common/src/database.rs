@@ -13,6 +13,7 @@ use surrealdb::{
     engine::remote::ws::{Client, Ws},
     Surreal,
 };
+use tracing::error;
 
 /// Response of updating an engine state.
 /// # Fields
@@ -60,7 +61,8 @@ impl DataBase {
             ])
             // TODO: store database's log in a file
             .stdout(Stdio::null())
-            .spawn()?;
+            .spawn()
+            .inspect_err(|e| error!("Fail to create embedded database: {}", e))?;
 
         // Wait for the database to be ready
         let mut attempts = 0;

@@ -7,14 +7,14 @@ edition = "2021"
 
 [dependencies]
 rucat_common = {path = "../rucat_common"}
-axum = {"version" = "0.7.5", features = ["macros"]}
-axum-extra = {"version" = "0.9.3", features = ["typed-header"]}
-bytes = {"version" = "1.7.1"}
+axum = {"version" = "0.7.6", features = ["macros"]}
+axum-extra = {"version" = "0.9.4", features = ["typed-header"]}
+bytes = {"version" = "1.7.2"}
 http = {"version" = "1.1.0"}
 http-body = {"version" = "1.0.1"}
 serde = {"version" = "1.0.210", features = ["derive"]}
 serde_json = "1.0.128"
-tower-http = { "version" = "0.5.2", features = ["trace"] }
+tower-http = { "version" = "0.6.0", features = ["trace"] }
 tracing = {"version" = "0.1.40"}
 tracing-subscriber = {"version" = "0.3.18"}
 tokio = {"version" = "1.40.0", features = ["full"]}
@@ -23,5 +23,5 @@ tonic = "0.12.2"
 # test dependencies
 
 [dev-dependencies]
-axum-test = {"version" = "15.7.1"}
+axum-test = {"version" = "15.7.3"}
 headers = {"version" = "0.4.0"}

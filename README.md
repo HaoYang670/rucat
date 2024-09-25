@@ -48,10 +48,17 @@ bash ./example/run.sh
 2. Implement rucat monitor to check the database regularly and detect unhealthy engines
 3. server sends requests to engine by RPC.
 4. implement spark submit. (standalone, local mode for now, k8s mode in the future)
-5. mock rucat engine for testing / embedded rucat engine ?
+5. test graceful shutdown
 6. Add connect engine function to connect to the engine. (by spark-connect-rs for instance)
 7. 3 mode for rucat server:
   embedded mode: use in memory db, can only create engine in the same process (embedded)
   local mode: use local mode db, can create engines embedded or locally
   remote mode: use remote db, can create engines embedded, locally or remotely.
-8. support kubernetes
+8. deploy surreal on k8s
+9. investigate how spark-connect-rs is used
+10. enable surreal authentication
+
+## How to deploy on k8s
+
+1. `helm install rucat rucat`
+2. `kubectl port-forward <rucat server pod> 1234:3000`

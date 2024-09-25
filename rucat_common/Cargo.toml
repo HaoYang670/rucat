@@ -6,17 +6,18 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-axum = {"version" = "0.7.5"}
+axum = {"version" = "0.7.6"}
 anyhow = {"version" = "1.0.89"}
-clap = { version = "4.5.17", features = ["derive"] }
-clap_derive = "4.5.13"
-prost = "0.13.2"
+clap = { version = "4.5.18", features = ["derive"] }
+clap_derive = "4.5.18"
+prost = "0.13.3"
 rand = "0.8.5"
 serde = {"version" = "1.0.210", features = ["derive"]}
 serde_json = "1.0.128"
 surrealdb = {"version" = "2.0.1", features = ["kv-mem", "native-tls"]}
 tonic = "0.12.2"
 time = {version = "0.3.36", features = ["serde-well-known", "parsing", "macros"]}
+tracing = {"version" = "0.1.40"}
 
 [build-dependencies]
 tonic-build = "0.12.2"
