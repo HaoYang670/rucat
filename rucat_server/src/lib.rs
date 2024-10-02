@@ -22,7 +22,11 @@ pub async fn get_server(config_path: &str) -> Result<(Router, Option<Child>)> {
     let ServerConfig {
         auth_enable,
         engine_binary_path,
-        database: DatabaseConfig { credentials, variant: database_type},
+        database:
+            DatabaseConfig {
+                credentials,
+                variant: database_type,
+            },
     } = read_config(config_path)?;
 
     let (db, embedded_db_ps) = match database_type {
@@ -30,7 +34,10 @@ pub async fn get_server(config_path: &str) -> Result<(Router, Option<Child>)> {
             let (db, ps) = DatabaseClient::create_embedded_db(credentials.as_ref()).await?;
             (db, Some(ps))
         }
-        DatabaseVariant::Local{uri} => (DatabaseClient::connect_local_db(credentials.as_ref(), uri).await?, None),
+        DatabaseVariant::Local { uri } => (
+            DatabaseClient::connect_local_db(credentials.as_ref(), uri).await?,
+            None,
+        ),
     };
     let app_state = AppState::new(db, engine_binary_path);
 

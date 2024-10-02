@@ -4,12 +4,15 @@ use std::process::{Child, Command, Stdio};
 use std::thread::sleep;
 use std::time::Duration;
 
-use crate::{config::Credentials, engine::{EngineConnection, EngineInfo, EngineState}};
 use crate::error::{Result, RucatError};
 use crate::EngineId;
+use crate::{
+    config::Credentials,
+    engine::{EngineConnection, EngineInfo, EngineState},
+};
+use ::surrealdb::opt::auth::Root;
 use rand::Rng;
 use serde::Deserialize;
-use ::surrealdb::opt::auth::Root;
 use surrealdb::{
     engine::remote::ws::{Client, Ws},
     Surreal,
@@ -94,13 +97,17 @@ impl DatabaseClient {
     pub async fn connect_local_db(credentials: Option<&Credentials>, uri: String) -> Result<Self> {
         let client = Surreal::new::<Ws>(&uri).await?;
         if let Some(Credentials { username, password }) = credentials {
-            client.signin(Root {
-                username,
-                password,
-            }).await?;
+            client.signin(Root { username, password }).await?;
         }
-        client.use_ns(Self::NAMESPACE).use_db(Self::DATABASE).await?;
-        Ok(Self { uri, client, credentials: credentials.cloned() })
+        client
+            .use_ns(Self::NAMESPACE)
+            .use_db(Self::DATABASE)
+            .await?;
+        Ok(Self {
+            uri,
+            client,
+            credentials: credentials.cloned(),
+        })
     }
 
     pub async fn add_engine(&self, engine: EngineInfo) -> Result<EngineId> {

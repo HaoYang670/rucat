@@ -37,9 +37,7 @@ pub enum DatabaseVariant {
     /// and cannot be shared between servers
     Embedded,
     /// database runs in a separate process locally
-    Local {
-        uri: String,
-    },
+    Local { uri: String },
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -59,7 +57,7 @@ pub struct ServerConfig {
 pub struct EngineConfig {
     pub engine_id: EngineId,
     pub database_uri: String,
-    pub database_credentials: Option<Credentials>, 
+    pub database_credentials: Option<Credentials>,
 }
 
 /// Parse [ServerConfig] or [EngineConfig] from the config file.

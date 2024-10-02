@@ -58,6 +58,7 @@ bash ./example/run.sh
 9. investigate how spark-connect-rs is used
 10. Test graceful shutdown <https://github.com/JosephLenton/axum-test/issues/88#issuecomment-2369720183>
 11. Rewrite engine state using Surreal Literal type <https://surrealdb.com/docs/surrealql/datamodel/literals>
+12. Consider if rucat_engine can be removed. Use <https://github.com/kube-rs/kube> to detect the pod status of Spark.
 
 ## How to deploy on k8s
 
