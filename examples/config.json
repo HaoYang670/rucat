@@ -2,6 +2,13 @@
   "auth_enable": false,
   "engine_binary_path": "../target/release/rucat_engine",
   "database": {
-    "type": "Embedded"
+    "credentials": {
+      "username": "remziy",
+      "password": "123"
+    },
+    "variant": {
+      "type": "Local",
+      "uri": "localhost:8000"
+    }
   }
 }

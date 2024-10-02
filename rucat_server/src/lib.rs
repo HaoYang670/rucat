@@ -4,8 +4,8 @@ use authentication::auth;
 use axum::{extract::State, middleware, routing::get, Router};
 use axum_extra::middleware::option_layer;
 use engine::router::get_engine_router;
-use rucat_common::config::{read_config, DataBaseType};
-use rucat_common::database::DataBase;
+use rucat_common::config::{read_config, DatabaseConfig, DatabaseVariant};
+use rucat_common::database::DatabaseClient;
 use rucat_common::{config::ServerConfig, error::Result};
 use state::AppState;
 use tower_http::trace::TraceLayer;
@@ -22,15 +22,15 @@ pub async fn get_server(config_path: &str) -> Result<(Router, Option<Child>)> {
     let ServerConfig {
         auth_enable,
         engine_binary_path,
-        database: db_type,
+        database: DatabaseConfig { credentials, variant: database_type},
     } = read_config(config_path)?;
 
-    let (db, embedded_db_ps) = match db_type {
-        DataBaseType::Embedded => {
-            let (db, ps) = DataBase::create_embedded_db().await?;
+    let (db, embedded_db_ps) = match database_type {
+        DatabaseVariant::Embedded => {
+            let (db, ps) = DatabaseClient::create_embedded_db(credentials.as_ref()).await?;
             (db, Some(ps))
         }
-        DataBaseType::Local(path) => (DataBase::connect_local_db(path).await?, None),
+        DatabaseVariant::Local{uri} => (DatabaseClient::connect_local_db(credentials.as_ref(), uri).await?, None),
     };
     let app_state = AppState::new(db, engine_binary_path);
 

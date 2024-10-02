@@ -10,6 +10,11 @@ data:
       "auth_enable": false,
       "engine_binary_path": "../target/release/rucat_engine",
       "database": {
-        "type": "Embedded"
+        "credentials": {
+          "username": "admin",
+          "password": "admin",
+        },
+        "variant": {
+          "type": "Embedded"
       }
     }

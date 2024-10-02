@@ -56,7 +56,8 @@ bash ./example/run.sh
   remote mode: use remote db, can create engines embedded, locally or remotely.
 8. deploy surreal on k8s
 9. investigate how spark-connect-rs is used
-10. enable surreal authentication
+10. Test graceful shutdown <https://github.com/JosephLenton/axum-test/issues/88#issuecomment-2369720183>
+11. Rewrite engine state using Surreal Literal type <https://surrealdb.com/docs/surrealql/datamodel/literals>
 
 ## How to deploy on k8s
 

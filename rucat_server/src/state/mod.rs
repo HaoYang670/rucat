@@ -1,22 +1,22 @@
 //! Shared state between handlers.
 
-use rucat_common::database::DataBase;
+use rucat_common::database::DatabaseClient;
 
 #[derive(Clone)]
 pub(crate) struct AppState {
-    db: DataBase,
+    db: DatabaseClient,
     engine_binary_path: String,
 }
 
 impl AppState {
-    pub(crate) fn new(db: DataBase, engine_binary_path: String) -> Self {
+    pub(crate) fn new(db: DatabaseClient, engine_binary_path: String) -> Self {
         Self {
             db,
             engine_binary_path,
         }
     }
 
-    pub(crate) fn get_db(&self) -> &DataBase {
+    pub(crate) fn get_db(&self) -> &DatabaseClient {
         &self.db
     }
 

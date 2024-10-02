@@ -41,7 +41,8 @@ async fn create_engine(
     let engine_id = state.get_db().add_engine(body.into()).await?;
     let engine_config = EngineConfig {
         engine_id: engine_id.clone(),
-        db_endpoint: state.get_db().get_address().to_owned(),
+        database_uri: state.get_db().get_uri().to_owned(),
+        database_credentials: state.get_db().get_credentials().cloned(),
     };
     let success = rpc::create_engine(state.get_engine_binary_path(), engine_config).await;
     // If fail to create the engine, delete the engine record from database.

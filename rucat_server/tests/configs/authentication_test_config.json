@@ -2,6 +2,12 @@
   "auth_enable": true,
   "engine_binary_path": "../target/debug/rucat_engine",
   "database": {
-    "type": "Embedded"
+    "credentials": {
+      "username": "admin",
+      "password": "admin"
+    },
+    "variant": {
+      "type": "Embedded"
+    }
   }
 }

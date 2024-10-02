@@ -4,11 +4,12 @@ use std::process::{Child, Command, Stdio};
 use std::thread::sleep;
 use std::time::Duration;
 
-use crate::engine::{EngineConnection, EngineInfo, EngineState};
+use crate::{config::Credentials, engine::{EngineConnection, EngineInfo, EngineState}};
 use crate::error::{Result, RucatError};
 use crate::EngineId;
 use rand::Rng;
 use serde::Deserialize;
+use ::surrealdb::opt::auth::Root;
 use surrealdb::{
     engine::remote::ws::{Client, Ws},
     Surreal,
@@ -25,40 +26,49 @@ pub struct UpdateEngineStateResponse {
     pub update_success: bool,
 }
 
+/// Client to interact with the database.
 /// Store the metadata of Engines
 #[derive(Clone)]
-pub struct DataBase {
-    /// preserve `address` for easily converting to [DatabaseType]
-    address: String,
-    /// database client
-    db: Surreal<Client>,
+pub struct DatabaseClient {
+    /// preserve `uri` for easily converting to [DatabaseType]
+    uri: String,
+    credentials: Option<Credentials>,
+    client: Surreal<Client>,
 }
 
-impl DataBase {
+impl DatabaseClient {
     const TABLE: &'static str = "engines";
     const NAMESPACE: &'static str = "rucat";
     const DATABASE: &'static str = "rucat";
     const MAX_ATTEMPTS_TO_CONNECT_EMBEDDED_DB: u8 = 10;
 
-    pub fn get_address(&self) -> &str {
-        &self.address
+    pub fn get_uri(&self) -> &str {
+        &self.uri
+    }
+
+    pub fn get_credentials(&self) -> Option<&Credentials> {
+        self.credentials.as_ref()
     }
 
     /// embedded db will be killed when the server is killed
     /// Return the [DataBase] and the db process.
-    pub async fn create_embedded_db() -> Result<(Self, Child)> {
+    pub async fn create_embedded_db(credentials: Option<&Credentials>) -> Result<(Self, Child)> {
         // create db using command line and connect to it.
-        let port = rand::thread_rng().gen_range(1024..=65535);
-        let address = format!("127.0.0.1:{}", port);
+        let address = {
+            let port = rand::thread_rng().gen_range(1024..=65535);
+            format!("127.0.0.1:{}", port)
+        };
+        let args = {
+            let mut authentication_args = match credentials {
+                Some(Credentials { username, password }) => vec!["-u", username, "-p", password],
+                None => vec!["--unauthenticated"],
+            };
+            let mut args = vec!["start", "-b", &address, "--log", "none"];
+            args.append(&mut authentication_args);
+            args
+        };
         let process = Command::new("surreal")
-            .args([
-                "start",
-                "-b",
-                &address,
-                "--log",
-                "none",
-                "--unauthenticated",
-            ])
+            .args(args)
             // TODO: store database's log in a file
             .stdout(Stdio::null())
             .spawn()
@@ -69,7 +79,7 @@ impl DataBase {
         let delay = Duration::from_secs(1);
 
         loop {
-            match Self::connect_local_db(address.clone()).await {
+            match Self::connect_local_db(credentials, address.clone()).await {
                 Ok(db) => return Ok((db, process)),
                 Err(_) if attempts < Self::MAX_ATTEMPTS_TO_CONNECT_EMBEDDED_DB => {
                     attempts += 1;
@@ -81,10 +91,16 @@ impl DataBase {
     }
 
     /// data store that connects to a SurrealDB
-    pub async fn connect_local_db(address: String) -> Result<Self> {
-        let db = Surreal::new::<Ws>(&address).await?;
-        db.use_ns(Self::NAMESPACE).use_db(Self::DATABASE).await?;
-        Ok(Self { address, db })
+    pub async fn connect_local_db(credentials: Option<&Credentials>, uri: String) -> Result<Self> {
+        let client = Surreal::new::<Ws>(&uri).await?;
+        if let Some(Credentials { username, password }) = credentials {
+            client.signin(Root {
+                username,
+                password,
+            }).await?;
+        }
+        client.use_ns(Self::NAMESPACE).use_db(Self::DATABASE).await?;
+        Ok(Self { uri, client, credentials: credentials.cloned() })
     }
 
     pub async fn add_engine(&self, engine: EngineInfo) -> Result<EngineId> {
@@ -95,7 +111,7 @@ impl DataBase {
         "#;
 
         let record: Option<String> = self
-            .db
+            .client
             .query(sql)
             .bind(("table", Self::TABLE))
             .bind(("engine", engine))
@@ -115,7 +131,7 @@ impl DataBase {
             END;
         "#;
         let result: Option<EngineInfo> = self
-            .db
+            .client
             .query(sql)
             .bind(("tb", Self::TABLE))
             .bind(("id", id.as_str().to_owned()))
@@ -160,7 +176,7 @@ impl DataBase {
         "#;
 
         let before_state: Option<UpdateEngineStateResponse> = self
-            .db
+            .client
             .query(sql)
             .bind(("tb", Self::TABLE))
             .bind(("id", id.as_str().to_owned()))
@@ -181,7 +197,7 @@ impl DataBase {
             FROM ONLY type::thing($tb, $id);
         "#;
         let info: Option<EngineInfo> = self
-            .db
+            .client
             .query(sql)
             .bind(("tb", Self::TABLE))
             .bind(("id", id.as_str().to_owned()))
@@ -197,7 +213,7 @@ impl DataBase {
         "#;
 
         let ids: Vec<String> = self
-            .db
+            .client
             .query(sql)
             .bind(("tb", Self::TABLE))
             .await?

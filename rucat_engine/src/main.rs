@@ -1,5 +1,5 @@
 use rucat_common::config::EngineConfig;
-use rucat_common::database::DataBase;
+use rucat_common::database::DatabaseClient;
 use rucat_common::engine::EngineState::*;
 use rucat_common::engine_grpc::greeter_server::{Greeter, GreeterServer};
 use rucat_common::engine_grpc::{HelloReply, HelloRequest};
@@ -38,15 +38,16 @@ async fn main() -> rucat_common::error::Result<()> {
     // TODO: read from stdin directly (serde_json: from_reader)
     let EngineConfig {
         engine_id,
-        db_endpoint,
+        database_uri,
+        database_credentials,
     } = {
         let mut buf = vec![];
         io::stdin().read_to_end(&mut buf).await?;
         serde_json::from_slice(&buf)?
     };
     info!(
-        "Received configs from server: engine_id: {:?}, db_endpoint: {}",
-        engine_id, db_endpoint
+        "Received configs from server: engine id: {:?}, database uri: {}",
+        engine_id, database_uri
     );
 
     // set port to 0 to let the OS choose a free port
@@ -55,7 +56,7 @@ async fn main() -> rucat_common::error::Result<()> {
     let addr = listener.local_addr()?;
     info!("Rucat engine is listening on: {}", addr);
 
-    let db = DataBase::connect_local_db(db_endpoint).await?;
+    let db = DatabaseClient::connect_local_db(database_credentials.as_ref(), database_uri).await?;
     let response = db
         .update_engine_state(&engine_id, [Pending], Running, Some(addr.into()))
         .await?;

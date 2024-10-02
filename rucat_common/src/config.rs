@@ -22,29 +22,44 @@ impl Args {
     }
 }
 
+/// Credentials for the database
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct Credentials {
+    pub username: String,
+    pub password: String,
+}
+
 /// Variant for user to choose the database type when creating the server
 #[derive(Debug, Deserialize, Serialize)]
-#[serde(tag = "type", content = "content")]
-pub enum DataBaseType {
+#[serde(tag = "type")]
+pub enum DatabaseVariant {
     /// Embedded database has the same lifetime as the server
     /// and cannot be shared between servers
     Embedded,
     /// database runs in a separate process locally
-    Local(String),
+    Local {
+        uri: String,
+    },
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct DatabaseConfig {
+    pub credentials: Option<Credentials>,
+    pub variant: DatabaseVariant,
 }
 
 #[derive(Deserialize)]
 pub struct ServerConfig {
     pub auth_enable: bool,
     pub engine_binary_path: String,
-    pub database: DataBaseType,
+    pub database: DatabaseConfig,
 }
 
 #[derive(Deserialize, Serialize)]
 pub struct EngineConfig {
     pub engine_id: EngineId,
-    /// only support local mode now
-    pub db_endpoint: String,
+    pub database_uri: String,
+    pub database_credentials: Option<Credentials>, 
 }
 
 /// Parse [ServerConfig] or [EngineConfig] from the config file.

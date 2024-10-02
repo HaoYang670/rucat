@@ -22,9 +22,8 @@ async fn main() -> Result<()> {
     info!("Rucat server is listening on {}", listener.local_addr()?);
     axum::serve(listener, app)
         .with_graceful_shutdown(shutdown_signal(embedded_db_ps))
-        .await?;
-
-    Ok(())
+        .await
+        .map_err(|e| e.into())
 }
 
 async fn shutdown_signal(embedded_db_ps: Option<Child>) {

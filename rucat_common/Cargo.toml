@@ -14,7 +14,7 @@ prost = "0.13.3"
 rand = "0.8.5"
 serde = {"version" = "1.0.210", features = ["derive"]}
 serde_json = "1.0.128"
-surrealdb = {"version" = "2.0.1", features = ["kv-mem", "native-tls"]}
+surrealdb = {"version" = "2.0.2", features = ["kv-mem", "native-tls"]}
 tonic = "0.12.2"
 time = {version = "0.3.36", features = ["serde-well-known", "parsing", "macros"]}
 tracing = {"version" = "0.1.40"}
