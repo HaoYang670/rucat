@@ -12,9 +12,10 @@ data:
       "database": {
         "credentials": {
           "username": "admin",
-          "password": "admin",
+          "password": "admin"
         },
         "variant": {
           "type": "Embedded"
+        }
       }
     }
