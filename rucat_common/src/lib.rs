@@ -7,6 +7,10 @@ pub mod database;
 pub mod engine;
 pub mod error;
 
+// re-export the dependencies
+pub use k8s_openapi;
+pub use kube;
+
 pub mod engine_grpc {
     tonic::include_proto!("engine_grpc");
 }

@@ -44,7 +44,7 @@ async fn create_engine(
         database_uri: state.get_db().get_uri().to_owned(),
         database_credentials: state.get_db().get_credentials().cloned(),
     };
-    let success = rpc::create_engine(state.get_engine_binary_path(), engine_config).await;
+    let success = rpc::create_engine(engine_config).await;
     // If fail to create the engine, delete the engine record from database.
     match success {
         Ok(()) => Ok(Json(engine_id)),

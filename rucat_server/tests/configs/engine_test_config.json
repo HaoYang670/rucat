@@ -1,6 +1,5 @@
 {
   "auth_enable": false,
-  "engine_binary_path": "../target/debug/rucat_engine",
   "database": {
     "variant": {
       "type": "Embedded"

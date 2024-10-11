@@ -21,7 +21,6 @@ pub(crate) mod state;
 pub async fn get_server(config_path: &str) -> Result<(Router, Option<Child>)> {
     let ServerConfig {
         auth_enable,
-        engine_binary_path,
         database:
             DatabaseConfig {
                 credentials,
@@ -39,7 +38,7 @@ pub async fn get_server(config_path: &str) -> Result<(Router, Option<Child>)> {
             None,
         ),
     };
-    let app_state = AppState::new(db, engine_binary_path);
+    let app_state = AppState::new(db);
 
     // go through the router from outer to inner
     let router = Router::new()

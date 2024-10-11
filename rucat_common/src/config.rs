@@ -49,7 +49,6 @@ pub struct DatabaseConfig {
 #[derive(Deserialize)]
 pub struct ServerConfig {
     pub auth_enable: bool,
-    pub engine_binary_path: String,
     pub database: DatabaseConfig,
 }
 

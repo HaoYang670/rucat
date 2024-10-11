@@ -76,3 +76,4 @@ convert_to_rucat_error!(anyhow::Error, RucatError::Other);
 convert_to_rucat_error!(FromUtf8Error, RucatError::Other);
 convert_to_rucat_error!(String, RucatError::Other);
 convert_to_rucat_error!(serde_json::Error, RucatError::DeserializeError);
+convert_to_rucat_error!(kube::Error, RucatError::FailedToStartEngine);
