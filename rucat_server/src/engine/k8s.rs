@@ -1,9 +1,7 @@
-//! RPC between server and engine.
-//!
-//! Create a new process for the engine and start the gRPC server.
-//! The engine will be listening on the given port. (localhost for now)
+//! Functions to manage Spark engine on k8s
 
-use rucat_common::{config::EngineConfig, error::Result};
+use ::rucat_common::EngineId;
+use rucat_common::error::Result;
 use rucat_common::{
     k8s_openapi::api::core::v1::{Pod, Service},
     kube::{api::PostParams, Api, Client},
@@ -11,22 +9,32 @@ use rucat_common::{
 
 use serde_json::json;
 
+const SPARK_SERVICE_SELECTOR: &str = "rucat-engine-selector";
+
+fn get_spark_app_id(id: &EngineId) -> String {
+    format!("rucat-spark-{}", id.as_str())
+}
+
+fn get_spark_driver_name(id: &EngineId) -> String {
+    format!("{}-driver", get_spark_app_id(id))
+}
+fn get_spark_service_name(id: &EngineId) -> String {
+    get_spark_app_id(id)
+}
+
 /// Create Spark app and Spark connect server on k8s
-pub(super) async fn create_engine(config: EngineConfig) -> Result<()> {
-    // Create a Kubernetes client
+pub(super) async fn create_engine(id: &EngineId) -> Result<()> {
     let client = Client::try_default().await?;
 
-    // Define your Pod manifest
-    let spark_app_name = format!("rucat-spark-{}", config.engine_id.as_str());
-    let selector = "rucat-engine-selector";
-    // todo: define service account
+    let spark_app_id = get_spark_app_id(id);
+    let spark_service_name = get_spark_service_name(id);
     let pod: Pod = serde_json::from_value(json!({
         "apiVersion": "v1",
         "kind": "Pod",
         "metadata": {
-            "name": format!("{}-driver", spark_app_name),
+            "name": get_spark_driver_name(id),
             "labels": {
-                selector: spark_app_name,
+                SPARK_SERVICE_SELECTOR: spark_app_id,
             },
         },
         "spec": {
@@ -47,14 +55,14 @@ pub(super) async fn create_engine(config: EngineConfig) -> Result<()> {
                     ],
                     "command": ["/opt/spark/sbin/start-connect-server.sh"],
                     "args": [
+                        // NOTE: spark.app.name is always "Spark Connect Server" and cannot be modified
                         "--master", "k8s://https://kubernetes:443",
                         "--deploy-mode", "client",
-                        "--conf", format!("spark.app.id={}", spark_app_name),
-                        "--conf", "spark.app.name=Rucat-Spark-Engine",
+                        "--conf", format!("spark.app.id={}", spark_app_id),
                         "--conf", "spark.kubernetes.container.image=apache/spark:3.5.3",
                         "--conf", "spark.executor.instances=1",
-                        "--conf", format!("spark.driver.host={}", spark_app_name),
-                        "--conf", format!("spark.kubernetes.executor.podNamePrefix={}", spark_app_name),
+                        "--conf", format!("spark.driver.host={}", spark_service_name),
+                        "--conf", format!("spark.kubernetes.executor.podNamePrefix={}", spark_app_id),
                         "--conf", "spark.driver.extraJavaOptions=-Divy.cache.dir=/tmp -Divy.home=/tmp",
                         "--packages", "org.apache.spark:spark-connect_2.12:3.5.3"],
                 }
@@ -68,19 +76,18 @@ pub(super) async fn create_engine(config: EngineConfig) -> Result<()> {
     // Create the Pod
     let pp = PostParams::default();
     let _pod = pods.create(&pp, &pod).await?;
-
     // Define your Headless Service manifest
     let service: Service = serde_json::from_value(json!({
         "apiVersion": "v1",
         "kind": "Service",
         "metadata": {
-            "name": spark_app_name,
+            "name": spark_service_name,
         },
         "spec": {
             "type": "ClusterIP",
             "clusterIP": "None",
             "selector": {
-                selector: spark_app_name,
+                SPARK_SERVICE_SELECTOR: spark_app_id,
             },
             "ports": [
                 {
@@ -117,4 +124,28 @@ pub(super) async fn create_engine(config: EngineConfig) -> Result<()> {
     // Create the Service
     let _service = services.create(&pp, &service).await?;
     Ok(())
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_get_spark_app_id() {
+        let id= EngineId::new("abc".to_owned());
+        assert_eq!(get_spark_app_id(&id), "rucat-spark-abc");
+    }
+
+    #[test]
+    fn test_get_spark_driver_name() {
+        let id= EngineId::new("abc".to_owned());
+        assert_eq!(get_spark_driver_name(&id), "rucat-spark-abc-driver");
+    }
+
+    #[test]
+    fn test_get_spark_service_name() {
+        let id= EngineId::new("abc".to_owned());
+        assert_eq!(get_spark_service_name(&id), "rucat-spark-abc");
+    }
 }

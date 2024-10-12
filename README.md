@@ -43,12 +43,13 @@ bash ./example/run.sh
 
 1. Implement rucat monitor to check the database regularly and detect unhealthy engines
 2. test graceful shutdown
-3. Add connect engine function to connect to the engine. (by spark-connect-rs for instance)
-4. deploy surreal on k8s
-5. investigate how spark-connect-rs is used
-6. Test graceful shutdown <https://github.com/JosephLenton/axum-test/issues/88#issuecomment-2369720183>
-7. Rewrite engine state using Surreal Literal type <https://surrealdb.com/docs/surrealql/datamodel/literals>
-8. Consider if rucat_engine can be removed. Use <https://github.com/kube-rs/kube> to detect the pod status of Spark.
+3. implement delete engine.
+4. Add connect engine function to connect to the engine. (by spark-connect-rs for instance)
+5. deploy surreal on k8s
+6. investigate how spark-connect-rs is used
+7. Test graceful shutdown <https://github.com/JosephLenton/axum-test/issues/88#issuecomment-2369720183>
+8. Rewrite engine state using Surreal Literal type <https://surrealdb.com/docs/surrealql/datamodel/literals>
+9. Consider if rucat_engine can be removed. Use <https://github.com/kube-rs/kube> to detect the pod status of Spark.
 
 ## How to deploy on k8s
 

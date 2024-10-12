@@ -21,6 +21,10 @@ pub struct EngineId {
 }
 
 impl EngineId {
+    pub fn new(id: String) -> Self {
+        EngineId { id }
+    }
+
     pub fn as_str(&self) -> &str {
         &self.id
     }

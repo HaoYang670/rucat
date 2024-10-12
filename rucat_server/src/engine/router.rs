@@ -8,7 +8,6 @@ use axum::{
     Json, Router,
 };
 use rucat_common::{
-    config::EngineConfig,
     engine::{EngineInfo, EngineState::*, EngineType},
     error::{Result, RucatError},
     EngineId,
@@ -17,7 +16,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::state::AppState;
 
-use super::rpc;
+use super::k8s;
 
 impl From<CreateEngineRequest> for EngineInfo {
     fn from(value: CreateEngineRequest) -> Self {
@@ -37,14 +36,8 @@ async fn create_engine(
     State(state): State<AppState>,
     Json(body): Json<CreateEngineRequest>,
 ) -> Result<Json<EngineId>> {
-    // TODO: whether need to make the adding engine and deleting engine atomic?
     let engine_id = state.get_db().add_engine(body.into()).await?;
-    let engine_config = EngineConfig {
-        engine_id: engine_id.clone(),
-        database_uri: state.get_db().get_uri().to_owned(),
-        database_credentials: state.get_db().get_credentials().cloned(),
-    };
-    let success = rpc::create_engine(engine_config).await;
+    let success = k8s::create_engine(&engine_id).await;
     // If fail to create the engine, delete the engine record from database.
     match success {
         Ok(()) => Ok(Json(engine_id)),

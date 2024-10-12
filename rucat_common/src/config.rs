@@ -1,6 +1,6 @@
 //! Configuration for rucat server and engine.
 
-use crate::{error::Result, EngineId};
+use crate::error::Result;
 use clap::Parser;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_json::from_reader;
@@ -50,13 +50,6 @@ pub struct DatabaseConfig {
 pub struct ServerConfig {
     pub auth_enable: bool,
     pub database: DatabaseConfig,
-}
-
-#[derive(Deserialize, Serialize)]
-pub struct EngineConfig {
-    pub engine_id: EngineId,
-    pub database_uri: String,
-    pub database_credentials: Option<Credentials>,
 }
 
 /// Parse [ServerConfig] or [EngineConfig] from the config file.
