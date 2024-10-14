@@ -40,7 +40,7 @@ spec:
           args: ["--config-path", "/rucat/config.json"]
           env:
             - name: RUST_LOG
-              value: info
+              value: debug
           ports:
             - name: http
               containerPort: {{ .Values.service.port }}

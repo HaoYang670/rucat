@@ -2,6 +2,7 @@
 
 use std::fmt::Debug;
 
+use ::tracing::info;
 use axum::{
     extract::{Path, State},
     routing::{get, post},
@@ -36,26 +37,26 @@ async fn create_engine(
     State(state): State<AppState>,
     Json(body): Json<CreateEngineRequest>,
 ) -> Result<Json<EngineId>> {
-    let engine_id = state.get_db().add_engine(body.into()).await?;
-    let success = k8s::create_engine(&engine_id).await;
+    let id = state.get_db().add_engine(body.into()).await?;
+    let success = k8s::create_engine(&id).await;
     // If fail to create the engine, delete the engine record from database.
     match success {
-        Ok(()) => Ok(Json(engine_id)),
+        Ok(()) => Ok(Json(id)),
         Err(e0) => {
-            delete_engine(Path(engine_id), State(state))
-                .await
-                .map_err(|e1| {
-                    RucatError::FailedToStartEngine(format!(
-                        "Failed to start engine: {} and failed to clean up: {}",
-                        e0, e1
-                    ))
-                })?;
+            delete_engine(Path(id), State(state)).await.map_err(|e1| {
+                RucatError::FailedToStartEngine(format!(
+                    "Failed to start engine: {} and failed to clean up: {}",
+                    e0, e1
+                ))
+            })?;
             Err(e0)
         }
     }
 }
 
 async fn delete_engine(Path(id): Path<EngineId>, State(state): State<AppState>) -> Result<()> {
+    info!("Deleting engine {}", id.as_str());
+    k8s::delete_engine(&id).await?;
     state
         .get_db()
         .delete_engine(&id)

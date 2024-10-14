@@ -7,6 +7,7 @@ use rucat_common::{
     kube::{api::PostParams, Api, Client},
 };
 
+use ::tracing::debug;
 use serde_json::json;
 
 const SPARK_SERVICE_SELECTOR: &str = "rucat-engine-selector";
@@ -120,12 +121,34 @@ pub(super) async fn create_engine(id: &EngineId) -> Result<()> {
 
     // Create a Service API instance
     let services: Api<Service> = Api::namespaced(client, "default");
-
     // Create the Service
     let _service = services.create(&pp, &service).await?;
+
     Ok(())
 }
 
+/// Delete Spark app and Spark connect server on k8s
+pub(super) async fn delete_engine(id: &EngineId) -> Result<()> {
+    let client = Client::try_default().await?;
+
+    let spark_driver_name = get_spark_driver_name(id);
+    debug!("Deleting Pod: {}", spark_driver_name);
+    let spark_service_name = get_spark_service_name(id);
+
+    // Create a Pod API instance
+    let pods: Api<Pod> = Api::namespaced(client.clone(), "default");
+    // Delete the Pod
+    let _pod = pods.delete(&spark_driver_name, &Default::default()).await?;
+
+    // Create a Service API instance
+    let services: Api<Service> = Api::namespaced(client, "default");
+    // Delete the Service
+    let _service = services
+        .delete(&spark_service_name, &Default::default())
+        .await?;
+
+    Ok(())
+}
 
 #[cfg(test)]
 mod tests {
@@ -133,19 +156,19 @@ mod tests {
 
     #[test]
     fn test_get_spark_app_id() {
-        let id= EngineId::new("abc".to_owned());
+        let id = EngineId::new("abc".to_owned());
         assert_eq!(get_spark_app_id(&id), "rucat-spark-abc");
     }
 
     #[test]
     fn test_get_spark_driver_name() {
-        let id= EngineId::new("abc".to_owned());
+        let id = EngineId::new("abc".to_owned());
         assert_eq!(get_spark_driver_name(&id), "rucat-spark-abc-driver");
     }
 
     #[test]
     fn test_get_spark_service_name() {
-        let id= EngineId::new("abc".to_owned());
+        let id = EngineId::new("abc".to_owned());
         assert_eq!(get_spark_service_name(&id), "rucat-spark-abc");
     }
 }

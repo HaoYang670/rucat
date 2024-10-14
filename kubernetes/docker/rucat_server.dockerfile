@@ -15,5 +15,5 @@ RUN cargo install --path .
 
 WORKDIR /rucat
 RUN rm -rf /usr/src/rucat
-ENV RUST_LOG=info
+ENV RUST_LOG=debug
 EXPOSE 3000
