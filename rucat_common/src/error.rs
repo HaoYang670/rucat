@@ -11,7 +11,7 @@ use crate::EngineId;
 
 pub type Result<T> = std::result::Result<T, RucatError>;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug)]
 pub struct PrimaryRucatError(pub String);
 
 impl std::error::Error for PrimaryRucatError {}
@@ -22,7 +22,7 @@ impl Display for PrimaryRucatError {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug)]
 enum RucatErrorType {
     NotFound,
     Unauthorized,
@@ -61,14 +61,14 @@ impl Display for RucatErrorType {
             NotFound => write!(f, "Not found"),
             Unauthorized => write!(f, "Unauthorized"),
             NotAllowed => write!(f, "Not allowed"),
-            FailToStartServer => write!(f, "Failed to start server"),
-            FailToCreateEngine => write!(f, "Failed to start engine"),
-            FailToDeleteEngine => write!(f, "Failed to delete engine"),
-            FailToCreateDatabase => write!(f, "Failed to create database"),
-            FailToConnectDatabase => write!(f, "Failed to connect to database"),
-            FailToUpdateDatabase => write!(f, "Failed to update database"),
-            FailToReadDatabase => write!(f, "Failed to read database"),
-            FailToLoadConfig => write!(f, "Failed to load config"),
+            FailToStartServer => write!(f, "Fail to start server"),
+            FailToCreateEngine => write!(f, "Fail to create engine"),
+            FailToDeleteEngine => write!(f, "Fail to delete engine"),
+            FailToCreateDatabase => write!(f, "Fail to create database"),
+            FailToConnectDatabase => write!(f, "Fail to connect to database"),
+            FailToUpdateDatabase => write!(f, "Fail to update database"),
+            FailToReadDatabase => write!(f, "Fail to read database"),
+            FailToLoadConfig => write!(f, "Fail to load config"),
         }
     }
 }
@@ -153,5 +153,94 @@ impl std::error::Error for RucatError {}
 impl<T> From<RucatError> for Result<T> {
     fn from(val: RucatError) -> Self {
         Result::Err(val)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn get_primary_error() -> PrimaryRucatError {
+        PrimaryRucatError("err_msg".to_owned())
+    }
+
+    #[test]
+    fn unauthorized() {
+        let error = RucatError::unauthorized(get_primary_error());
+        assert!(error.to_string().contains("Unauthorized: err_msg"));
+    }
+
+    #[test]
+    fn not_allowed() {
+        let error = RucatError::not_allowed(get_primary_error());
+        assert!(error.to_string().contains("Not allowed: err_msg"));
+    }
+
+    #[test]
+    fn engine_not_found() {
+        let error = RucatError::engine_not_found(&EngineId::new("0".to_owned()));
+        assert!(error.to_string().contains("Not found: Engine 0 not found"));
+    }
+
+    #[test]
+    fn not_found() {
+        let error = RucatError::not_found(get_primary_error());
+        assert!(error.to_string().contains("Not found: err_msg"));
+    }
+
+    #[test]
+    fn fail_to_start_server() {
+        let error = RucatError::fail_to_start_server(get_primary_error());
+        assert!(error.to_string().contains("Fail to start server: err_msg"));
+    }
+
+    #[test]
+    fn fail_to_create_engine() {
+        let error = RucatError::fail_to_create_engine(get_primary_error());
+        assert!(error.to_string().contains("Fail to create engine: err_msg"));
+    }
+
+    #[test]
+    fn fail_to_delete_engine() {
+        let error = RucatError::fail_to_delete_engine(get_primary_error());
+        assert!(error.to_string().contains("Fail to delete engine: err_msg"));
+    }
+
+    #[test]
+    fn fail_to_load_config() {
+        let error = RucatError::fail_to_load_config(get_primary_error());
+        assert!(error.to_string().contains("Fail to load config: err_msg"));
+    }
+
+    #[test]
+    fn fail_to_create_database() {
+        let error = RucatError::fail_to_create_database(get_primary_error());
+        assert!(error.to_string().contains("Fail to create database: err_msg"));
+    }
+
+    #[test]
+    fn fail_to_connect_database() {
+        let error = RucatError::fail_to_connect_database(get_primary_error());
+        assert!(error.to_string().contains("Fail to connect to database: err_msg"));
+    }
+
+    #[test]
+    fn fail_to_update_database() {
+        let error = RucatError::fail_to_update_database(get_primary_error());
+        assert!(error.to_string().contains("Fail to update database: err_msg"));
+    }
+
+    #[test]
+    fn fail_to_read_database() {
+        let error = RucatError::fail_to_read_database(get_primary_error());
+        assert!(error.to_string().contains("Fail to read database: err_msg"));
+    }
+
+    #[test]
+    fn nested_error() {
+        let error = RucatError::fail_to_create_engine(RucatError::fail_to_update_database(
+            get_primary_error(),
+        ));
+        assert!(error.to_string().contains("Fail to create engine: Fail to update database: err_msg"));
     }
 }
