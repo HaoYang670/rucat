@@ -4,12 +4,13 @@ use std::process::{Child, Command, Stdio};
 use std::thread::sleep;
 use std::time::Duration;
 
-use crate::error::{PrimaryRucatError, Result, RucatError};
+use crate::error::{Result, RucatError};
 use crate::EngineId;
 use crate::{
     config::Credentials,
     engine::{EngineConnection, EngineInfo, EngineState},
 };
+use ::anyhow::anyhow;
 use ::surrealdb::opt::auth::Root;
 use rand::Rng;
 use serde::Deserialize;
@@ -135,9 +136,7 @@ impl DatabaseClient {
             .map_err(RucatError::fail_to_update_database)?;
         let id = record.map(EngineId::from);
         id.ok_or_else(|| {
-            RucatError::fail_to_update_database(PrimaryRucatError(
-                "Failed to create engine".to_owned(),
-            ))
+            RucatError::fail_to_update_database(anyhow!( "Failed to create engine"))
         })
     }
 
