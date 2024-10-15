@@ -1,3 +1,4 @@
+use ::rucat_common::error::RucatError;
 use rucat_common::{config::Args, error::Result};
 use rucat_server::get_server;
 use std::{
@@ -18,12 +19,19 @@ async fn main() -> Result<()> {
     let (app, embedded_db_ps) = get_server(config_path.as_str()).await?;
 
     // run it
-    let listener = tokio::net::TcpListener::bind(endpoint).await?;
-    info!("Rucat server is listening on {}", listener.local_addr()?);
+    let listener = tokio::net::TcpListener::bind(endpoint)
+        .await
+        .map_err(RucatError::fail_to_start_server)?;
+    info!(
+        "Rucat server is listening on {}",
+        listener
+            .local_addr()
+            .map_err(RucatError::fail_to_start_server)?
+    );
     axum::serve(listener, app)
         .with_graceful_shutdown(shutdown_signal(embedded_db_ps))
         .await
-        .map_err(|e| e.into())
+        .map_err(RucatError::fail_to_start_server)
 }
 
 async fn shutdown_signal(embedded_db_ps: Option<Child>) {

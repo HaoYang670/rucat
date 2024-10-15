@@ -5,6 +5,7 @@ use std::panic::catch_unwind;
 use axum::{extract::Request, http::HeaderMap, middleware::Next, response::Response};
 use axum_extra::headers::authorization::{Basic, Bearer, Credentials as _};
 
+use ::rucat_common::error::PrimaryRucatError;
 use rucat_common::error::{Result, RucatError};
 
 enum Credentials {
@@ -19,16 +20,18 @@ pub(crate) async fn auth(headers: HeaderMap, request: Request, next: Next) -> Re
         let response = next.run(request).await;
         Ok(response)
     } else {
-        Err(RucatError::UnauthorizedError(
+        Err(RucatError::unauthorized(PrimaryRucatError(
             "wrong credentials".to_owned(),
-        ))
+        )))
     }
 }
 
 /// Get Basic or Bearer credentials
 fn get_credentials(headers: &HeaderMap) -> Result<Credentials> {
     let token = headers.get(http::header::AUTHORIZATION).ok_or_else(|| {
-        RucatError::UnauthorizedError("Not found authorization header".to_owned())
+        RucatError::unauthorized(PrimaryRucatError(
+            "Not found authorization header".to_owned(),
+        ))
     })?;
     // Use std::panic::catch_unwind to catch the debug_assert in Basic::decode and Bearer::decode
     catch_unwind(|| Basic::decode(token))
@@ -39,7 +42,9 @@ fn get_credentials(headers: &HeaderMap) -> Result<Credentials> {
                 .unwrap_or(None)
                 .map(Credentials::Bearer)
         })
-        .ok_or_else(|| RucatError::UnauthorizedError("Unsupported credentials type".to_owned()))
+        .ok_or_else(|| {
+            RucatError::unauthorized(PrimaryRucatError("Unsupported credentials type".to_owned()))
+        })
 }
 
 fn validate_credentials(token: &Credentials) -> bool {

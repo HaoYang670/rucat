@@ -1,5 +1,7 @@
 //! Common types and utilities for the Rucat projects.
 
+use std::fmt::Display;
+
 use serde::{Deserialize, Serialize};
 
 pub mod config;
@@ -24,9 +26,11 @@ impl EngineId {
     pub fn new(id: String) -> Self {
         EngineId { id }
     }
+}
 
-    pub fn as_str(&self) -> &str {
-        &self.id
+impl Display for EngineId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.id)
     }
 }
 

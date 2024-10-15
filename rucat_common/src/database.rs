@@ -4,7 +4,7 @@ use std::process::{Child, Command, Stdio};
 use std::thread::sleep;
 use std::time::Duration;
 
-use crate::error::{Result, RucatError};
+use crate::error::{PrimaryRucatError, Result, RucatError};
 use crate::EngineId;
 use crate::{
     config::Credentials,
@@ -75,7 +75,8 @@ impl DatabaseClient {
             // TODO: store database's log in a file
             .stdout(Stdio::null())
             .spawn()
-            .inspect_err(|e| error!("Fail to create embedded database: {}", e))?;
+            .map_err(RucatError::fail_to_create_database)
+            .inspect_err(|e| error!("{}", e))?;
 
         // Wait for the database to be ready
         let mut attempts = 0;
@@ -95,14 +96,20 @@ impl DatabaseClient {
 
     /// data store that connects to a SurrealDB
     pub async fn connect_local_db(credentials: Option<&Credentials>, uri: String) -> Result<Self> {
-        let client = Surreal::new::<Ws>(&uri).await?;
+        let client = Surreal::new::<Ws>(&uri)
+            .await
+            .map_err(RucatError::fail_to_connect_database)?;
         if let Some(Credentials { username, password }) = credentials {
-            client.signin(Root { username, password }).await?;
+            client
+                .signin(Root { username, password })
+                .await
+                .map_err(RucatError::fail_to_connect_database)?;
         }
         client
             .use_ns(Self::NAMESPACE)
             .use_db(Self::DATABASE)
-            .await?;
+            .await
+            .map_err(RucatError::fail_to_connect_database)?;
         Ok(Self {
             uri,
             client,
@@ -122,10 +129,16 @@ impl DatabaseClient {
             .query(sql)
             .bind(("table", Self::TABLE))
             .bind(("engine", engine))
-            .await?
-            .take(0)?;
+            .await
+            .map_err(RucatError::fail_to_update_database)?
+            .take(0)
+            .map_err(RucatError::fail_to_update_database)?;
         let id = record.map(EngineId::from);
-        id.ok_or_else(|| RucatError::DataStoreError("Add engine fails".to_owned()))
+        id.ok_or_else(|| {
+            RucatError::fail_to_update_database(PrimaryRucatError(
+                "Failed to create engine".to_owned(),
+            ))
+        })
     }
 
     pub async fn delete_engine(&self, id: &EngineId) -> Result<Option<EngineInfo>> {
@@ -141,9 +154,11 @@ impl DatabaseClient {
             .client
             .query(sql)
             .bind(("tb", Self::TABLE))
-            .bind(("id", id.as_str().to_owned()))
-            .await?
-            .take(1)?;
+            .bind(("id", id.to_string()))
+            .await
+            .map_err(RucatError::fail_to_update_database)?
+            .take(1)
+            .map_err(RucatError::fail_to_update_database)?;
         Ok(result)
     }
 
@@ -186,13 +201,15 @@ impl DatabaseClient {
             .client
             .query(sql)
             .bind(("tb", Self::TABLE))
-            .bind(("id", id.as_str().to_owned()))
+            .bind(("id", id.to_string()))
             // convert to vec because array cannot be serialized
             .bind(("before", before.to_vec()))
             .bind(("after", after))
             .bind(("connection", connection))
-            .await?
-            .take(1)?; // The 1st statement is the if-else which is what we want
+            .await
+            .map_err(RucatError::fail_to_update_database)?
+            .take(1)
+            .map_err(RucatError::fail_to_update_database)?; // The 1st statement is the if-else which is what we want
 
         Ok(before_state)
     }
@@ -207,9 +224,11 @@ impl DatabaseClient {
             .client
             .query(sql)
             .bind(("tb", Self::TABLE))
-            .bind(("id", id.as_str().to_owned()))
-            .await?
-            .take(0)?;
+            .bind(("id", id.to_string()))
+            .await
+            .map_err(RucatError::fail_to_read_database)?
+            .take(0)
+            .map_err(RucatError::fail_to_read_database)?;
         Ok(info)
     }
 
@@ -223,8 +242,10 @@ impl DatabaseClient {
             .client
             .query(sql)
             .bind(("tb", Self::TABLE))
-            .await?
-            .take(0)?;
+            .await
+            .map_err(RucatError::fail_to_read_database)?
+            .take(0)
+            .map_err(RucatError::fail_to_read_database)?;
         let mut ids: Vec<_> = ids.into_iter().map(EngineId::from).collect();
         ids.sort();
         Ok(ids)

@@ -1,79 +1,157 @@
-use std::{fmt::Display, string::FromUtf8Error};
+use std::fmt::Display;
 
 use axum::{
     http::StatusCode,
     response::{IntoResponse, Response},
 };
 
+use RucatErrorType::*;
+
 use crate::EngineId;
 
 pub type Result<T> = std::result::Result<T, RucatError>;
 
 #[derive(Debug, PartialEq)]
-pub enum RucatError {
-    IllegalArgument(String),
-    DeserializeError(String),
-    NotFoundError(EngineId),
-    UnauthorizedError(String),
-    NotAllowedError(String),
-    IOError(String),
-    DataStoreError(String),
-    FailedToStartEngine(String),
-    Other(String),
+pub struct PrimaryRucatError(pub String);
+
+impl std::error::Error for PrimaryRucatError {}
+
+impl Display for PrimaryRucatError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+#[derive(Debug, PartialEq)]
+enum RucatErrorType {
+    NotFound,
+    Unauthorized,
+    NotAllowed,
+    FailToStartServer,
+    FailToCreateEngine,
+    FailToDeleteEngine,
+    FailToCreateDatabase,
+    FailToConnectDatabase,
+    FailToUpdateDatabase,
+    FailToReadDatabase,
+    FailToLoadConfig,
+}
+
+impl RucatErrorType {
+    fn get_status_code(&self) -> StatusCode {
+        match self {
+            NotFound => StatusCode::NOT_FOUND,
+            Unauthorized => StatusCode::UNAUTHORIZED,
+            NotAllowed => StatusCode::FORBIDDEN,
+            FailToStartServer => StatusCode::INTERNAL_SERVER_ERROR,
+            FailToCreateEngine => StatusCode::INTERNAL_SERVER_ERROR,
+            FailToDeleteEngine => StatusCode::INTERNAL_SERVER_ERROR,
+            FailToCreateDatabase => StatusCode::INTERNAL_SERVER_ERROR,
+            FailToConnectDatabase => StatusCode::INTERNAL_SERVER_ERROR,
+            FailToUpdateDatabase => StatusCode::INTERNAL_SERVER_ERROR,
+            FailToReadDatabase => StatusCode::INTERNAL_SERVER_ERROR,
+            FailToLoadConfig => StatusCode::INTERNAL_SERVER_ERROR,
+        }
+    }
+}
+
+impl Display for RucatErrorType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            NotFound => write!(f, "Not found"),
+            Unauthorized => write!(f, "Unauthorized"),
+            NotAllowed => write!(f, "Not allowed"),
+            FailToStartServer => write!(f, "Failed to start server"),
+            FailToCreateEngine => write!(f, "Failed to start engine"),
+            FailToDeleteEngine => write!(f, "Failed to delete engine"),
+            FailToCreateDatabase => write!(f, "Failed to create database"),
+            FailToConnectDatabase => write!(f, "Failed to connect to database"),
+            FailToUpdateDatabase => write!(f, "Failed to update database"),
+            FailToReadDatabase => write!(f, "Failed to read database"),
+            FailToLoadConfig => write!(f, "Failed to load config"),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct RucatError {
+    error_type: RucatErrorType,
+    content: anyhow::Error,
+}
+
+impl RucatError {
+    pub fn unauthorized<E: Into<anyhow::Error>>(e: E) -> Self {
+        Self::new(Unauthorized, e)
+    }
+
+    pub fn not_allowed<E: Into<anyhow::Error>>(e: E) -> Self {
+        Self::new(NotAllowed, e)
+    }
+
+    pub fn engine_not_found(id: &EngineId) -> Self {
+        Self::not_found(PrimaryRucatError(format!("Engine {} not found", id)))
+    }
+
+    pub fn not_found<E: Into<anyhow::Error>>(e: E) -> Self {
+        Self::new(NotFound, e)
+    }
+
+    pub fn fail_to_start_server<E: Into<anyhow::Error>>(e: E) -> Self {
+        Self::new(FailToStartServer, e)
+    }
+    pub fn fail_to_create_engine<E: Into<anyhow::Error>>(e: E) -> Self {
+        Self::new(FailToCreateEngine, e)
+    }
+
+    pub fn fail_to_delete_engine<E: Into<anyhow::Error>>(e: E) -> Self {
+        Self::new(FailToDeleteEngine, e)
+    }
+
+    pub fn fail_to_load_config<E: Into<anyhow::Error>>(e: E) -> Self {
+        Self::new(FailToLoadConfig, e)
+    }
+
+    pub fn fail_to_create_database<E: Into<anyhow::Error>>(e: E) -> Self {
+        Self::new(FailToCreateDatabase, e)
+    }
+
+    pub fn fail_to_connect_database<E: Into<anyhow::Error>>(e: E) -> Self {
+        Self::new(FailToConnectDatabase, e)
+    }
+
+    pub fn fail_to_update_database<E: Into<anyhow::Error>>(e: E) -> Self {
+        Self::new(FailToUpdateDatabase, e)
+    }
+
+    pub fn fail_to_read_database<E: Into<anyhow::Error>>(e: E) -> Self {
+        Self::new(FailToReadDatabase, e)
+    }
+
+    fn new<E: Into<anyhow::Error>>(error_type: RucatErrorType, content: E) -> Self {
+        RucatError {
+            error_type,
+            content: content.into(),
+        }
+    }
 }
 
 impl Display for RucatError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        // TODO: rewrite this in macro
-        match self {
-            Self::IllegalArgument(msg) => write!(f, "Illegal Argument error: {}", msg),
-            Self::DeserializeError(msg) => write!(f, "Deserialize error: {}", msg),
-            Self::NotFoundError(engine_id) => {
-                write!(f, "Not found error: engine {:?} not found.", engine_id)
-            }
-            Self::UnauthorizedError(msg) => write!(f, "Unauthorized error: {}", msg),
-            Self::NotAllowedError(msg) => write!(f, "Not allowed error: {}", msg),
-            Self::IOError(msg) => write!(f, "IO error: {}", msg),
-            Self::DataStoreError(msg) => write!(f, "Data store error: {}", msg),
-            Self::FailedToStartEngine(msg) => write!(f, "Failed to start engine: {}", msg),
-            Self::Other(msg) => write!(f, "Other error: {}", msg),
-        }
+        write!(f, "{}: {:?}", self.error_type, self.content)
     }
 }
 
 impl IntoResponse for RucatError {
     fn into_response(self) -> Response {
-        let status = match self {
-            Self::IllegalArgument(_) => StatusCode::BAD_REQUEST,
-            Self::NotFoundError(_) => StatusCode::NOT_FOUND,
-            Self::UnauthorizedError(_) => StatusCode::UNAUTHORIZED,
-            Self::NotAllowedError(_) => StatusCode::FORBIDDEN,
-            _ => StatusCode::INTERNAL_SERVER_ERROR,
-        };
+        let status = self.error_type.get_status_code();
         (status, self.to_string()).into_response()
     }
 }
+
+impl std::error::Error for RucatError {}
 
 impl<T> From<RucatError> for Result<T> {
     fn from(val: RucatError) -> Self {
         Result::Err(val)
     }
 }
-
-macro_rules! convert_to_rucat_error {
-    ($err_ty: ty, $constructor: expr) => {
-        impl From<$err_ty> for RucatError {
-            fn from(value: $err_ty) -> Self {
-                $constructor(value.to_string())
-            }
-        }
-    };
-}
-
-convert_to_rucat_error!(std::io::Error, RucatError::IOError);
-convert_to_rucat_error!(surrealdb::Error, RucatError::DataStoreError);
-convert_to_rucat_error!(anyhow::Error, RucatError::Other);
-convert_to_rucat_error!(FromUtf8Error, RucatError::Other);
-convert_to_rucat_error!(String, RucatError::Other);
-convert_to_rucat_error!(serde_json::Error, RucatError::DeserializeError);
-convert_to_rucat_error!(kube::Error, RucatError::FailedToStartEngine);

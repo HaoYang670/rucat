@@ -1,3 +1,4 @@
+use ::rucat_common::error::RucatError;
 use axum_extra::headers::authorization::Credentials;
 use axum_test::TestServer;
 use headers::Authorization;
@@ -8,7 +9,7 @@ use rucat_server::get_server;
 /// server with embedded datastore and authentication enabled
 async fn get_test_server() -> Result<TestServer> {
     let (app, _) = get_server("./tests/configs/authentication_test_config.json").await?;
-    TestServer::new(app).map_err(|e| e.into())
+    TestServer::new(app).map_err(RucatError::fail_to_start_server)
 }
 
 static USERNAME: &str = "remzi";

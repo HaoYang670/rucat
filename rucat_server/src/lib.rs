@@ -4,7 +4,7 @@ use authentication::auth;
 use axum::{extract::State, middleware, routing::get, Router};
 use axum_extra::middleware::option_layer;
 use engine::router::get_engine_router;
-use rucat_common::config::{read_config, DatabaseConfig, DatabaseVariant};
+use rucat_common::config::{load_config, DatabaseConfig, DatabaseVariant};
 use rucat_common::database::DatabaseClient;
 use rucat_common::{config::ServerConfig, error::Result};
 use state::AppState;
@@ -26,7 +26,7 @@ pub async fn get_server(config_path: &str) -> Result<(Router, Option<Child>)> {
                 credentials,
                 variant: database_type,
             },
-    } = read_config(config_path)?;
+    } = load_config(config_path)?;
 
     let (db, embedded_db_ps) = match database_type {
         DatabaseVariant::Embedded => {

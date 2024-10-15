@@ -1,6 +1,6 @@
 //! Functions to manage Spark engine on k8s
 
-use ::rucat_common::EngineId;
+use ::rucat_common::{error::RucatError, EngineId};
 use rucat_common::error::Result;
 use rucat_common::{
     k8s_openapi::api::core::v1::{Pod, Service},
@@ -13,7 +13,7 @@ use serde_json::json;
 const SPARK_SERVICE_SELECTOR: &str = "rucat-engine-selector";
 
 fn get_spark_app_id(id: &EngineId) -> String {
-    format!("rucat-spark-{}", id.as_str())
+    format!("rucat-spark-{}", id)
 }
 
 fn get_spark_driver_name(id: &EngineId) -> String {
@@ -25,7 +25,9 @@ fn get_spark_service_name(id: &EngineId) -> String {
 
 /// Create Spark app and Spark connect server on k8s
 pub(super) async fn create_engine(id: &EngineId) -> Result<()> {
-    let client = Client::try_default().await?;
+    let client = Client::try_default()
+        .await
+        .map_err(RucatError::fail_to_create_engine)?;
 
     let spark_app_id = get_spark_app_id(id);
     let spark_service_name = get_spark_service_name(id);
@@ -69,14 +71,18 @@ pub(super) async fn create_engine(id: &EngineId) -> Result<()> {
                 }
             ]
         }
-    }))?;
+    }))
+    .map_err( RucatError::fail_to_create_engine)?;
 
     // Create a Pod API instance
     let pods: Api<Pod> = Api::namespaced(client.clone(), "default");
 
     // Create the Pod
     let pp = PostParams::default();
-    let _pod = pods.create(&pp, &pod).await?;
+    let _pod = pods
+        .create(&pp, &pod)
+        .await
+        .map_err(RucatError::fail_to_create_engine)?;
     // Define your Headless Service manifest
     let service: Service = serde_json::from_value(json!({
         "apiVersion": "v1",
@@ -117,19 +123,25 @@ pub(super) async fn create_engine(id: &EngineId) -> Result<()> {
                 },
             ]
         }
-    }))?;
+    }))
+    .map_err(RucatError::fail_to_create_engine)?;
 
     // Create a Service API instance
     let services: Api<Service> = Api::namespaced(client, "default");
     // Create the Service
-    let _service = services.create(&pp, &service).await?;
+    let _service = services
+        .create(&pp, &service)
+        .await
+        .map_err(RucatError::fail_to_create_engine)?;
 
     Ok(())
 }
 
-/// Delete Spark app and Spark connect server on k8s
+/// Delete Spark app and the headless service on k8s
 pub(super) async fn delete_engine(id: &EngineId) -> Result<()> {
-    let client = Client::try_default().await?;
+    let client = Client::try_default()
+        .await
+        .map_err(RucatError::fail_to_delete_engine)?;
 
     let spark_driver_name = get_spark_driver_name(id);
     debug!("Deleting Pod: {}", spark_driver_name);
@@ -138,14 +150,18 @@ pub(super) async fn delete_engine(id: &EngineId) -> Result<()> {
     // Create a Pod API instance
     let pods: Api<Pod> = Api::namespaced(client.clone(), "default");
     // Delete the Pod
-    let _pod = pods.delete(&spark_driver_name, &Default::default()).await?;
+    let _pod = pods
+        .delete(&spark_driver_name, &Default::default())
+        .await
+        .map_err(RucatError::fail_to_delete_engine)?;
 
     // Create a Service API instance
     let services: Api<Service> = Api::namespaced(client, "default");
     // Delete the Service
     let _service = services
         .delete(&spark_service_name, &Default::default())
-        .await?;
+        .await
+        .map_err(RucatError::fail_to_delete_engine)?;
 
     Ok(())
 }

@@ -48,6 +48,7 @@ bash ./example/run.sh
 5. deploy surreal on k8s
 6. Test graceful shutdown <https://github.com/JosephLenton/axum-test/issues/88#issuecomment-2369720183>
 7. Rewrite engine state using Surreal Literal type <https://surrealdb.com/docs/surrealql/datamodel/literals>
+8. mock k8s related functions and restore test cases. <https://github.com/asomers/mockall>
 
 ## How to deploy on k8s
 

@@ -1,6 +1,6 @@
 //! Configuration for rucat server and engine.
 
-use crate::error::Result;
+use crate::error::{Result, RucatError};
 use clap::Parser;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_json::from_reader;
@@ -52,10 +52,10 @@ pub struct ServerConfig {
     pub database: DatabaseConfig,
 }
 
-/// Parse [ServerConfig] or [EngineConfig] from the config file.
-pub fn read_config<T: DeserializeOwned>(path: &str) -> Result<T> {
-    let file = File::open(path)?;
+/// Parse [ServerConfig] from the config file.
+pub fn load_config<T: DeserializeOwned>(path: &str) -> Result<T> {
+    let file = File::open(path).map_err(RucatError::fail_to_load_config)?;
     let reader = BufReader::new(file);
-    let config = from_reader(reader)?;
+    let config = from_reader(reader).map_err(RucatError::fail_to_load_config)?;
     Ok(config)
 }
