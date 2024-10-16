@@ -1,6 +1,6 @@
 # Rucat
 
-Unified gateway to create, connect and manage data engine on any platform.
+Unified gateway to create, connect and manage data engine on Kubernetes.
 
 Rucat name meaning is Guider, Discipline, Adventurer and Rucat is a Boy / Girl name. The Numerology Number for the name Rucat is 9.
 
@@ -21,8 +21,12 @@ flowchart
 ```mermaid
 stateDiagram
     [*] --> Pending
+    Pending --> Error
     Pending --> Running
-    Running --> Stopped
+    Running --> Error
+    Running --> Stopping
+    Stopping --> Error
+    Stopping --> Stopped
     Stopped --> Pending
     Stopped --> [*]
 ```
@@ -42,13 +46,15 @@ bash ./example/run.sh
 ## TODO
 
 1. test graceful shutdown
-2. redesign engine state: depends on pod state
-3. catch the spark driver log before deleting?
-4. implement rucat-client (based on spark-connect-rs)
-5. deploy surreal on k8s
-6. Test graceful shutdown <https://github.com/JosephLenton/axum-test/issues/88#issuecomment-2369720183>
-7. Rewrite engine state using Surreal Literal type <https://surrealdb.com/docs/surrealql/datamodel/literals>
-8. mock k8s related functions and restore test cases. <https://github.com/asomers/mockall>
+2. remove spark pods when doing `helm uninstall rucat`
+3. redesign engine state: depends on pod state
+4. catch the spark driver log before deleting?
+5. implement rucat-client (based on spark-connect-rs)
+6. deploy surreal on k8s
+7. Test graceful shutdown <https://github.com/JosephLenton/axum-test/issues/88#issuecomment-2369720183>
+8. Rewrite engine state using Surreal Literal type <https://surrealdb.com/docs/surrealql/datamodel/literals>
+9. mock k8s related functions and restore test cases. <https://github.com/asomers/mockall>
+10. miri testing <https://github.com/rust-lang/miri>
 
 ## How to deploy on k8s
 

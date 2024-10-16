@@ -1,13 +1,13 @@
 //! Functions to manage Spark engine on k8s
 
-use ::rucat_common::{error::RucatError, EngineId};
-use rucat_common::error::Result;
 use rucat_common::{
+    EngineId,
+    error::*,
     k8s_openapi::api::core::v1::{Pod, Service},
     kube::{api::PostParams, Api, Client},
 };
 
-use ::tracing::debug;
+use tracing::debug;
 use serde_json::json;
 
 const SPARK_SERVICE_SELECTOR: &str = "rucat-engine-selector";
@@ -30,12 +30,13 @@ pub(super) async fn create_engine(id: &EngineId) -> Result<()> {
         .map_err(RucatError::fail_to_create_engine)?;
 
     let spark_app_id = get_spark_app_id(id);
+    let spark_driver_name = get_spark_driver_name(id);
     let spark_service_name = get_spark_service_name(id);
     let pod: Pod = serde_json::from_value(json!({
         "apiVersion": "v1",
         "kind": "Pod",
         "metadata": {
-            "name": get_spark_driver_name(id),
+            "name": spark_driver_name,
             "labels": {
                 SPARK_SERVICE_SELECTOR: spark_app_id,
             },
@@ -65,6 +66,7 @@ pub(super) async fn create_engine(id: &EngineId) -> Result<()> {
                         "--conf", "spark.kubernetes.container.image=apache/spark:3.5.3",
                         "--conf", "spark.executor.instances=1",
                         "--conf", format!("spark.driver.host={}", spark_service_name),
+                        "--conf", format!("spark.kubernetes.driver.pod.name={}", spark_driver_name),
                         "--conf", format!("spark.kubernetes.executor.podNamePrefix={}", spark_app_id),
                         "--conf", "spark.driver.extraJavaOptions=-Divy.cache.dir=/tmp -Divy.home=/tmp",
                         "--packages", "org.apache.spark:spark-connect_2.12:3.5.3"],
