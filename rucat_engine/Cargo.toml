@@ -5,8 +5,8 @@ edition = "2021"
 
 [dependencies]
 rucat_common = {path = "../rucat_common"}
-serde_json = "1.0.128"
-tonic = "0.12.2"
+serde_json = "1.0.132"
+tonic = "0.12.3"
 tokio = { version = "1.40.0", features = ["macros", "rt-multi-thread"] }
 tracing = {"version" = "0.1.40"}
 tracing-subscriber = {"version" = "0.3.18"}

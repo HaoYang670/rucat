@@ -1,4 +1,4 @@
-FROM rust:1.81
+FROM rust:1.82
 WORKDIR /usr/src/rucat
 COPY ./rucat_common ./rucat_common
 COPY ./rucat_server ./rucat_server

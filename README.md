@@ -46,7 +46,7 @@ bash ./example/run.sh
 ## TODO
 
 1. test graceful shutdown
-2. remove spark pods when doing `helm uninstall rucat`
+2. create Spark with configs
 3. redesign engine state: depends on pod state
 4. catch the spark driver log before deleting?
 5. implement rucat-client (based on spark-connect-rs)
