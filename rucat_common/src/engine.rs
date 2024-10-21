@@ -1,5 +1,3 @@
-use std::net::SocketAddr;
-
 use time::{
     format_description::BorrowedFormatItem, macros::format_description, Duration, OffsetDateTime,
 };
@@ -44,46 +42,10 @@ pub enum EngineState {
     Stopped,
 }
 
-/// Types of Rucat engine
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub enum EngineType {
-    /// Ballista in local mode
-    BallistaLocal,
-    /// Ballista in remote mode, e.g. on k8s.
-    BallistaRemote,
-    Rucat,
-}
-
-/// Connection information of an engine.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct EngineConnection {
-    endpoint: String,
-    update_time: EngineTime,
-}
-
-impl From<SocketAddr> for EngineConnection {
-    fn from(addr: SocketAddr) -> Self {
-        Self {
-            endpoint: addr.to_string(),
-            update_time: EngineTime::now(),
-        }
-    }
-}
-
-impl EngineConnection {
-    pub fn renew(&mut self) {
-        self.update_time = EngineTime::now();
-    }
-}
-
 /// Whole information of an engine.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EngineInfo {
     name: String,
-    engine_type: EngineType,
-    /// The address of the engine.
-    // We don't embed `endpoint` in `EngineState` because SurrealQL doesn't support pattern matching.`
-    connection: Option<EngineConnection>,
     state: EngineState,
     created_time: EngineTime,
 }
@@ -91,29 +53,17 @@ pub struct EngineInfo {
 impl EngineInfo {
     pub fn new(
         name: String,
-        engine_type: EngineType,
         state: EngineState,
-        connection: Option<EngineConnection>,
     ) -> Self {
         Self {
             name,
-            engine_type,
             state,
-            connection,
             created_time: EngineTime::now(),
         }
     }
 
     pub fn get_name(&self) -> &str {
         &self.name
-    }
-
-    pub fn get_connection(&self) -> Option<&EngineConnection> {
-        self.connection.as_ref()
-    }
-
-    pub fn get_engine_type(&self) -> &EngineType {
-        &self.engine_type
     }
 
     pub fn get_state(&self) -> &EngineState {

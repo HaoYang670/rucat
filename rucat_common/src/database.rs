@@ -8,7 +8,7 @@ use crate::error::{Result, RucatError};
 use crate::EngineId;
 use crate::{
     config::Credentials,
-    engine::{EngineConnection, EngineInfo, EngineState},
+    engine::{EngineInfo, EngineState},
 };
 use ::anyhow::anyhow;
 use ::surrealdb::opt::auth::Root;
@@ -171,10 +171,7 @@ impl DatabaseClient {
         &self,
         id: &EngineId,
         before: [EngineState; N],
-        after: EngineState,
-        // There are some cases that we need to update the endpoint
-        // e.g. updating from Pending to Running
-        connection: Option<EngineConnection>,
+        after: EngineState
     ) -> Result<Option<UpdateEngineStateResponse>> {
         // The query returns None if the engine does not exist
         // Throws an error if the engine state is not in the expected state
@@ -187,7 +184,7 @@ impl DatabaseClient {
                 IF $current_state IS NONE {
                     RETURN NONE;                                                     // 1st return value
                 } ELSE IF $current_state IN $before {
-                    UPDATE ONLY $record_id SET info.state = $after, info.connection = $connection;
+                    UPDATE ONLY $record_id SET info.state = $after;
                     RETURN {before_state: $current_state, update_success: true};                  // 1st return value
                 } ELSE {
                     RETURN {before_state: $current_state, update_success: false};                 // 1st return value
@@ -204,7 +201,6 @@ impl DatabaseClient {
             // convert to vec because array cannot be serialized
             .bind(("before", before.to_vec()))
             .bind(("after", after))
-            .bind(("connection", connection))
             .await
             .map_err(RucatError::fail_to_update_database)?
             .take(1)

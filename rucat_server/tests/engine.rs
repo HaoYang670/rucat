@@ -1,10 +1,8 @@
-use std::{thread::sleep, time::Duration};
-
 use axum_test::{TestResponse, TestServer};
 use http::StatusCode;
 use rucat_common::error::RucatError;
 use rucat_common::{
-    engine::{EngineInfo, EngineState::*, EngineType::*},
+    engine::{EngineInfo, EngineState::*},
     error::Result,
     EngineId,
 };
@@ -25,14 +23,9 @@ async fn create_engine_helper(server: &TestServer) -> TestResponse {
         .post("/engine")
         .json(&json!({
             "name": "test",
-            "engine_type": "BallistaLocal"
+            "configs": {},
         }))
         .await
-}
-
-#[inline(always)]
-fn wait_one_second() {
-    sleep(Duration::from_secs(1));
 }
 
 #[tokio::test]
@@ -78,26 +71,7 @@ async fn create_engine_with_missing_field() -> Result<()> {
         .await;
 
     response.assert_status(StatusCode::UNPROCESSABLE_ENTITY);
-    assert!(response.text().contains("missing field `engine_type`"));
-    Ok(())
-}
-
-#[tokio::test]
-async fn create_engine_with_invalid_engine_type() -> Result<()> {
-    let server = get_test_server().await?;
-
-    let response = server
-        .post("/engine")
-        .json(&json!({
-            "name": "test",
-            "engine_type": "Invalid"
-        }))
-        .await;
-
-    response.assert_status(StatusCode::UNPROCESSABLE_ENTITY);
-    assert!(response
-        .text()
-        .contains("engine_type: unknown variant `Invalid`"));
+    assert!(response.text().contains("missing field `configs`"));
     Ok(())
 }
 
@@ -109,7 +83,6 @@ async fn create_engine_with_unknown_field() -> Result<()> {
         .post("/engine")
         .json(&json!({
             "name": "test",
-            "engine_type": "BallistaLocal",
             "invalid": "invalid"
         }))
         .await;
@@ -117,7 +90,7 @@ async fn create_engine_with_unknown_field() -> Result<()> {
     response.assert_status(StatusCode::UNPROCESSABLE_ENTITY);
     assert!(response
         .text()
-        .contains("invalid: unknown field `invalid`, expected `name` or `engine_type`"));
+        .contains("invalid: unknown field `invalid`, expected `name` or `configs`"));
     Ok(())
 }
 
@@ -125,13 +98,9 @@ async fn create_engine_with_unknown_field() -> Result<()> {
 async fn get_engine() -> Result<()> {
     let server = get_test_server().await?;
     let id: EngineId = create_engine_helper(&server).await.json();
-    // wait for the engine to be created
-    wait_one_second();
 
     let response: EngineInfo = server.get(&format!("/engine/{}", id)).await.json();
     assert_eq!(response.get_name(), "test");
-    assert_eq!(response.get_engine_type(), &BallistaLocal);
-    assert!(response.get_connection().is_some());
     assert_eq!(response.get_state(), &Running);
 
     Ok(())
@@ -159,16 +128,12 @@ async fn delete_engine() -> Result<()> {
 async fn stop_engine() -> Result<()> {
     let server = get_test_server().await?;
     let id: EngineId = create_engine_helper(&server).await.json();
-    // wait for the engine to be created
-    wait_one_second();
 
     let response = server.post(&format!("/engine/{}/stop", id)).await;
     response.assert_status_ok();
 
     let response: EngineInfo = server.get(&format!("/engine/{}", id)).await.json();
     assert_eq!(response.get_name(), "test");
-    assert_eq!(response.get_engine_type(), &BallistaLocal);
-    assert!(response.get_connection().is_none());
     assert_eq!(response.get_state(), &Stopped);
 
     Ok(())
@@ -186,8 +151,6 @@ async fn stop_nonexistent_engine() -> Result<()> {
 async fn stop_engine_twice() -> Result<()> {
     let server = get_test_server().await?;
     let id: EngineId = create_engine_helper(&server).await.json();
-    // wait for the engine to be created
-    wait_one_second();
 
     server.post(&format!("/engine/{}/stop", id)).await;
 
@@ -205,8 +168,6 @@ async fn stop_engine_twice() -> Result<()> {
 async fn restart_engine() -> Result<()> {
     let server = get_test_server().await?;
     let id: EngineId = create_engine_helper(&server).await.json();
-    // wait for the engine to be created
-    wait_one_second();
 
     server.post(&format!("/engine/{}/stop", id)).await;
     let response = server.post(&format!("/engine/{}/restart", id)).await;
@@ -214,9 +175,7 @@ async fn restart_engine() -> Result<()> {
 
     let response: EngineInfo = server.get(&format!("/engine/{}", id)).await.json();
     assert_eq!(response.get_name(), "test");
-    assert_eq!(response.get_engine_type(), &BallistaLocal);
     // we haven't implemented reconnection yet
-    assert!(response.get_connection().is_none());
     assert_eq!(response.get_state(), &Pending);
 
     Ok(())
@@ -248,8 +207,6 @@ async fn cannot_restart_pending_engine() -> Result<()> {
 async fn cannot_restart_running_engine() -> Result<()> {
     let server = get_test_server().await?;
     let id: EngineId = create_engine_helper(&server).await.json();
-    // wait for the engine to be created
-    wait_one_second();
 
     let response = server.post(&format!("/engine/{}/restart", id)).await;
     response.assert_status_forbidden();

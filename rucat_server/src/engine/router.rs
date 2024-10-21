@@ -1,5 +1,6 @@
 //! Restful API for engine management.
 
+use std::collections::HashMap;
 use std::fmt::Debug;
 
 use ::rucat_common::anyhow::anyhow;
@@ -10,7 +11,7 @@ use axum::{
     Json, Router,
 };
 use rucat_common::{
-    engine::{EngineInfo, EngineState::*, EngineType},
+    engine::{EngineInfo, EngineState::*},
     error::{Result, RucatError},
     EngineId,
 };
@@ -20,17 +21,17 @@ use crate::state::AppState;
 
 use super::k8s;
 
-impl From<CreateEngineRequest> for EngineInfo {
-    fn from(value: CreateEngineRequest) -> Self {
-        EngineInfo::new(value.name, value.engine_type, Pending, None)
-    }
-}
-
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct CreateEngineRequest {
     name: String,
-    engine_type: EngineType,
+    configs: HashMap<String, String>,
+}
+
+impl From<CreateEngineRequest> for EngineInfo {
+    fn from(value: CreateEngineRequest) -> Self {
+        EngineInfo::new(value.name, Pending)
+    }
 }
 
 /// create an engine with the given configuration
@@ -39,10 +40,14 @@ async fn create_engine(
     Json(body): Json<CreateEngineRequest>,
 ) -> Result<Json<EngineId>> {
     let id = state.get_db().add_engine(body.into()).await?;
+    info!("Creating engine {}", id);
     let success = k8s::create_engine(&id).await;
     // If fail to create the engine, delete the engine record from database.
     match success {
-        Ok(()) => Ok(Json(id)),
+        Ok(()) => {
+            info!("Engine {} created", id);
+            Ok(Json(id))
+        },
         Err(e0) => {
             delete_engine(Path(id), State(state)).await.map_err(|e1| {
                 RucatError::fail_to_create_engine(anyhow!(
@@ -70,7 +75,7 @@ async fn delete_engine(Path(id): Path<EngineId>, State(state): State<AppState>) 
 async fn stop_engine(Path(id): Path<EngineId>, State(state): State<AppState>) -> Result<()> {
     state
         .get_db()
-        .update_engine_state(&id, [Pending, Running], Stopped, None)
+        .update_engine_state(&id, [Pending, Running], Stopped)
         .await?
         .map_or_else(
             || Err(RucatError::engine_not_found(&id)),
@@ -91,7 +96,7 @@ async fn stop_engine(Path(id): Path<EngineId>, State(state): State<AppState>) ->
 async fn restart_engine(Path(id): Path<EngineId>, State(state): State<AppState>) -> Result<()> {
     state
         .get_db()
-        .update_engine_state(&id, [Stopped], Pending, None)
+        .update_engine_state(&id, [Stopped], Pending)
         .await?
         .map_or_else(
             || Err(RucatError::engine_not_found(&id)),
