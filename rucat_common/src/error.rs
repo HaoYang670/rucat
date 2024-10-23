@@ -8,7 +8,7 @@ use axum::{
 
 use RucatErrorType::*;
 
-use crate::EngineId;
+use crate::engine::EngineId;
 
 pub type Result<T> = std::result::Result<T, RucatError>;
 
@@ -164,7 +164,7 @@ mod tests {
 
     #[test]
     fn engine_not_found() {
-        let error = RucatError::engine_not_found(&EngineId::new("0".to_owned()));
+        let error = RucatError::engine_not_found(&EngineId::from("0".to_owned()));
         assert!(error.to_string().contains("Not found: Engine 0 not found"));
     }
 
@@ -201,19 +201,25 @@ mod tests {
     #[test]
     fn fail_to_create_database() {
         let error = RucatError::fail_to_create_database(anyhow!("err_msg"));
-        assert!(error.to_string().contains("Fail to create database: err_msg"));
+        assert!(error
+            .to_string()
+            .contains("Fail to create database: err_msg"));
     }
 
     #[test]
     fn fail_to_connect_database() {
         let error = RucatError::fail_to_connect_database(anyhow!("err_msg"));
-        assert!(error.to_string().contains("Fail to connect to database: err_msg"));
+        assert!(error
+            .to_string()
+            .contains("Fail to connect to database: err_msg"));
     }
 
     #[test]
     fn fail_to_update_database() {
         let error = RucatError::fail_to_update_database(anyhow!("err_msg"));
-        assert!(error.to_string().contains("Fail to update database: err_msg"));
+        assert!(error
+            .to_string()
+            .contains("Fail to update database: err_msg"));
     }
 
     #[test]
@@ -227,6 +233,8 @@ mod tests {
         let error = RucatError::fail_to_create_engine(RucatError::fail_to_update_database(
             anyhow!("err_msg"),
         ));
-        assert!(error.to_string().contains("Fail to create engine: Fail to update database: err_msg"));
+        assert!(error
+            .to_string()
+            .contains("Fail to create engine: Fail to update database: err_msg"));
     }
 }

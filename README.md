@@ -55,6 +55,7 @@ bash ./example/run.sh
 8. Rewrite engine state using Surreal Literal type <https://surrealdb.com/docs/surrealql/datamodel/literals>
 9. mock k8s related functions and restore test cases. <https://github.com/asomers/mockall>
 10. miri testing <https://github.com/rust-lang/miri>
+11. fuzz testing <https://rust-fuzz.github.io/book/introduction.html>
 
 ## How to deploy on k8s
 

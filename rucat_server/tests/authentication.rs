@@ -39,7 +39,7 @@ async fn with_wrong_basic_auth() -> Result<()> {
         .await;
 
     response.assert_status_unauthorized();
-    response.assert_text("Unauthorized error: wrong credentials");
+    response.assert_text("Unauthorized: wrong credentials");
     Ok(())
 }
 
@@ -56,7 +56,7 @@ async fn with_wrong_bearer_auth() -> Result<()> {
         .await;
 
     response.assert_status_unauthorized();
-    response.assert_text("Unauthorized error: wrong credentials");
+    response.assert_text("Unauthorized: wrong credentials");
     Ok(())
 }
 
@@ -75,7 +75,7 @@ async fn with_unsupported_auth() -> Result<()> {
       .await;
 
     response.assert_status_unauthorized();
-    response.assert_text("Unauthorized error: Unsupported credentials type");
+    response.assert_text("Unauthorized: Unsupported credentials type");
     Ok(())
 }
 

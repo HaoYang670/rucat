@@ -4,8 +4,8 @@ use std::process::{Child, Command, Stdio};
 use std::thread::sleep;
 use std::time::Duration;
 
+use crate::engine::EngineId;
 use crate::error::{Result, RucatError};
-use crate::EngineId;
 use crate::{
     config::Credentials,
     engine::{EngineInfo, EngineState},
@@ -135,9 +135,7 @@ impl DatabaseClient {
             .take(0)
             .map_err(RucatError::fail_to_update_database)?;
         let id = record.map(EngineId::from);
-        id.ok_or_else(|| {
-            RucatError::fail_to_update_database(anyhow!( "Failed to create engine"))
-        })
+        id.ok_or_else(|| RucatError::fail_to_update_database(anyhow!("Failed to create engine")))
     }
 
     pub async fn delete_engine(&self, id: &EngineId) -> Result<Option<EngineInfo>> {
@@ -171,7 +169,7 @@ impl DatabaseClient {
         &self,
         id: &EngineId,
         before: [EngineState; N],
-        after: EngineState
+        after: EngineState,
     ) -> Result<Option<UpdateEngineStateResponse>> {
         // The query returns None if the engine does not exist
         // Throws an error if the engine state is not in the expected state
