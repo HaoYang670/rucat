@@ -19,16 +19,18 @@ flowchart
 ## Rucat Engine State
 
 ```mermaid
-stateDiagram
-    [*] --> Pending
+stateDiagram-v2
+    [*] --> Pending: create engine
     Pending --> Error
     Pending --> Running
     Running --> Error
-    Running --> Stopping
-    Stopping --> Error
-    Stopping --> Stopped
-    Stopped --> Pending
-    Stopped --> [*]
+    Running --> Terminating: delete engine
+    Running --> Terminating: stop engine
+    Terminating --> Error
+    Terminating --> Terminated
+    Terminated --> Pending: restart engine
+    Terminated --> [*]: delete engine
+    Error --> [*]: delete engine
 ```
 
 ## How to test
@@ -46,16 +48,16 @@ bash ./example/run.sh
 ## TODO
 
 1. test graceful shutdown
-2. create Spark with configs
-3. redesign engine state: depends on pod state
-4. catch the spark driver log before deleting?
-5. implement rucat-client (based on spark-connect-rs)
-6. deploy surreal on k8s
-7. Test graceful shutdown <https://github.com/JosephLenton/axum-test/issues/88#issuecomment-2369720183>
-8. Rewrite engine state using Surreal Literal type <https://surrealdb.com/docs/surrealql/datamodel/literals>
-9. mock k8s related functions and restore test cases. <https://github.com/asomers/mockall>
-10. miri testing <https://github.com/rust-lang/miri>
-11. fuzz testing <https://rust-fuzz.github.io/book/introduction.html>
+2. redesign engine state: depends on pod state
+3. catch the spark driver log before deleting?
+4. implement rucat-client (based on spark-connect-rs)
+5. deploy surreal on k8s
+6. Test graceful shutdown <https://github.com/JosephLenton/axum-test/issues/88#issuecomment-2369720183>
+7. Rewrite engine state using Surreal Literal type <https://surrealdb.com/docs/surrealql/datamodel/literals>
+8. mock k8s related functions and restore test cases. <https://github.com/asomers/mockall>
+9. miri testing <https://github.com/rust-lang/miri>
+10. fuzz testing <https://rust-fuzz.github.io/book/introduction.html>
+11. shared spark v.s. exclusive spark (for example for batch job)
 
 ## How to deploy on k8s
 

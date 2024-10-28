@@ -1,7 +1,11 @@
 use ::core::fmt::Display;
-use ::std::collections::HashMap;
+use ::std::{collections::HashMap, fmt};
 
 use ::anyhow::anyhow;
+use ::serde::{
+    de::{self, Visitor},
+    Deserializer,
+};
 use time::{
     format_description::BorrowedFormatItem, macros::format_description, Duration, OffsetDateTime,
 };
@@ -126,9 +130,35 @@ impl EngineInfo {
 }
 
 /// Unique identifier for an engine.
-#[derive(Ord, PartialOrd, Eq, PartialEq, Debug, Clone, Serialize, Deserialize)]
+#[derive(Ord, PartialOrd, Eq, PartialEq, Debug, Clone, Serialize)]
 pub struct EngineId {
     id: String,
+}
+
+impl<'de> Deserialize<'de> for EngineId {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        deserializer.deserialize_string(EngineIdVisitor)
+    }
+}
+
+struct EngineIdVisitor;
+
+impl<'de> Visitor<'de> for EngineIdVisitor {
+    type Value = EngineId;
+
+    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        formatter.write_str("a non-empty string representing an EngineId")
+    }
+
+    fn visit_str<E>(self, value: &str) -> std::result::Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        EngineId::try_from(value.to_owned()).map_err(de::Error::custom)
+    }
 }
 
 impl Display for EngineId {
@@ -137,10 +167,16 @@ impl Display for EngineId {
     }
 }
 
-impl From<String> for EngineId {
-    fn from(id: String) -> Self {
-        // TODO: check id is not empty
-        EngineId { id }
+impl TryFrom<String> for EngineId {
+    type Error = RucatError;
+    fn try_from(id: String) -> Result<Self> {
+        if id.is_empty() {
+            Err(RucatError::not_allowed(anyhow!(
+                "Engine id cannot be empty."
+            )))
+        } else {
+            Ok(Self { id })
+        }
     }
 }
 
@@ -149,102 +185,138 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_get_spark_app_id() {
-        let id = EngineId::from("abc".to_owned());
+    fn test_get_spark_app_id() -> Result<()> {
+        let id = EngineId::try_from("abc".to_owned())?;
         assert_eq!(get_spark_app_id(&id), "rucat-spark-abc");
+        Ok(())
     }
 
     #[test]
-    fn test_get_spark_driver_name() {
-        let id = EngineId::from("abc".to_owned());
+    fn test_get_spark_driver_name() -> Result<()> {
+        let id = EngineId::try_from("abc".to_owned())?;
         assert_eq!(get_spark_driver_name(&id), "rucat-spark-abc-driver");
+        Ok(())
     }
 
     #[test]
-    fn test_get_spark_service_name() {
-        let id = EngineId::from("abc".to_owned());
+    fn test_get_spark_service_name() -> Result<()> {
+        let id = EngineId::try_from("abc".to_owned())?;
         assert_eq!(get_spark_service_name(&id), "rucat-spark-abc");
-    }
-
-    fn check_preset_config(key: &str) {
-        let config = HashMap::from([(key.to_owned(), "".to_owned())]);
-        let result = EngineConfigs::try_from(config);
-        assert!(result.is_err_and(|e| e.to_string().starts_with(&format!(
-            "Not allowed: The config {} is not allowed as it is reserved.",
-            key
-        ))));
-    }
-
-    #[test]
-    fn preset_configs_are_not_allowed_to_be_set() {
-        check_preset_config("spark.app.id");
-        check_preset_config("spark.kubernetes.container.image");
-        check_preset_config("spark.driver.host");
-        check_preset_config("spark.kubernetes.driver.pod.name");
-        check_preset_config("spark.kubernetes.executor.podNamePrefix");
-        check_preset_config("spark.driver.extraJavaOptions");
-    }
-
-    #[test]
-    fn empty_engine_config() -> Result<()> {
-        let result = EngineConfigs::try_from(HashMap::new())?;
-        assert!(result.0 == HashMap::new());
-
-        let spark_submit_format =
-            result.to_spark_submit_format_with_preset_configs(&EngineId::from("abc".to_owned()));
-        assert_eq!(
-            spark_submit_format,
-            vec![
-                "--conf",
-                "spark.app.id=rucat-spark-abc",
-                "--conf",
-                "spark.kubernetes.container.image=apache/spark:3.5.3",
-                "--conf",
-                "spark.driver.host=rucat-spark-abc",
-                "--conf",
-                "spark.kubernetes.driver.pod.name=rucat-spark-abc-driver",
-                "--conf",
-                "spark.kubernetes.executor.podNamePrefix=rucat-spark-abc",
-                "--conf",
-                "spark.driver.extraJavaOptions=-Divy.cache.dir=/tmp -Divy.home=/tmp",
-            ]
-            .into_iter()
-            .map(String::from)
-            .collect::<Vec<_>>()
-        );
         Ok(())
     }
 
-    #[test]
-    fn engine_config_with_1_item() -> Result<()> {
-        let config = HashMap::from([("spark.executor.instances".to_owned(), "2".to_owned())]);
-        let result = EngineConfigs::try_from(config.clone())?;
-        assert!(result.0 == config);
+    mod engine_id {
+        use ::serde_json::json;
 
-        let spark_submit_format =
-            result.to_spark_submit_format_with_preset_configs(&EngineId::from("abc".to_owned()));
-        assert_eq!(
-            spark_submit_format,
-            vec![
-                "--conf",
-                "spark.app.id=rucat-spark-abc",
-                "--conf",
-                "spark.kubernetes.container.image=apache/spark:3.5.3",
-                "--conf",
-                "spark.driver.host=rucat-spark-abc",
-                "--conf",
-                "spark.kubernetes.driver.pod.name=rucat-spark-abc-driver",
-                "--conf",
-                "spark.kubernetes.executor.podNamePrefix=rucat-spark-abc",
-                "--conf",
-                "spark.driver.extraJavaOptions=-Divy.cache.dir=/tmp -Divy.home=/tmp",
-                "--conf",
-                "spark.executor.instances=2",
-            ]
-            .into_iter()
-            .map(String::from)
-            .collect::<Vec<_>>()
-        );
-        Ok(())
+        use super::*;
+
+        #[test]
+        fn engine_id_cannot_be_empty() {
+            let result = EngineId::try_from("".to_owned());
+            assert!(result.is_err_and(|e| e
+                .to_string()
+                .starts_with("Not allowed: Engine id cannot be empty.")));
+        }
+
+        #[test]
+        fn cannot_deserialize_empty_str_to_engine_id() {
+            let result: std::result::Result<EngineId, _> = serde_json::from_value(json!(""));
+            assert!(result.is_err_and(|e| e
+                .to_string()
+                .starts_with("Not allowed: Engine id cannot be empty.")));
+        }
+
+        #[test]
+        fn deserialize_engine_id() -> anyhow::Result<()> {
+            let result: EngineId = serde_json::from_value(json!("abc"))?;
+            assert_eq!(result, EngineId::try_from("abc".to_owned())?);
+            Ok(())
+        }
+    }
+
+    mod engine_config {
+        use super::*;
+
+        fn check_preset_config(key: &str) {
+            let config = HashMap::from([(key.to_owned(), "".to_owned())]);
+            let result = EngineConfigs::try_from(config);
+            assert!(result.is_err_and(|e| e.to_string().starts_with(&format!(
+                "Not allowed: The config {} is not allowed as it is reserved.",
+                key
+            ))));
+        }
+
+        #[test]
+        fn preset_configs_are_not_allowed_to_be_set() {
+            check_preset_config("spark.app.id");
+            check_preset_config("spark.kubernetes.container.image");
+            check_preset_config("spark.driver.host");
+            check_preset_config("spark.kubernetes.driver.pod.name");
+            check_preset_config("spark.kubernetes.executor.podNamePrefix");
+            check_preset_config("spark.driver.extraJavaOptions");
+        }
+
+        #[test]
+        fn empty_engine_config() -> Result<()> {
+            let result = EngineConfigs::try_from(HashMap::new())?;
+            assert!(result.0 == HashMap::new());
+
+            let spark_submit_format = result
+                .to_spark_submit_format_with_preset_configs(&EngineId::try_from("abc".to_owned())?);
+            assert_eq!(
+                spark_submit_format,
+                vec![
+                    "--conf",
+                    "spark.app.id=rucat-spark-abc",
+                    "--conf",
+                    "spark.kubernetes.container.image=apache/spark:3.5.3",
+                    "--conf",
+                    "spark.driver.host=rucat-spark-abc",
+                    "--conf",
+                    "spark.kubernetes.driver.pod.name=rucat-spark-abc-driver",
+                    "--conf",
+                    "spark.kubernetes.executor.podNamePrefix=rucat-spark-abc",
+                    "--conf",
+                    "spark.driver.extraJavaOptions=-Divy.cache.dir=/tmp -Divy.home=/tmp",
+                ]
+                .into_iter()
+                .map(String::from)
+                .collect::<Vec<_>>()
+            );
+            Ok(())
+        }
+
+        #[test]
+        fn engine_config_with_1_item() -> Result<()> {
+            let config = HashMap::from([("spark.executor.instances".to_owned(), "2".to_owned())]);
+            let result = EngineConfigs::try_from(config.clone())?;
+            assert!(result.0 == config);
+
+            let spark_submit_format = result
+                .to_spark_submit_format_with_preset_configs(&EngineId::try_from("abc".to_owned())?);
+            assert_eq!(
+                spark_submit_format,
+                vec![
+                    "--conf",
+                    "spark.app.id=rucat-spark-abc",
+                    "--conf",
+                    "spark.kubernetes.container.image=apache/spark:3.5.3",
+                    "--conf",
+                    "spark.driver.host=rucat-spark-abc",
+                    "--conf",
+                    "spark.kubernetes.driver.pod.name=rucat-spark-abc-driver",
+                    "--conf",
+                    "spark.kubernetes.executor.podNamePrefix=rucat-spark-abc",
+                    "--conf",
+                    "spark.driver.extraJavaOptions=-Divy.cache.dir=/tmp -Divy.home=/tmp",
+                    "--conf",
+                    "spark.executor.instances=2",
+                ]
+                .into_iter()
+                .map(String::from)
+                .collect::<Vec<_>>()
+            );
+            Ok(())
+        }
     }
 }

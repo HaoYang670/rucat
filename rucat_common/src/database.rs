@@ -134,8 +134,10 @@ impl DatabaseClient {
             .map_err(RucatError::fail_to_update_database)?
             .take(0)
             .map_err(RucatError::fail_to_update_database)?;
-        let id = record.map(EngineId::from);
-        id.ok_or_else(|| RucatError::fail_to_update_database(anyhow!("Failed to create engine")))
+        let id = record.map(EngineId::try_from);
+        id.unwrap_or_else(|| {
+            RucatError::fail_to_update_database(anyhow!("Failed to create engine")).into()
+        })
     }
 
     pub async fn delete_engine(&self, id: &EngineId) -> Result<Option<EngineInfo>> {
@@ -239,7 +241,10 @@ impl DatabaseClient {
             .map_err(RucatError::fail_to_read_database)?
             .take(0)
             .map_err(RucatError::fail_to_read_database)?;
-        let mut ids: Vec<_> = ids.into_iter().map(EngineId::from).collect();
+        let mut ids: Vec<_> = ids
+            .into_iter()
+            .map(EngineId::try_from)
+            .collect::<Result<_>>()?;
         ids.sort();
         Ok(ids)
     }
