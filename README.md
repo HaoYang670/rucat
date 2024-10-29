@@ -9,40 +9,58 @@ flowchart
     server(rucat server)
     spark(Apache Spark)
     monitor(rucat monitor)
+    k8s-api(k8s api server)
     db[(surreal db)]
     user -- REST requests --> server
-    monitor -- regular healthy check --> db
-    server -- read / write engine info --> db
-    server -- create / stop / restart --> spark
+
+    subgraph k8s
+    server -- create, remove, manage engine / get engine info --> db
+    monitor -- regular engine state update --> db
+    monitor -- create(delete) engine pod  / read pod info --> k8s-api
+    k8s-api -- manage --> spark
+    end
 ```
 
 ## Rucat Engine State
 
 ```mermaid
-stateDiagram-v2
-    [*] --> Pending: create engine
-    Pending --> Error
-    Pending --> Running
-    Running --> Error
-    Running --> Terminating: delete engine
-    Running --> Terminating: stop engine
-    Terminating --> Error
-    Terminating --> Terminated
-    Terminated --> Pending: restart engine
-    Terminated --> [*]: delete engine
-    Error --> [*]: delete engine
+stateDiagram
+
+    [*] --> Pending1: CREATE
+    Pending1 --> Pending2: create k8s pod
+    Pending1 --> Terminated: STOP
+    Pending1 --> [*]: DELETE
+
+    Pending2 --> Pending3: pod detected
+    Pending3 --> Running: pod running
+    Pending3 --> Terminating1: STOP
+    Pending3 --> Deleting1: DELETE
+
+    Running --> Terminating1: STOP
+    Running --> Deleting1: DELETE
+
+    Terminating1 --> Running: RESTART
+    Terminating1 --> Terminating2: delete pod
+
+    Terminating2 --> Terminated: pod removed
+
+    Terminated --> Pending1: RESTART
+    Terminated --> [*]: DELETE
+
+    Deleting1 --> Deleting2: delete pod
+
+    Deleting2 --> [*]: pod removed
+
+    Error1 --> Error2: pod removed
+    Error2 --> Pending1: RESTART
+    Error2 --> [*]: DELETE
+
 ```
 
 ## How to test
 
 ```bash
 bash test.sh
-```
-
-## How to run
-
-```bash
-bash ./example/run.sh
 ```
 
 ## TODO
@@ -58,6 +76,7 @@ bash ./example/run.sh
 9. miri testing <https://github.com/rust-lang/miri>
 10. fuzz testing <https://rust-fuzz.github.io/book/introduction.html>
 11. shared spark v.s. exclusive spark (for example for batch job)
+12. make all request fully async. tasks are submitted by storing info in cluster state, rucat monitor takes account of do the tasks and update the cluster state.
 
 ## How to deploy on k8s
 
