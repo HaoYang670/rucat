@@ -15,7 +15,8 @@ data:
           "password": "admin"
         },
         "variant": {
-          "type": "Embedded"
+          "type": "Local",
+          "uri": "rucat-surrealdb:8000"
         }
       }
     }

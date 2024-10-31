@@ -4,6 +4,13 @@ Unified gateway to create, connect and manage data engine on Kubernetes.
 
 Rucat name meaning is Guider, Discipline, Adventurer and Rucat is a Boy / Girl name. The Numerology Number for the name Rucat is 9.
 
+## Architecture
+
+### Idea
+
+1. fully async
+2. decouple rest server and k8s, apache spark
+
 ```mermaid
 flowchart
     server(rucat server)
@@ -31,10 +38,9 @@ stateDiagram
     Pending1 --> Terminated: STOP
     Pending1 --> [*]: DELETE
 
-    Pending2 --> Pending3: pod detected
-    Pending3 --> Running: pod running
-    Pending3 --> Terminating1: STOP
-    Pending3 --> Deleting1: DELETE
+    Pending2 --> Running: pod running
+    Pending2 --> Terminating1: STOP
+    Pending2 --> Deleting1: DELETE
 
     Running --> Terminating1: STOP
     Running --> Deleting1: DELETE
@@ -66,17 +72,15 @@ bash test.sh
 ## TODO
 
 1. test graceful shutdown
-2. redesign engine state: depends on pod state
-3. catch the spark driver log before deleting?
-4. implement rucat-client (based on spark-connect-rs)
-5. deploy surreal on k8s
-6. Test graceful shutdown <https://github.com/JosephLenton/axum-test/issues/88#issuecomment-2369720183>
-7. Rewrite engine state using Surreal Literal type <https://surrealdb.com/docs/surrealql/datamodel/literals>
-8. mock k8s related functions and restore test cases. <https://github.com/asomers/mockall>
-9. miri testing <https://github.com/rust-lang/miri>
-10. fuzz testing <https://rust-fuzz.github.io/book/introduction.html>
-11. shared spark v.s. exclusive spark (for example for batch job)
-12. make all request fully async. tasks are submitted by storing info in cluster state, rucat monitor takes account of do the tasks and update the cluster state.
+2. catch the spark driver log before deleting?
+3. implement rucat-client (based on spark-connect-rs)
+4. Test graceful shutdown <https://github.com/JosephLenton/axum-test/issues/88#issuecomment-2369720183>
+5. Rewrite engine state using Surreal Literal type <https://surrealdb.com/docs/surrealql/datamodel/literals>
+6. mock k8s related functions and restore test cases. <https://github.com/asomers/mockall>
+7. miri testing <https://github.com/rust-lang/miri>
+8. fuzz testing <https://rust-fuzz.github.io/book/introduction.html>
+9. shared spark v.s. exclusive spark (for example for batch job)
+10. make all request fully async. tasks are submitted by storing info in cluster state, rucat monitor takes account of do the tasks and update the cluster state.
 
 ## How to deploy on k8s
 

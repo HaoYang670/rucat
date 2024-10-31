@@ -1,5 +1,7 @@
 server:
   enabled: true
+surrealdb:
+  enabled: true
 
 serviceAccount:
   # Specifies whether a service account should be created
