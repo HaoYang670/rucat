@@ -8,7 +8,7 @@ use std::{fs::File, io::BufReader};
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
-/// Command line arguments for rucat server and engine.
+/// Command line arguments for rucat server.
 pub struct Args {
     /// path to the config file
     #[arg(long)]

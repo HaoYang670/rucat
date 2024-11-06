@@ -8,7 +8,6 @@ data:
   config.json: |-
     {
       "auth_enable": false,
-      "engine_binary_path": "../target/release/rucat_engine",
       "database": {
         "credentials": {
           "username": "admin",

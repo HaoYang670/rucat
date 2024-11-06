@@ -10,6 +10,6 @@ pub use anyhow;
 pub use k8s_openapi;
 pub use kube;
 
-pub mod engine_grpc {
-    tonic::include_proto!("engine_grpc");
+pub mod client_grpc {
+    tonic::include_proto!("client_grpc");
 }

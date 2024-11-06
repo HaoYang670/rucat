@@ -1,5 +1,5 @@
-use rucat_common::engine_grpc::greeter_server::Greeter;
-use rucat_common::engine_grpc::{HelloReply, HelloRequest};
+use rucat_common::client_grpc::greeter_server::Greeter;
+use rucat_common::client_grpc::{HelloReply, HelloRequest};
 use tonic::{Request, Response, Status};
 
 #[derive(Debug, Default)]

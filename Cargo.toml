@@ -4,5 +4,6 @@ resolver = "2"
 members = [
   "rucat_server",
   "rucat_common",
-  "rucat_engine"
+  "rucat_client",
+  "rucat_state_monitor"
 ]
