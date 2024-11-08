@@ -164,7 +164,7 @@ mod tests {
 
     #[test]
     fn engine_not_found() -> Result<()> {
-        let error = RucatError::engine_not_found(&EngineId::try_from("0".to_owned())?);
+        let error = RucatError::engine_not_found(&EngineId::try_from("0")?);
         assert!(error.to_string().contains("Not found: Engine 0 not found"));
         Ok(())
     }

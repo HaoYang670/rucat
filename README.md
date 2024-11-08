@@ -15,10 +15,11 @@ Rucat name meaning is Guider, Discipline, Adventurer and Rucat is a Boy / Girl n
 flowchart
     server(rucat server)
     spark(Apache Spark)
-    monitor(rucat monitor)
+    monitor(rucat state monitor)
     k8s-api(k8s api server)
     db[(surreal db)]
-    user -- REST requests --> server
+    user(rucat client)
+    user -- REST requests / RPC --> server
 
     subgraph k8s
     server -- create, remove, manage engine / get engine info --> db
@@ -72,27 +73,21 @@ bash test.sh
 ## TODO
 
 1. test graceful shutdown
-2. catch the spark driver log before deleting?
-3. implement rucat-client (based on spark-connect-rs)
-4. Test graceful shutdown <https://github.com/JosephLenton/axum-test/issues/88#issuecomment-2369720183>
-5. Rewrite engine state using Surreal Literal type <https://surrealdb.com/docs/surrealql/datamodel/literals>
-6. mock k8s related functions and restore test cases. <https://github.com/asomers/mockall>
-7. miri testing <https://github.com/rust-lang/miri>
-8. fuzz testing <https://rust-fuzz.github.io/book/introduction.html>
-9. shared spark v.s. exclusive spark (for example for batch job)
-10. make all request fully async. tasks are submitted by storing info in cluster state, rucat monitor takes account of do the tasks and update the cluster state.
+2. Avoid useless memory copy by using COW. (e.g. str -> String)
+3. catch the spark driver log before deleting?
+4. implement rucat-client (based on spark-connect-rs)
+5. Test graceful shutdown <https://github.com/JosephLenton/axum-test/issues/88#issuecomment-2369720183>
+6. Rewrite engine state using Surreal Literal type <https://surrealdb.com/docs/surrealql/datamodel/literals>
+7. mock k8s related functions and restore test cases. <https://github.com/asomers/mockall>
+8. miri testing <https://github.com/rust-lang/miri>
+9. fuzz testing <https://rust-fuzz.github.io/book/introduction.html>
+10. shared spark v.s. exclusive spark (for example for batch job)
+11. make all request fully async. tasks are submitted by storing info in cluster state, rucat monitor takes account of do the tasks and update the cluster state.
 
 ## How to deploy on k8s
 
 1. `helm install rucat rucat`
 2. `kubectl port-forward <rucat server pod> 1234:3000`
-
-## How to submit spark
-
-1. `kubectl create clusterrolebinding rucat-role --clusterrole=edit --serviceaccount=default:rucat-server --namespace=default`
-2. go into the rucat server pod
-3. install java: `apt install openjdk-17-jdk`, `export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-arm64/`
-4. download spark 3.5.3 (only the `/sbin` is useful I think ): `wget https://dlcdn.apache.org/spark/spark-3.5.3/spark-3.5.3-bin-hadoop3.tgz`, `tar -xvzf spark-3.5.3-bin-hadoop3.tgz`
 
 ## Debug
 

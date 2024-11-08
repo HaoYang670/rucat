@@ -1,5 +1,5 @@
 use ::core::fmt::Display;
-use ::std::{collections::HashMap, fmt};
+use ::std::{borrow::Cow, collections::HashMap, fmt};
 
 use ::anyhow::anyhow;
 use ::serde::{
@@ -14,28 +14,28 @@ use crate::error::{Result, RucatError};
 use serde::{Deserialize, Serialize};
 
 /// Preset configurations that are not allowed to be set.
-type PresetConfig = (&'static str, fn(&EngineId) -> String);
+type PresetConfig = (&'static str, fn(&EngineId) -> Cow<'static, str>);
 const PRESET_CONFIGS: [PresetConfig; 6] = [
     ("spark.app.id", get_spark_app_id),
     ("spark.kubernetes.container.image", |_| {
-        "apache/spark:3.5.3".to_owned()
+        Cow::Borrowed("apache/spark:3.5.3")
     }),
     ("spark.driver.host", get_spark_service_name),
     ("spark.kubernetes.driver.pod.name", get_spark_driver_name),
     ("spark.kubernetes.executor.podNamePrefix", get_spark_app_id),
     ("spark.driver.extraJavaOptions", |_| {
-        "-Divy.cache.dir=/tmp -Divy.home=/tmp".to_owned()
+        Cow::Borrowed("-Divy.cache.dir=/tmp -Divy.home=/tmp")
     }),
 ];
 
-pub fn get_spark_app_id(id: &EngineId) -> String {
-    format!("rucat-spark-{}", id)
+pub fn get_spark_app_id(id: &EngineId) -> Cow<'static, str> {
+    Cow::Owned(format!("rucat-spark-{}", id))
 }
 
-pub fn get_spark_driver_name(id: &EngineId) -> String {
-    format!("{}-driver", get_spark_app_id(id))
+pub fn get_spark_driver_name(id: &EngineId) -> Cow<'static, str> {
+    Cow::Owned(format!("{}-driver", get_spark_app_id(id)))
 }
-pub fn get_spark_service_name(id: &EngineId) -> String {
+pub fn get_spark_service_name(id: &EngineId) -> Cow<'static, str> {
     get_spark_app_id(id)
 }
 
@@ -109,6 +109,11 @@ pub enum EngineState {
     Stopped,
 }
 
+/// Engine state for fully async support.
+//enum EngineState2 {
+//    Pending1, Pending2, Running, Terminating1, Terminating2, Terminated, Deleting1, Deleting2, Error1, Error2,
+//}
+
 /// Whole information of an engine.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EngineInfo {
@@ -132,7 +137,19 @@ impl EngineInfo {
 /// Unique identifier for an engine.
 #[derive(Ord, PartialOrd, Eq, PartialEq, Debug, Clone, Serialize)]
 pub struct EngineId {
-    id: String,
+    id: Cow<'static, str>,
+}
+
+impl EngineId {
+    fn new(id: Cow<'static, str>) -> Result<Self> {
+        if id.is_empty() {
+            Err(RucatError::not_allowed(anyhow!(
+                "Engine id cannot be empty."
+            )))
+        } else {
+            Ok(Self { id })
+        }
+    }
 }
 
 impl<'de> Deserialize<'de> for EngineId {
@@ -170,13 +187,14 @@ impl Display for EngineId {
 impl TryFrom<String> for EngineId {
     type Error = RucatError;
     fn try_from(id: String) -> Result<Self> {
-        if id.is_empty() {
-            Err(RucatError::not_allowed(anyhow!(
-                "Engine id cannot be empty."
-            )))
-        } else {
-            Ok(Self { id })
-        }
+        Self::new(Cow::Owned(id))
+    }
+}
+
+impl TryFrom<&'static str> for EngineId {
+    type Error = RucatError;
+    fn try_from(id: &'static str) -> Result<Self> {
+        Self::new(Cow::Borrowed(id))
     }
 }
 
@@ -186,21 +204,21 @@ mod tests {
 
     #[test]
     fn test_get_spark_app_id() -> Result<()> {
-        let id = EngineId::try_from("abc".to_owned())?;
+        let id = EngineId::try_from("abc")?;
         assert_eq!(get_spark_app_id(&id), "rucat-spark-abc");
         Ok(())
     }
 
     #[test]
     fn test_get_spark_driver_name() -> Result<()> {
-        let id = EngineId::try_from("abc".to_owned())?;
+        let id = EngineId::try_from("abc")?;
         assert_eq!(get_spark_driver_name(&id), "rucat-spark-abc-driver");
         Ok(())
     }
 
     #[test]
     fn test_get_spark_service_name() -> Result<()> {
-        let id = EngineId::try_from("abc".to_owned())?;
+        let id = EngineId::try_from("abc")?;
         assert_eq!(get_spark_service_name(&id), "rucat-spark-abc");
         Ok(())
     }
@@ -212,7 +230,7 @@ mod tests {
 
         #[test]
         fn engine_id_cannot_be_empty() {
-            let result = EngineId::try_from("".to_owned());
+            let result = EngineId::try_from("");
             assert!(result.is_err_and(|e| e
                 .to_string()
                 .starts_with("Not allowed: Engine id cannot be empty.")));
@@ -229,7 +247,7 @@ mod tests {
         #[test]
         fn deserialize_engine_id() -> anyhow::Result<()> {
             let result: EngineId = serde_json::from_value(json!("abc"))?;
-            assert_eq!(result, EngineId::try_from("abc".to_owned())?);
+            assert_eq!(result, EngineId::try_from("abc")?);
             Ok(())
         }
     }
@@ -262,7 +280,7 @@ mod tests {
             assert!(result.0 == HashMap::new());
 
             let spark_submit_format = result
-                .to_spark_submit_format_with_preset_configs(&EngineId::try_from("abc".to_owned())?);
+                .to_spark_submit_format_with_preset_configs(&EngineId::try_from("abc")?);
             assert_eq!(
                 spark_submit_format,
                 vec![
@@ -293,7 +311,7 @@ mod tests {
             assert!(result.0 == config);
 
             let spark_submit_format = result
-                .to_spark_submit_format_with_preset_configs(&EngineId::try_from("abc".to_owned())?);
+                .to_spark_submit_format_with_preset_configs(&EngineId::try_from("abc")?);
             assert_eq!(
                 spark_submit_format,
                 vec![
