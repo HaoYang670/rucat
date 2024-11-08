@@ -73,16 +73,15 @@ bash test.sh
 ## TODO
 
 1. test graceful shutdown
-2. Avoid useless memory copy by using COW. (e.g. str -> String)
-3. catch the spark driver log before deleting?
-4. implement rucat-client (based on spark-connect-rs)
-5. Test graceful shutdown <https://github.com/JosephLenton/axum-test/issues/88#issuecomment-2369720183>
-6. Rewrite engine state using Surreal Literal type <https://surrealdb.com/docs/surrealql/datamodel/literals>
-7. mock k8s related functions and restore test cases. <https://github.com/asomers/mockall>
-8. miri testing <https://github.com/rust-lang/miri>
-9. fuzz testing <https://rust-fuzz.github.io/book/introduction.html>
-10. shared spark v.s. exclusive spark (for example for batch job)
-11. make all request fully async. tasks are submitted by storing info in cluster state, rucat monitor takes account of do the tasks and update the cluster state.
+2. catch the spark driver log before deleting?
+3. implement rucat-client (based on spark-connect-rs)
+4. Test graceful shutdown <https://github.com/JosephLenton/axum-test/issues/88#issuecomment-2369720183>
+5. Rewrite engine state using Surreal Literal type <https://surrealdb.com/docs/surrealql/datamodel/literals>
+6. mock k8s related functions and restore test cases. <https://github.com/asomers/mockall>
+7. miri testing <https://github.com/rust-lang/miri>
+8. fuzz testing <https://rust-fuzz.github.io/book/introduction.html>
+9. shared spark v.s. exclusive spark (for example for batch job)
+10. make all request fully async. tasks are submitted by storing info in cluster state, rucat monitor takes account of do the tasks and update the cluster state.
 
 ## How to deploy on k8s
 

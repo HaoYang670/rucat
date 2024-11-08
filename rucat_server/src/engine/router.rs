@@ -1,5 +1,6 @@
 //! Restful API for engine management.
 
+use ::std::borrow::Cow;
 use std::collections::HashMap;
 use std::fmt::Debug;
 
@@ -28,7 +29,7 @@ pub(crate) struct CreateEngineRequest {
     // The name of the engine
     name: String,
     // Spark configurations
-    configs: Option<HashMap<String, String>>,
+    configs: Option<HashMap<Cow<'static, str>, Cow<'static, str>>>,
 }
 
 impl TryFrom<CreateEngineRequest> for EngineInfo {

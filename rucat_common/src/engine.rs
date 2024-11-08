@@ -68,26 +68,33 @@ impl EngineTime {
 
 /// User-defined configuration for creating an Spark app.
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct EngineConfigs(HashMap<String, String>);
+pub struct EngineConfigs(HashMap<Cow<'static, str>, Cow<'static, str>>);
 
 impl EngineConfigs {
     /// Convert the configuration to the format of `spark-submit`.
     /// The preset configurations are set with the given engine id.
-    pub fn to_spark_submit_format_with_preset_configs(&self, id: &EngineId) -> Vec<String> {
+    pub fn to_spark_submit_format_with_preset_configs(
+        &self,
+        id: &EngineId,
+    ) -> Vec<Cow<'static, str>> {
         // Safety: keys in `PRESET_CONFIG` and `self.0` are not overlapping.
         PRESET_CONFIGS
             .iter()
-            .map(|(k, v)| format!("{}={}", k, v(id)))
-            .chain(self.0.iter().map(|(k, v)| format!("{}={}", k, v)))
-            .flat_map(|conf| ["--conf".to_owned(), conf])
+            .map(|(k, v)| Cow::Owned(format!("{}={}", k, v(id))))
+            .chain(
+                self.0
+                    .iter()
+                    .map(|(k, v)| Cow::Owned(format!("{}={}", k, v))),
+            )
+            .flat_map(|conf| [Cow::Borrowed("--conf"), conf])
             .collect()
     }
 }
 
-impl TryFrom<HashMap<String, String>> for EngineConfigs {
+impl TryFrom<HashMap<Cow<'static, str>, Cow<'static, str>>> for EngineConfigs {
     type Error = RucatError;
 
-    fn try_from(config: HashMap<String, String>) -> Result<Self> {
+    fn try_from(config: HashMap<Cow<'static, str>, Cow<'static, str>>) -> Result<Self> {
         PRESET_CONFIGS
             .iter()
             .map(|(key, _)| key)
@@ -255,8 +262,8 @@ mod tests {
     mod engine_config {
         use super::*;
 
-        fn check_preset_config(key: &str) {
-            let config = HashMap::from([(key.to_owned(), "".to_owned())]);
+        fn check_preset_config(key: &'static str) {
+            let config = HashMap::from([(Cow::Borrowed(key), Cow::Borrowed(""))]);
             let result = EngineConfigs::try_from(config);
             assert!(result.is_err_and(|e| e.to_string().starts_with(&format!(
                 "Not allowed: The config {} is not allowed as it is reserved.",
@@ -306,7 +313,10 @@ mod tests {
 
         #[test]
         fn engine_config_with_1_item() -> Result<()> {
-            let config = HashMap::from([("spark.executor.instances".to_owned(), "2".to_owned())]);
+            let config = HashMap::from([(
+                Cow::Borrowed("spark.executor.instances"),
+                Cow::Borrowed("2"),
+            )]);
             let result = EngineConfigs::try_from(config.clone())?;
             assert!(result.0 == config);
 

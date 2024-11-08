@@ -1,5 +1,7 @@
 //! Functions to manage Spark engine on k8s
 
+use ::std::borrow::Cow;
+
 use ::rucat_common::engine::{
     get_spark_app_id, get_spark_driver_name, get_spark_service_name, EngineConfigs, EngineId,
 };
@@ -24,18 +26,14 @@ pub(super) async fn create_engine(id: &EngineId, config: &EngineConfigs) -> Resu
     let spark_driver_name = get_spark_driver_name(id);
     let spark_service_name = get_spark_service_name(id);
     let mut args = config.to_spark_submit_format_with_preset_configs(id);
-    args.extend(
-        [
-            "--master",
-            "k8s://https://kubernetes:443",
-            "--deploy-mode",
-            "client",
-            "--packages",
-            "org.apache.spark:spark-connect_2.12:3.5.3",
-        ]
-        .iter()
-        .map(|s| s.to_string()),
-    );
+    args.extend([
+        Cow::Borrowed("--master"),
+        Cow::Borrowed("k8s://https://kubernetes:443"),
+        Cow::Borrowed("--deploy-mode"),
+        Cow::Borrowed("client"),
+        Cow::Borrowed("--packages"),
+        Cow::Borrowed("org.apache.spark:spark-connect_2.12:3.5.3"),
+    ]);
 
     let pod: Pod = serde_json::from_value(json!({
         "apiVersion": "v1",
