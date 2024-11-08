@@ -279,8 +279,8 @@ mod tests {
             let result = EngineConfigs::try_from(HashMap::new())?;
             assert!(result.0 == HashMap::new());
 
-            let spark_submit_format = result
-                .to_spark_submit_format_with_preset_configs(&EngineId::try_from("abc")?);
+            let spark_submit_format =
+                result.to_spark_submit_format_with_preset_configs(&EngineId::try_from("abc")?);
             assert_eq!(
                 spark_submit_format,
                 vec![
@@ -310,8 +310,8 @@ mod tests {
             let result = EngineConfigs::try_from(config.clone())?;
             assert!(result.0 == config);
 
-            let spark_submit_format = result
-                .to_spark_submit_format_with_preset_configs(&EngineId::try_from("abc")?);
+            let spark_submit_format =
+                result.to_spark_submit_format_with_preset_configs(&EngineId::try_from("abc")?);
             assert_eq!(
                 spark_submit_format,
                 vec![

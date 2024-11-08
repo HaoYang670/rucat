@@ -91,6 +91,39 @@ async fn create_engine_with_unknown_field() -> Result<()> {
     Ok(())
 }
 
+#[tokio::test]
+async fn create_engine_with_forbidden_configs() -> Result<()> {
+    async fn helper(key: &str) -> Result<()> {
+        let server = get_test_server().await?;
+        let response = server
+            .post("/engine")
+            .json(&json!({
+                "name": "test",
+                "configs": {
+                    key: "123"
+                }
+            }))
+            .await;
+
+        response.assert_status(StatusCode::FORBIDDEN);
+        assert!(response.text().contains(
+            format!(
+                "Not allowed: The config {} is not allowed as it is reserved.",
+                key
+            )
+            .as_str()
+        ));
+        Ok(())
+    }
+
+    helper("spark.app.id").await?;
+    helper("spark.kubernetes.container.image").await?;
+    helper("spark.driver.host").await?;
+    helper("spark.kubernetes.driver.pod.name").await?;
+    helper("spark.kubernetes.executor.podNamePrefix").await?;
+    helper("spark.driver.extraJavaOptions").await
+}
+
 /*/
 #[tokio::test]
 async fn get_engine() -> Result<()> {
