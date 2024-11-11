@@ -20,6 +20,7 @@ surrealdb = {"version" = "2.0.4", features = ["kv-mem", "native-tls"]}
 tonic = "0.12.3"
 time = {version = "0.3.36", features = ["serde-well-known", "parsing", "macros"]}
 tracing = {"version" = "0.1.40"}
+tracing-subscriber = {"version" = "0.3.18"}
 
 [build-dependencies]
 tonic-build = "0.12.3"

@@ -1,5 +1,7 @@
 server:
   enabled: true
+state-monitor:
+  enabled: true
 surrealdb:
   enabled: true
 

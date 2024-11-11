@@ -1,4 +1,4 @@
-use ::rucat_common::error::RucatError;
+use ::rucat_common::{error::RucatError, tracing::info, tracing_subscriber};
 use rucat_common::{config::Args, error::Result};
 use rucat_server::get_server;
 use std::{
@@ -6,7 +6,6 @@ use std::{
     process::Child,
 };
 use tokio::signal;
-use tracing::info;
 
 #[tokio::main]
 /// Start Rucat server

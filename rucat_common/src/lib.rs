@@ -9,6 +9,8 @@ pub mod error;
 pub use anyhow;
 pub use k8s_openapi;
 pub use kube;
+pub use tracing;
+pub use tracing_subscriber;
 
 pub mod client_grpc {
     tonic::include_proto!("client_grpc");
