@@ -1,8 +1,7 @@
-use ::rucat_common::error::*;
+use ::rucat_common::{error::*, serde_json::json};
 use axum_test::TestServer;
 use http::StatusCode;
 use rucat_server::get_server;
-use serde_json::json;
 
 /// server with embedded datastore and authentication disabled
 async fn get_test_server() -> Result<TestServer> {

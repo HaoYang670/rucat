@@ -1,18 +1,27 @@
 use std::process::Child;
 
+use ::rucat_common::serde::Deserialize;
 use authentication::auth;
 use axum::{extract::State, middleware, routing::get, Router};
 use axum_extra::middleware::option_layer;
 use engine::router::get_engine_router;
 use rucat_common::config::{load_config, DatabaseConfig, DatabaseVariant};
 use rucat_common::database::DatabaseClient;
-use rucat_common::{config::ServerConfig, error::Result};
+use rucat_common::error::Result;
 use state::AppState;
 use tower_http::trace::TraceLayer;
 
 pub(crate) mod authentication;
 pub(crate) mod engine;
 pub(crate) mod state;
+
+/// Configuration for rucat server
+#[derive(Deserialize)]
+#[serde(crate = "rucat_common::serde")]
+struct ServerConfig {
+    auth_enable: bool,
+    database: DatabaseConfig,
+}
 
 /// This is the only entry for users to get the rucat server.
 /// # Return

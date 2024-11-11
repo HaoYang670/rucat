@@ -2,7 +2,7 @@
 
 Unified gateway to create, connect and manage data engine on Kubernetes.
 
-Rucat name meaning is Guider, Discipline, Adventurer and Rucat is a Boy / Girl name. The Numerology Number for the name Rucat is 9.
+Rucat is a Boy / Girl name, meaning is Guider, Discipline and Adventurer. The Numerology Number for the name Rucat is 9.
 
 ## Architecture
 

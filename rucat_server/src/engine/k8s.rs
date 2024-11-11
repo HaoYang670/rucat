@@ -2,16 +2,16 @@
 
 use ::std::borrow::Cow;
 
-use ::rucat_common::{engine::{
-    get_spark_app_id, get_spark_driver_name, get_spark_service_name, EngineConfigs, EngineId,
-}, tracing::debug};
-use rucat_common::{
+use ::rucat_common::{
+    engine::{
+        get_spark_app_id, get_spark_driver_name, get_spark_service_name, EngineConfigs, EngineId,
+    },
     error::*,
     k8s_openapi::api::core::v1::{Pod, Service},
     kube::{api::PostParams, Api, Client},
+    serde_json::{self, json},
+    tracing::debug,
 };
-
-use serde_json::json;
 
 const SPARK_SERVICE_SELECTOR: &str = "rucat-engine-selector";
 

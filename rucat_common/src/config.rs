@@ -46,13 +46,7 @@ pub struct DatabaseConfig {
     pub variant: DatabaseVariant,
 }
 
-#[derive(Deserialize)]
-pub struct ServerConfig {
-    pub auth_enable: bool,
-    pub database: DatabaseConfig,
-}
-
-/// Parse [ServerConfig] from the config file.
+/// Parse config from file.
 pub fn load_config<T: DeserializeOwned>(path: &str) -> Result<T> {
     let file = File::open(path).map_err(RucatError::fail_to_load_config)?;
     let reader = BufReader::new(file);

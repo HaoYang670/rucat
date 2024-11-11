@@ -7,15 +7,15 @@ use std::fmt::Debug;
 use ::rucat_common::{
     anyhow::anyhow,
     engine::{EngineId, EngineInfo, EngineState::*},
-    error::{Result, RucatError}, tracing::{error, info},
+    error::{Result, RucatError},
+    serde::{Deserialize, Serialize},
+    tracing::{error, info},
 };
 use axum::{
     extract::{Path, State},
     routing::{get, post},
     Json, Router,
 };
-
-use serde::{Deserialize, Serialize};
 
 use crate::state::AppState;
 
@@ -24,6 +24,7 @@ use super::k8s;
 /// Request body to create an engine.
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
+#[serde(crate = "rucat_common::serde")]
 pub(crate) struct CreateEngineRequest {
     // The name of the engine
     name: String,
