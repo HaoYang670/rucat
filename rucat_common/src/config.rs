@@ -23,14 +23,14 @@ impl Args {
 }
 
 /// Credentials for the database
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 pub struct Credentials {
     pub username: String,
     pub password: String,
 }
 
 /// Variant for user to choose the database type when creating the server
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(tag = "type")]
 pub enum DatabaseVariant {
     /// Embedded database has the same lifetime as the server
@@ -40,7 +40,7 @@ pub enum DatabaseVariant {
     Local { uri: String },
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, PartialEq, Eq)]
 pub struct DatabaseConfig {
     pub credentials: Option<Credentials>,
     pub variant: DatabaseVariant,
@@ -52,4 +52,94 @@ pub fn load_config<T: DeserializeOwned>(path: &str) -> Result<T> {
     let reader = BufReader::new(file);
     let config = from_reader(reader).map_err(RucatError::fail_to_load_config)?;
     Ok(config)
+}
+
+#[cfg(test)]
+mod tests {
+    use ::anyhow::Result;
+    use ::serde_json::{from_value, json};
+
+    use super::*;
+
+    #[test]
+    fn allow_missing_field_credentials() -> Result<()> {
+        let config = json!(
+            {
+                "variant": {
+                    "type": "Embedded"
+                }
+            }
+        );
+        let result = from_value::<DatabaseConfig>(config)?;
+        assert_eq!(
+            result,
+            DatabaseConfig {
+                credentials: None,
+                variant: DatabaseVariant::Embedded
+            }
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn missing_field_variant() {
+        let config = json!(
+            {
+                "credentials": null
+            }
+        );
+        let result = from_value::<DatabaseConfig>(config);
+        assert_eq!(result.unwrap_err().to_string(), "missing field `variant`");
+    }
+
+    #[test]
+    fn deserialize_embedded_database_config() -> Result<()> {
+        let config = json!(
+            {
+                "credentials": null,
+                "variant": {
+                    "type": "Embedded"
+                }
+            }
+        );
+        let result = from_value::<DatabaseConfig>(config)?;
+        assert_eq!(
+            result,
+            DatabaseConfig {
+                credentials: None,
+                variant: DatabaseVariant::Embedded
+            }
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn deserialize_local_database_config() -> Result<()> {
+        let config = json!(
+            {
+                "credentials": {
+                    "username": "admin",
+                    "password": "pwd"
+                },
+                "variant": {
+                    "type": "Local",
+                    "uri": "localhost:27017"
+                }
+            }
+        );
+        let result = from_value::<DatabaseConfig>(config)?;
+        assert_eq!(
+            result,
+            DatabaseConfig {
+                credentials: Some(Credentials {
+                    username: "admin".to_string(),
+                    password: "pwd".to_string()
+                }),
+                variant: DatabaseVariant::Local {
+                    uri: "localhost:27017".to_string()
+                }
+            }
+        );
+        Ok(())
+    }
 }

@@ -1,13 +1,15 @@
 use std::process::Child;
 
-use ::rucat_common::serde::Deserialize;
+use ::rucat_common::{
+    config::{load_config, DatabaseConfig, DatabaseVariant},
+    database::DatabaseClient,
+    error::Result,
+    serde::Deserialize,
+};
 use authentication::auth;
 use axum::{extract::State, middleware, routing::get, Router};
 use axum_extra::middleware::option_layer;
 use engine::router::get_engine_router;
-use rucat_common::config::{load_config, DatabaseConfig, DatabaseVariant};
-use rucat_common::database::DatabaseClient;
-use rucat_common::error::Result;
 use state::AppState;
 use tower_http::trace::TraceLayer;
 
@@ -16,7 +18,7 @@ pub(crate) mod engine;
 pub(crate) mod state;
 
 /// Configuration for rucat server
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize, PartialEq, Eq)]
 #[serde(crate = "rucat_common::serde")]
 struct ServerConfig {
     auth_enable: bool,
@@ -30,14 +32,13 @@ struct ServerConfig {
 pub async fn get_server(config_path: &str) -> Result<(Router, Option<Child>)> {
     let ServerConfig {
         auth_enable,
-        database:
-            DatabaseConfig {
-                credentials,
-                variant: database_type,
-            },
+        database: DatabaseConfig {
+            credentials,
+            variant,
+        },
     } = load_config(config_path)?;
 
-    let (db, embedded_db_ps) = match database_type {
+    let (db, embedded_db_ps) = match variant {
         DatabaseVariant::Embedded => {
             let (db, ps) = DatabaseClient::create_embedded_db(credentials.as_ref()).await?;
             (db, Some(ps))
@@ -59,4 +60,71 @@ pub async fn get_server(config_path: &str) -> Result<(Router, Option<Child>)> {
         .layer(TraceLayer::new_for_http())
         .with_state(app_state);
     Ok((router, embedded_db_ps))
+}
+
+#[cfg(test)]
+mod tests {
+    use ::rucat_common::{
+        anyhow::Result,
+        serde_json::{from_value, json},
+    };
+
+    use super::*;
+
+    #[test]
+    fn missing_field_auth_enable() {
+        let config = json!(
+            {
+                "database": {
+                    "credentials": null,
+                    "variant": {
+                        "type": "Embedded"
+                    }
+                }
+            }
+        );
+        let result = from_value::<ServerConfig>(config);
+        assert_eq!(
+            result.unwrap_err().to_string(),
+            "missing field `auth_enable`"
+        );
+    }
+
+    #[test]
+    fn missing_field_database() {
+        let config = json!(
+            {
+                "auth_enable": true
+            }
+        );
+        let result = from_value::<ServerConfig>(config);
+        assert_eq!(result.unwrap_err().to_string(), "missing field `database`");
+    }
+
+    #[test]
+    fn deserialize_server_config() -> Result<()> {
+        let config = json!(
+            {
+                "auth_enable": true,
+                "database": {
+                    "credentials": null,
+                    "variant": {
+                        "type": "Embedded"
+                    }
+                }
+            }
+        );
+        let result = from_value::<ServerConfig>(config)?;
+        assert_eq!(
+            result,
+            ServerConfig {
+                auth_enable: true,
+                database: DatabaseConfig {
+                    credentials: None,
+                    variant: DatabaseVariant::Embedded
+                }
+            }
+        );
+        Ok(())
+    }
 }
