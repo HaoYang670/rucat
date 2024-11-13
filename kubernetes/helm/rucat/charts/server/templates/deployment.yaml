@@ -37,7 +37,7 @@ spec:
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           command: ["rucat_server"]
-          args: ["--config-path", "/rucat/config.json"]
+          args: ["--config-path", "/rucat_server/config.json"]
           env:
             - name: RUST_LOG
               value: debug
@@ -53,7 +53,7 @@ spec:
             {{- toYaml .Values.resources | nindent 12 }}
           volumeMounts:
             - name: {{ .Release.Name }}-config
-              mountPath: /rucat/config.json
+              mountPath: /rucat_server/config.json
               subPath: config.json
       volumes:
         - name: {{ .Release.Name }}-config
