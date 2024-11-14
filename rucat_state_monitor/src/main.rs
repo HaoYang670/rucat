@@ -1,6 +1,7 @@
 use ::rucat_common::{
-    config::{load_config, DatabaseConfig},
-    error::Result,
+    anyhow::anyhow,
+    config::{load_config, DatabaseConfig, DatabaseVariant},
+    error::{Result, RucatError},
     tracing::info,
     tracing_subscriber,
 };
@@ -17,15 +18,23 @@ fn main() -> Result<()> {
         check_interval_millis,
         database: DatabaseConfig {
             credentials: _,
-            variant: _,
+            variant,
         },
     } = load_config(CONFIG_FILE_PATH)?;
 
-    loop {
-        info!("Checking Spark state...");
-        // wait for some seconds
-        std::thread::sleep(std::time::Duration::from_millis(
-            check_interval_millis.get(),
-        ));
+    // TODO: find a better way to forbid using embedded database
+    match variant {
+        DatabaseVariant::Embedded => Err(RucatError::fail_to_start_state_monitor(anyhow!(
+            "Cannot use embedded database."
+        ))),
+        DatabaseVariant::Local { uri: _ } => {
+            loop {
+                info!("Checking Spark state...");
+                // wait for some seconds
+                std::thread::sleep(std::time::Duration::from_millis(
+                    check_interval_millis.get(),
+                ));
+            }
+        }
     }
 }

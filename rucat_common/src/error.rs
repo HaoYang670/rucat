@@ -18,6 +18,7 @@ enum RucatErrorType {
     Unauthorized,
     NotAllowed,
     FailToStartServer,
+    FailToStartStateMonitor,
     FailToCreateEngine,
     FailToDeleteEngine,
     FailToCreateDatabase,
@@ -34,6 +35,7 @@ impl RucatErrorType {
             Unauthorized => StatusCode::UNAUTHORIZED,
             NotAllowed => StatusCode::FORBIDDEN,
             FailToStartServer => StatusCode::INTERNAL_SERVER_ERROR,
+            FailToStartStateMonitor => StatusCode::INTERNAL_SERVER_ERROR,
             FailToCreateEngine => StatusCode::INTERNAL_SERVER_ERROR,
             FailToDeleteEngine => StatusCode::INTERNAL_SERVER_ERROR,
             FailToCreateDatabase => StatusCode::INTERNAL_SERVER_ERROR,
@@ -52,6 +54,7 @@ impl Display for RucatErrorType {
             Unauthorized => write!(f, "Unauthorized"),
             NotAllowed => write!(f, "Not allowed"),
             FailToStartServer => write!(f, "Fail to start server"),
+            FailToStartStateMonitor => write!(f, "Fail to start state monitor"),
             FailToCreateEngine => write!(f, "Fail to create engine"),
             FailToDeleteEngine => write!(f, "Fail to delete engine"),
             FailToCreateDatabase => write!(f, "Fail to create database"),
@@ -88,6 +91,10 @@ impl RucatError {
 
     pub fn fail_to_start_server<E: Into<anyhow::Error>>(e: E) -> Self {
         Self::new(FailToStartServer, e)
+    }
+
+    pub fn fail_to_start_state_monitor<E: Into<anyhow::Error>>(e: E) -> Self {
+        Self::new(FailToStartStateMonitor, e)
     }
     pub fn fail_to_create_engine<E: Into<anyhow::Error>>(e: E) -> Self {
         Self::new(FailToCreateEngine, e)
