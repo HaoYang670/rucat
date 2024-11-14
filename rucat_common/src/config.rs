@@ -24,6 +24,7 @@ impl Args {
 
 /// Credentials for the database
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
 pub struct Credentials {
     pub username: String,
     pub password: String,
@@ -41,6 +42,7 @@ pub enum DatabaseVariant {
 }
 
 #[derive(Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
 pub struct DatabaseConfig {
     pub credentials: Option<Credentials>,
     pub variant: DatabaseVariant,
@@ -90,6 +92,24 @@ mod tests {
         );
         let result = from_value::<DatabaseConfig>(config);
         assert_eq!(result.unwrap_err().to_string(), "missing field `variant`");
+    }
+
+    #[test]
+    fn deny_unknown_fields() {
+        let config = json!(
+            {
+                "credentials": null,
+                "variant": {
+                    "type": "Embedded"
+                },
+                "unknown_field": "unknown"
+            }
+        );
+        let result = from_value::<DatabaseConfig>(config);
+        assert_eq!(
+            result.unwrap_err().to_string(),
+            "unknown field `unknown_field`, expected `credentials` or `variant`"
+        );
     }
 
     #[test]

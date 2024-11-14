@@ -4,6 +4,7 @@ use ::rucat_common::{config::DatabaseConfig, serde::Deserialize};
 
 /// Configuration for rucat state monitor
 #[derive(Debug, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
 #[serde(crate = "rucat_common::serde")]
 pub struct StateMonitorConfig {
     /// Time interval in millisecond for checking each Spark state
@@ -74,6 +75,27 @@ mod tests {
         );
         let result = from_value::<StateMonitorConfig>(config);
         assert_eq!(result.unwrap_err().to_string(), "missing field `database`");
+    }
+
+    #[test]
+    fn deny_unknown_fields() {
+        let config = json!(
+            {
+                "check_interval_millis": 1000,
+                "database": {
+                    "credentials": null,
+                    "variant": {
+                        "type": "Embedded"
+                    }
+                },
+                "unknown_field": "unknown"
+            }
+        );
+        let result = from_value::<StateMonitorConfig>(config);
+        assert_eq!(
+            result.unwrap_err().to_string(),
+            "unknown field `unknown_field`, expected `check_interval_millis` or `database`"
+        );
     }
 
     #[test]

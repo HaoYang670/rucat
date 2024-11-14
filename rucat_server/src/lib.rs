@@ -19,6 +19,7 @@ pub(crate) mod state;
 
 /// Configuration for rucat server
 #[derive(Debug, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
 #[serde(crate = "rucat_common::serde")]
 struct ServerConfig {
     auth_enable: bool,
@@ -99,6 +100,27 @@ mod tests {
         );
         let result = from_value::<ServerConfig>(config);
         assert_eq!(result.unwrap_err().to_string(), "missing field `database`");
+    }
+
+    #[test]
+    fn deny_unknown_fields() {
+        let config = json!(
+            {
+                "auth_enable": true,
+                "database": {
+                    "credentials": null,
+                    "variant": {
+                        "type": "Embedded"
+                    },
+                },
+                "unknown_field": "unknown"
+            }
+        );
+        let result = from_value::<ServerConfig>(config);
+        assert_eq!(
+            result.unwrap_err().to_string(),
+            "unknown field `unknown_field`, expected `auth_enable` or `database`"
+        );
     }
 
     #[test]
