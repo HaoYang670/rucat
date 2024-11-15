@@ -1,9 +1,11 @@
-use ::rucat_common::error::RucatError;
+use ::rucat_common::{
+    error::{Result, RucatError},
+    tokio,
+};
 use axum_extra::headers::authorization::Credentials;
 use axum_test::TestServer;
 use headers::Authorization;
 use http::{header::AUTHORIZATION, HeaderValue};
-use rucat_common::error::Result;
 use rucat_server::get_server;
 
 /// server with embedded datastore and authentication enabled

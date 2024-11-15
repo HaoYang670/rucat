@@ -82,6 +82,7 @@ bash test.sh
 8. fuzz testing <https://rust-fuzz.github.io/book/introduction.html>
 9. shared spark v.s. exclusive spark (for example for batch job)
 10. make all request fully async. tasks are submitted by storing info in cluster state, rucat monitor takes account of do the tasks and update the cluster state.
+11. Arrow flight sql as protocol
 
 ## How to deploy on k8s
 

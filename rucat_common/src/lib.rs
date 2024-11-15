@@ -11,6 +11,7 @@ pub use k8s_openapi;
 pub use kube;
 pub use serde;
 pub use serde_json;
+pub use tokio;
 pub use tracing;
 pub use tracing_subscriber;
 

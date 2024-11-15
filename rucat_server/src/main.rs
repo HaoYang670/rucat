@@ -1,11 +1,15 @@
-use ::rucat_common::{error::RucatError, tracing::info, tracing_subscriber};
+use ::rucat_common::{
+    error::RucatError,
+    tokio::{self, signal},
+    tracing::info,
+    tracing_subscriber,
+};
 use rucat_common::{config::Args, error::Result};
 use rucat_server::get_server;
 use std::{
     net::{Ipv4Addr, SocketAddrV4},
     process::Child,
 };
-use tokio::signal;
 
 #[tokio::main]
 /// Start Rucat server

@@ -8,15 +8,16 @@ edition = "2021"
 [dependencies]
 axum = {"version" = "0.7.7"}
 anyhow = {"version" = "1.0.93"}
-clap = { version = "4.5.20", features = ["derive"] }
+clap = { version = "4.5.21", features = ["derive"] }
 clap_derive = "4.5.18"
 kube = "0.96.0"
 k8s-openapi = { version = "0.23.0", features = ["latest"] }
 prost = "0.13.3"
 rand = "0.8.5"
-serde = {"version" = "1.0.214", features = ["derive"]}
+serde = {"version" = "1.0.215", features = ["derive"]}
 serde_json = "1.0.132"
 surrealdb = {"version" = "2.0.4", features = ["kv-mem", "native-tls"]}
+tokio = {"version" = "1.41.1", features = ["full"]}
 tonic = "0.12.3"
 time = {version = "0.3.36", features = ["serde-well-known", "parsing", "macros"]}
 tracing = {"version" = "0.1.40"}

@@ -1,15 +1,18 @@
 use ::rucat_common::{
     anyhow::anyhow,
     config::{load_config, DatabaseConfig, DatabaseVariant},
+    database,
     error::{Result, RucatError},
-    tracing::info,
+    tokio,
+    tracing::{debug, info},
     tracing_subscriber,
 };
 use ::rucat_state_monitor::{StateMonitorConfig, CONFIG_FILE_PATH};
 
 // TODO: Convert the return type to `Result<!>` when it's stable
 // See <https://github.com/rust-lang/rust/issues/35121>
-fn main() -> Result<()> {
+#[tokio::main]
+async fn main() -> Result<()> {
     // setup tracing
     tracing_subscriber::fmt::init();
     info!("Start rucat state monitor");
@@ -17,7 +20,7 @@ fn main() -> Result<()> {
     let StateMonitorConfig {
         check_interval_millis,
         database: DatabaseConfig {
-            credentials: _,
+            credentials,
             variant,
         },
     } = load_config(CONFIG_FILE_PATH)?;
@@ -27,8 +30,11 @@ fn main() -> Result<()> {
         DatabaseVariant::Embedded => Err(RucatError::fail_to_start_state_monitor(anyhow!(
             "Cannot use embedded database."
         ))),
-        DatabaseVariant::Local { uri: _ } => {
+        DatabaseVariant::Local { uri } => {
+            let db = database::DatabaseClient::connect_local_db(credentials.as_ref(), uri).await?;
             loop {
+                let engines = db.list_engines().await?;
+                debug!("Detect {} Spark engines", engines.len());
                 info!("Checking Spark state...");
                 // wait for some seconds
                 std::thread::sleep(std::time::Duration::from_millis(
