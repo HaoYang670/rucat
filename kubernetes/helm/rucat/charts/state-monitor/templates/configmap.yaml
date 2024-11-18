@@ -13,9 +13,6 @@ data:
           "username": "admin",
           "password": "admin"
         },
-        "variant": {
-          "type": "Local",
-          "uri": "rucat-surrealdb:8000"
-        }
+        "uri": "rucat-surrealdb:8000"
       }
     }

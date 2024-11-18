@@ -1,20 +1,10 @@
-use ::rucat_common::{
-    database::surrealdb_client::SurrealDBClient,
-    error::{Result, RucatError},
-    tokio,
-};
-use axum_extra::headers::authorization::Credentials;
-use axum_test::TestServer;
+mod common;
+
+use ::rucat_common::{error::Result, tokio};
+use axum_extra::headers::authorization::Credentials as _;
+use common::{get_test_server, MockDBClient};
 use headers::Authorization;
 use http::{header::AUTHORIZATION, HeaderValue};
-use rucat_server::get_server;
-
-/// server with embedded datastore and authentication enabled
-async fn get_test_server() -> Result<TestServer> {
-    let (app, _) =
-        get_server::<SurrealDBClient>("./tests/configs/authentication_test_config.json").await?;
-    TestServer::new(app).map_err(RucatError::fail_to_start_server)
-}
 
 static USERNAME: &str = "remzi";
 static PWD: &str = "yang";
@@ -22,7 +12,8 @@ static TOKEN: &str = "remziy"; // Bearer token
 
 #[tokio::test]
 async fn without_auth_header() -> Result<()> {
-    let server = get_test_server().await?;
+    let db = MockDBClient::new();
+    let server = get_test_server(true, db).await?;
 
     let response = server.get("/any").await;
 
@@ -32,7 +23,8 @@ async fn without_auth_header() -> Result<()> {
 
 #[tokio::test]
 async fn with_wrong_basic_auth() -> Result<()> {
-    let server = get_test_server().await?;
+    let db = MockDBClient::new();
+    let server = get_test_server(true, db).await?;
 
     let response = server
         .get("/")
@@ -49,7 +41,8 @@ async fn with_wrong_basic_auth() -> Result<()> {
 
 #[tokio::test]
 async fn with_wrong_bearer_auth() -> Result<()> {
-    let server = get_test_server().await?;
+    let db = MockDBClient::new();
+    let server = get_test_server(true, db).await?;
 
     let response = server
         .get("/any")
@@ -66,7 +59,8 @@ async fn with_wrong_bearer_auth() -> Result<()> {
 
 #[tokio::test]
 async fn with_unsupported_auth() -> Result<()> {
-    let server = get_test_server().await?;
+    let db = MockDBClient::new();
+    let server = get_test_server(true, db).await?;
 
     let response = server
       .get("/")
@@ -85,7 +79,8 @@ async fn with_unsupported_auth() -> Result<()> {
 
 #[tokio::test]
 async fn basic_auth_successful() -> Result<()> {
-    let server = get_test_server().await?;
+    let db = MockDBClient::new();
+    let server = get_test_server(true, db).await?;
 
     let response = server
         .get("/")
@@ -101,7 +96,8 @@ async fn basic_auth_successful() -> Result<()> {
 
 #[tokio::test]
 async fn bearer_auth_successful() -> Result<()> {
-    let server = get_test_server().await?;
+    let db = MockDBClient::new();
+    let server = get_test_server(true, db).await?;
 
     let response = server
         .get("/")

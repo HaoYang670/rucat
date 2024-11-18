@@ -21,7 +21,6 @@ pub static CONFIG_FILE_PATH: &str = "/rucat_state_monitor/config.json";
 mod tests {
     use ::rucat_common::{
         anyhow::Result,
-        config::DatabaseVariant,
         serde_json::{from_value, json},
     };
 
@@ -34,9 +33,7 @@ mod tests {
                 "check_interval_millis": 0,
                 "database": {
                     "credentials": null,
-                    "variant": {
-                        "type": "Embedded"
-                    }
+                    "uri": ""
                 }
             }
         );
@@ -53,9 +50,7 @@ mod tests {
             {
                 "database": {
                     "credentials": null,
-                    "variant": {
-                        "type": "Embedded"
-                    }
+                    "uri": ""
                 }
             }
         );
@@ -84,9 +79,7 @@ mod tests {
                 "check_interval_millis": 1000,
                 "database": {
                     "credentials": null,
-                    "variant": {
-                        "type": "Embedded"
-                    }
+                    "uri": ""
                 },
                 "unknown_field": "unknown"
             }
@@ -105,9 +98,7 @@ mod tests {
                 "check_interval_millis": 1000,
                 "database": {
                     "credentials": null,
-                    "variant": {
-                        "type": "Embedded"
-                    }
+                    "uri":""
                 }
             }
         );
@@ -118,7 +109,7 @@ mod tests {
                 check_interval_millis: NonZeroU64::new(1000).unwrap(),
                 database: DatabaseConfig {
                     credentials: None,
-                    variant: DatabaseVariant::Embedded
+                    uri: "".to_string()
                 }
             }
         );

@@ -148,7 +148,7 @@ pub struct EngineId {
 }
 
 impl EngineId {
-    fn new(id: Cow<'static, str>) -> Result<Self> {
+    pub fn new(id: Cow<'static, str>) -> Result<Self> {
         if id.is_empty() {
             Err(RucatError::not_allowed(anyhow!(
                 "Engine id cannot be empty."

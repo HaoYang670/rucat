@@ -4,8 +4,6 @@ pub mod surrealdb_client;
 
 use axum::async_trait;
 
-use std::process::Child;
-
 use crate::engine::EngineId;
 use crate::error::Result;
 use crate::{
@@ -28,16 +26,12 @@ pub struct UpdateEngineStateResponse {
 /// Engine is stored in the format of using [EngineId] as key and [EngineInfo] as value.
 // TODO: replace #[async_trait] by #[trait_variant::make(HttpService: Send)] in the future: https://blog.rust-lang.org/2023/12/21/async-fn-rpit-in-traits.html#should-i-still-use-the-async_trait-macro
 #[async_trait]
-pub trait DatabaseClient: Clone + Sized + Send + Sync + 'static {
+pub trait DatabaseClient: Sized + Send + Sync + 'static {
     /// get URI of the database
     fn get_uri(&self) -> &str;
 
     /// get credentials of the database
     fn get_credentials(&self) -> Option<&Credentials>;
-
-    /// embedded db will be killed when the server is killed
-    /// Return the client and the db process.
-    async fn create_embedded_db(credentials: Option<&Credentials>) -> Result<(Self, Child)>;
 
     /// Connect to an existing local database, return the client.
     async fn connect_local_db(credentials: Option<&Credentials>, uri: String) -> Result<Self>;
@@ -56,10 +50,11 @@ pub trait DatabaseClient: Clone + Sized + Send + Sync + 'static {
     /// - `Ok(None)` if the engine does not exist.
     /// - `Ok(Some(UpdateEngineStateResponse))` if the engine exists.
     /// - `Err(_)` if any error occurs in the database.
-    async fn update_engine_state<const N: usize>(
+    /// TODO: convert `before` to `[EngineState; N]` when mockall supports const generics.
+    async fn update_engine_state(
         &self,
         id: &EngineId,
-        before: [EngineState; N],
+        before: Vec<EngineState>,
         after: EngineState,
     ) -> Result<Option<UpdateEngineStateResponse>>;
 

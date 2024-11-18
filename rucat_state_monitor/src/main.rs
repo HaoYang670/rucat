@@ -1,8 +1,7 @@
 use ::rucat_common::{
-    anyhow::anyhow,
-    config::{load_config, DatabaseConfig, DatabaseVariant},
+    config::{load_config, DatabaseConfig},
     database::{surrealdb_client::SurrealDBClient, DatabaseClient},
-    error::{Result, RucatError},
+    error::Result,
     tokio,
     tracing::{debug, info},
     tracing_subscriber,
@@ -19,28 +18,17 @@ async fn main() -> Result<()> {
 
     let StateMonitorConfig {
         check_interval_millis,
-        database: DatabaseConfig {
-            credentials,
-            variant,
-        },
+        database: DatabaseConfig { credentials, uri },
     } = load_config(CONFIG_FILE_PATH)?;
 
-    // TODO: find a better way to forbid using embedded database
-    match variant {
-        DatabaseVariant::Embedded => Err(RucatError::fail_to_start_state_monitor(anyhow!(
-            "Cannot use embedded database."
-        ))),
-        DatabaseVariant::Local { uri } => {
-            let db = SurrealDBClient::connect_local_db(credentials.as_ref(), uri).await?;
-            loop {
-                let engines = db.list_engines().await?;
-                debug!("Detect {} Spark engines", engines.len());
-                info!("Checking Spark state...");
-                // wait for some seconds
-                std::thread::sleep(std::time::Duration::from_millis(
-                    check_interval_millis.get(),
-                ));
-            }
-        }
+    let db = SurrealDBClient::connect_local_db(credentials.as_ref(), uri).await?;
+    loop {
+        let engines = db.list_engines().await?;
+        debug!("Detect {} Spark engines", engines.len());
+        info!("Checking Spark state...");
+        // wait for some seconds
+        std::thread::sleep(std::time::Duration::from_millis(
+            check_interval_millis.get(),
+        ));
     }
 }

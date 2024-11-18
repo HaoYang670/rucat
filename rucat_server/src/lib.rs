@@ -1,7 +1,5 @@
-use std::process::Child;
-
 use ::rucat_common::{
-    config::{load_config, DatabaseConfig, DatabaseVariant},
+    config::{load_config, DatabaseConfig},
     database::DatabaseClient,
     error::Result,
     serde::Deserialize,
@@ -27,27 +25,19 @@ struct ServerConfig {
 }
 
 /// This is the only entry for users to get the rucat server.
-/// # Return
-/// - The router for the server
-/// - The process of the embedded database if the database is embedded
-pub async fn get_server<DB: DatabaseClient>(config_path: &str) -> Result<(Router, Option<Child>)> {
+/// # Return the router for the server
+pub async fn get_server<DB: DatabaseClient>(config_path: &str) -> Result<Router> {
     let ServerConfig {
         auth_enable,
-        database: DatabaseConfig {
-            credentials,
-            variant,
-        },
+        database: DatabaseConfig { credentials, uri },
     } = load_config(config_path)?;
 
-    let (db, embedded_db_ps) = match variant {
-        DatabaseVariant::Embedded => {
-            let (db, ps) = DB::create_embedded_db(credentials.as_ref()).await?;
-            (db, Some(ps))
-        }
-        DatabaseVariant::Local { uri } => {
-            (DB::connect_local_db(credentials.as_ref(), uri).await?, None)
-        }
-    };
+    let db = DB::connect_local_db(credentials.as_ref(), uri).await?;
+    get_server_internal(auth_enable, db)
+}
+
+/// Split the get_server function into two parts to make mock testing easier.
+pub fn get_server_internal<DB: DatabaseClient>(auth_enable: bool, db: DB) -> Result<Router> {
     let app_state = AppState::new(db);
 
     // go through the router from outer to inner
@@ -62,7 +52,7 @@ pub async fn get_server<DB: DatabaseClient>(config_path: &str) -> Result<(Router
         .layer(option_layer(auth_enable.then(|| middleware::from_fn(auth))))
         .layer(TraceLayer::new_for_http())
         .with_state(app_state);
-    Ok((router, embedded_db_ps))
+    Ok(router)
 }
 
 #[cfg(test)]
@@ -80,9 +70,7 @@ mod tests {
             {
                 "database": {
                     "credentials": null,
-                    "variant": {
-                        "type": "Embedded"
-                    }
+                    "uri": ""
                 }
             }
         );
@@ -111,9 +99,7 @@ mod tests {
                 "auth_enable": true,
                 "database": {
                     "credentials": null,
-                    "variant": {
-                        "type": "Embedded"
-                    },
+                    "uri": ""
                 },
                 "unknown_field": "unknown"
             }
@@ -132,9 +118,7 @@ mod tests {
                 "auth_enable": true,
                 "database": {
                     "credentials": null,
-                    "variant": {
-                        "type": "Embedded"
-                    }
+                    "uri": "",
                 }
             }
         );
@@ -145,7 +129,7 @@ mod tests {
                 auth_enable: true,
                 database: DatabaseConfig {
                     credentials: None,
-                    variant: DatabaseVariant::Embedded
+                    uri: "".to_string()
                 }
             }
         );

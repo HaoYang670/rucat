@@ -30,22 +30,11 @@ pub struct Credentials {
     pub password: String,
 }
 
-/// Variant for user to choose the database type when creating the server
-#[derive(Debug, Deserialize, Serialize, PartialEq, Eq)]
-#[serde(tag = "type")]
-pub enum DatabaseVariant {
-    /// Embedded database has the same lifetime as the server
-    /// and cannot be shared between servers
-    Embedded,
-    /// database runs in a separate process locally
-    Local { uri: String },
-}
-
 #[derive(Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct DatabaseConfig {
     pub credentials: Option<Credentials>,
-    pub variant: DatabaseVariant,
+    pub uri: String,
 }
 
 /// Parse config from file.
@@ -67,9 +56,7 @@ mod tests {
     fn allow_missing_field_credentials() -> Result<()> {
         let config = json!(
             {
-                "variant": {
-                    "type": "Embedded"
-                }
+                "uri": ""
             }
         );
         let result = from_value::<DatabaseConfig>(config)?;
@@ -77,21 +64,21 @@ mod tests {
             result,
             DatabaseConfig {
                 credentials: None,
-                variant: DatabaseVariant::Embedded
+                uri: "".to_string()
             }
         );
         Ok(())
     }
 
     #[test]
-    fn missing_field_variant() {
+    fn missing_field_uri() {
         let config = json!(
             {
                 "credentials": null
             }
         );
         let result = from_value::<DatabaseConfig>(config);
-        assert_eq!(result.unwrap_err().to_string(), "missing field `variant`");
+        assert_eq!(result.unwrap_err().to_string(), "missing field `uri`");
     }
 
     #[test]
@@ -99,38 +86,15 @@ mod tests {
         let config = json!(
             {
                 "credentials": null,
-                "variant": {
-                    "type": "Embedded"
-                },
+                "uri": "",
                 "unknown_field": "unknown"
             }
         );
         let result = from_value::<DatabaseConfig>(config);
         assert_eq!(
             result.unwrap_err().to_string(),
-            "unknown field `unknown_field`, expected `credentials` or `variant`"
+            "unknown field `unknown_field`, expected `credentials` or `uri`"
         );
-    }
-
-    #[test]
-    fn deserialize_embedded_database_config() -> Result<()> {
-        let config = json!(
-            {
-                "credentials": null,
-                "variant": {
-                    "type": "Embedded"
-                }
-            }
-        );
-        let result = from_value::<DatabaseConfig>(config)?;
-        assert_eq!(
-            result,
-            DatabaseConfig {
-                credentials: None,
-                variant: DatabaseVariant::Embedded
-            }
-        );
-        Ok(())
     }
 
     #[test]
@@ -141,10 +105,7 @@ mod tests {
                     "username": "admin",
                     "password": "pwd"
                 },
-                "variant": {
-                    "type": "Local",
-                    "uri": "localhost:27017"
-                }
+                "uri": "localhost:27017"
             }
         );
         let result = from_value::<DatabaseConfig>(config)?;
@@ -155,9 +116,7 @@ mod tests {
                     username: "admin".to_string(),
                     password: "pwd".to_string()
                 }),
-                variant: DatabaseVariant::Local {
-                    uri: "localhost:27017".to_string()
-                }
+                uri: "localhost:27017".to_string()
             }
         );
         Ok(())

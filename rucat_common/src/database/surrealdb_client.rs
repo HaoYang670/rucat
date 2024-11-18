@@ -2,10 +2,6 @@
 
 use axum::async_trait;
 
-use std::process::{Child, Command, Stdio};
-use std::thread::sleep;
-use std::time::Duration;
-
 use crate::engine::EngineId;
 use crate::error::{Result, RucatError};
 use crate::{
@@ -14,12 +10,10 @@ use crate::{
 };
 use ::anyhow::anyhow;
 use ::surrealdb::opt::auth::Root;
-use rand::Rng;
 use surrealdb::{
     engine::remote::ws::{Client, Ws},
     Surreal,
 };
-use tracing::error;
 
 use super::{DatabaseClient, UpdateEngineStateResponse};
 
@@ -37,7 +31,6 @@ impl SurrealDBClient {
     const TABLE: &'static str = "engines";
     const NAMESPACE: &'static str = "rucat";
     const DATABASE: &'static str = "rucat";
-    const MAX_ATTEMPTS_TO_CONNECT_EMBEDDED_DB: u8 = 10;
 }
 
 // TODO: replace #[async_trait] by #[trait_variant::make(HttpService: Send)] in the future: https://blog.rust-lang.org/2023/12/21/async-fn-rpit-in-traits.html#should-i-still-use-the-async_trait-macro
@@ -49,45 +42,6 @@ impl DatabaseClient for SurrealDBClient {
 
     fn get_credentials(&self) -> Option<&Credentials> {
         self.credentials.as_ref()
-    }
-
-    async fn create_embedded_db(credentials: Option<&Credentials>) -> Result<(Self, Child)> {
-        // create db using command line and connect to it.
-        let address = {
-            let port = rand::thread_rng().gen_range(1024..=65535);
-            format!("127.0.0.1:{}", port)
-        };
-        let args = {
-            let mut authentication_args = match credentials {
-                Some(Credentials { username, password }) => vec!["-u", username, "-p", password],
-                None => vec!["--unauthenticated"],
-            };
-            let mut args = vec!["start", "-b", &address, "--log", "none"];
-            args.append(&mut authentication_args);
-            args
-        };
-        let process = Command::new("surreal")
-            .args(args)
-            // TODO: store database's log in a file
-            .stdout(Stdio::null())
-            .spawn()
-            .map_err(RucatError::fail_to_create_database)
-            .inspect_err(|e| error!("{}", e))?;
-
-        // Wait for the database to be ready
-        let mut attempts = 0;
-        let delay = Duration::from_secs(1);
-
-        loop {
-            match Self::connect_local_db(credentials, address.clone()).await {
-                Ok(db) => return Ok((db, process)),
-                Err(_) if attempts < Self::MAX_ATTEMPTS_TO_CONNECT_EMBEDDED_DB => {
-                    attempts += 1;
-                    sleep(delay);
-                }
-                Err(e) => return Err(e),
-            }
-        }
     }
 
     async fn connect_local_db(credentials: Option<&Credentials>, uri: String) -> Result<Self> {
@@ -155,10 +109,10 @@ impl DatabaseClient for SurrealDBClient {
         Ok(result)
     }
 
-    async fn update_engine_state<const N: usize>(
+    async fn update_engine_state(
         &self,
         id: &EngineId,
-        before: [EngineState; N],
+        before: Vec<EngineState>,
         after: EngineState,
     ) -> Result<Option<UpdateEngineStateResponse>> {
         // The query returns None if the engine does not exist
@@ -187,7 +141,7 @@ impl DatabaseClient for SurrealDBClient {
             .bind(("tb", Self::TABLE))
             .bind(("id", id.to_string()))
             // convert to vec because array cannot be serialized
-            .bind(("before", before.to_vec()))
+            .bind(("before", before))
             .bind(("after", after))
             .await
             .map_err(RucatError::fail_to_update_database)?

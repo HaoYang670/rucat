@@ -5,9 +5,6 @@
       "username": "remziy",
       "password": "123"
     },
-    "variant": {
-      "type": "Local",
-      "uri": "localhost:8000"
-    }
+    "uri": "localhost:8000"
   }
 }

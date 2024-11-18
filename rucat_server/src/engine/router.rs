@@ -98,7 +98,7 @@ async fn stop_engine<DB: DatabaseClient>(
 ) -> Result<()> {
     state
         .get_db()
-        .update_engine_state(&id, [Pending, Running], Stopped)
+        .update_engine_state(&id, vec![Pending, Running], Stopped)
         .await?
         .map_or_else(
             || Err(RucatError::engine_not_found(&id)),
@@ -123,7 +123,7 @@ async fn restart_engine<DB: DatabaseClient>(
 ) -> Result<()> {
     state
         .get_db()
-        .update_engine_state(&id, [Stopped], Pending)
+        .update_engine_state(&id, vec![Stopped], Pending)
         .await?
         .map_or_else(
             || Err(RucatError::engine_not_found(&id)),
