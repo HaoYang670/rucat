@@ -77,7 +77,7 @@ bash test.sh
 3. implement rucat-client (based on spark-connect-rs)
 4. Test graceful shutdown <https://github.com/JosephLenton/axum-test/issues/88#issuecomment-2369720183>
 5. Rewrite engine state using Surreal Literal type <https://surrealdb.com/docs/surrealql/datamodel/literals>
-6. mock k8s related functions and restore test cases. <https://github.com/asomers/mockall>
+6. mock all, surrealdb and k8s. <https://github.com/asomers/mockall>
 7. miri testing <https://github.com/rust-lang/miri>
 8. fuzz testing <https://rust-fuzz.github.io/book/introduction.html>
 9. shared spark v.s. exclusive spark (for example for batch job)

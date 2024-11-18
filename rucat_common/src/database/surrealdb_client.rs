@@ -1,4 +1,6 @@
-//! Datastore to record engines' information
+//! Client of SurrealDB
+
+use axum::async_trait;
 
 use std::process::{Child, Command, Stdio};
 use std::thread::sleep;
@@ -13,50 +15,43 @@ use crate::{
 use ::anyhow::anyhow;
 use ::surrealdb::opt::auth::Root;
 use rand::Rng;
-use serde::Deserialize;
 use surrealdb::{
     engine::remote::ws::{Client, Ws},
     Surreal,
 };
 use tracing::error;
 
-/// Response of updating an engine state.
-/// # Fields
-/// - `before_state`: The engine state before the update.
-/// - `update_success`: Whether the update is successful.
-#[derive(Deserialize)]
-pub struct UpdateEngineStateResponse {
-    pub before_state: EngineState,
-    pub update_success: bool,
-}
+use super::{DatabaseClient, UpdateEngineStateResponse};
 
 /// Client to interact with the database.
 /// Store the metadata of Engines
 #[derive(Clone)]
-pub struct DatabaseClient {
+pub struct SurrealDBClient {
     /// preserve `uri` for easily converting to [DatabaseType]
     uri: String,
     credentials: Option<Credentials>,
     client: Surreal<Client>,
 }
 
-impl DatabaseClient {
+impl SurrealDBClient {
     const TABLE: &'static str = "engines";
     const NAMESPACE: &'static str = "rucat";
     const DATABASE: &'static str = "rucat";
     const MAX_ATTEMPTS_TO_CONNECT_EMBEDDED_DB: u8 = 10;
+}
 
-    pub fn get_uri(&self) -> &str {
+// TODO: replace #[async_trait] by #[trait_variant::make(HttpService: Send)] in the future: https://blog.rust-lang.org/2023/12/21/async-fn-rpit-in-traits.html#should-i-still-use-the-async_trait-macro
+#[async_trait]
+impl DatabaseClient for SurrealDBClient {
+    fn get_uri(&self) -> &str {
         &self.uri
     }
 
-    pub fn get_credentials(&self) -> Option<&Credentials> {
+    fn get_credentials(&self) -> Option<&Credentials> {
         self.credentials.as_ref()
     }
 
-    /// embedded db will be killed when the server is killed
-    /// Return the [DataBase] and the db process.
-    pub async fn create_embedded_db(credentials: Option<&Credentials>) -> Result<(Self, Child)> {
+    async fn create_embedded_db(credentials: Option<&Credentials>) -> Result<(Self, Child)> {
         // create db using command line and connect to it.
         let address = {
             let port = rand::thread_rng().gen_range(1024..=65535);
@@ -95,8 +90,7 @@ impl DatabaseClient {
         }
     }
 
-    /// data store that connects to a SurrealDB
-    pub async fn connect_local_db(credentials: Option<&Credentials>, uri: String) -> Result<Self> {
+    async fn connect_local_db(credentials: Option<&Credentials>, uri: String) -> Result<Self> {
         let client = Surreal::new::<Ws>(&uri)
             .await
             .map_err(RucatError::fail_to_connect_database)?;
@@ -118,7 +112,7 @@ impl DatabaseClient {
         })
     }
 
-    pub async fn add_engine(&self, engine: EngineInfo) -> Result<EngineId> {
+    async fn add_engine(&self, engine: EngineInfo) -> Result<EngineId> {
         let sql = r#"
             CREATE ONLY type::table($table)
             SET info = $engine
@@ -140,7 +134,7 @@ impl DatabaseClient {
         })
     }
 
-    pub async fn delete_engine(&self, id: &EngineId) -> Result<Option<EngineInfo>> {
+    async fn delete_engine(&self, id: &EngineId) -> Result<Option<EngineInfo>> {
         let sql = r#"
             LET $id = type::thing($tb, $id);
             IF $id.exists() THEN
@@ -161,13 +155,7 @@ impl DatabaseClient {
         Ok(result)
     }
 
-    /// Update the engine state to `after` only when
-    /// the engine exists and the current state is in `before`.
-    /// # Return
-    /// - `Ok(None)` if the engine does not exist.
-    /// - `Ok(Some(UpdateEngineStateResponse))` if the engine exists.
-    /// - `Err(_)` if any error occurs in the database.
-    pub async fn update_engine_state<const N: usize>(
+    async fn update_engine_state<const N: usize>(
         &self,
         id: &EngineId,
         before: [EngineState; N],
@@ -209,8 +197,7 @@ impl DatabaseClient {
         Ok(before_state)
     }
 
-    /// Return `Ok(None)` if the engine does not exist
-    pub async fn get_engine(&self, id: &EngineId) -> Result<Option<EngineInfo>> {
+    async fn get_engine(&self, id: &EngineId) -> Result<Option<EngineInfo>> {
         let sql = r#"
             SELECT VALUE info
             FROM ONLY type::thing($tb, $id);
@@ -228,7 +215,7 @@ impl DatabaseClient {
     }
 
     /// Return a sorted list of all engine ids
-    pub async fn list_engines(&self) -> Result<Vec<EngineId>> {
+    async fn list_engines(&self) -> Result<Vec<EngineId>> {
         let sql = r#"
             SELECT VALUE record::id(id) FROM type::table($tb);
         "#;

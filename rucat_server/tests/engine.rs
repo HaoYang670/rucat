@@ -1,11 +1,13 @@
-use ::rucat_common::{error::*, serde_json::json, tokio};
+use ::rucat_common::{
+    database::surrealdb_client::SurrealDBClient, error::*, serde_json::json, tokio,
+};
 use axum_test::TestServer;
 use http::StatusCode;
 use rucat_server::get_server;
 
 /// server with embedded datastore and authentication disabled
 async fn get_test_server() -> Result<TestServer> {
-    let (app, _) = get_server("./tests/configs/engine_test_config.json").await?;
+    let (app, _) = get_server::<SurrealDBClient>("./tests/configs/engine_test_config.json").await?;
     TestServer::new(app).map_err(RucatError::fail_to_start_server)
 }
 

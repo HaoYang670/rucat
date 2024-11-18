@@ -6,6 +6,7 @@ use std::fmt::Debug;
 
 use ::rucat_common::{
     anyhow::anyhow,
+    database::DatabaseClient,
     engine::{EngineId, EngineInfo, EngineState::*},
     error::{Result, RucatError},
     serde::{Deserialize, Serialize},
@@ -45,8 +46,8 @@ impl TryFrom<CreateEngineRequest> for EngineInfo {
 }
 
 /// create an engine with the given configuration
-async fn create_engine(
-    State(state): State<AppState>,
+async fn create_engine<DB: DatabaseClient>(
+    State(state): State<AppState<DB>>,
     Json(body): Json<CreateEngineRequest>,
 ) -> Result<Json<EngineId>> {
     let body: EngineInfo = body.try_into()?;
@@ -76,7 +77,10 @@ async fn create_engine(
     }
 }
 
-async fn delete_engine(Path(id): Path<EngineId>, State(state): State<AppState>) -> Result<()> {
+async fn delete_engine<DB: DatabaseClient>(
+    Path(id): Path<EngineId>,
+    State(state): State<AppState<DB>>,
+) -> Result<()> {
     info!("Deleting engine {}", id);
     state
         .get_db()
@@ -88,7 +92,10 @@ async fn delete_engine(Path(id): Path<EngineId>, State(state): State<AppState>) 
 }
 
 /// Stop an engine to release resources. But engine info is still kept in the data store.
-async fn stop_engine(Path(id): Path<EngineId>, State(state): State<AppState>) -> Result<()> {
+async fn stop_engine<DB: DatabaseClient>(
+    Path(id): Path<EngineId>,
+    State(state): State<AppState<DB>>,
+) -> Result<()> {
     state
         .get_db()
         .update_engine_state(&id, [Pending, Running], Stopped)
@@ -110,7 +117,10 @@ async fn stop_engine(Path(id): Path<EngineId>, State(state): State<AppState>) ->
 }
 
 /// Restart a stopped engine with the same configuration.
-async fn restart_engine(Path(id): Path<EngineId>, State(state): State<AppState>) -> Result<()> {
+async fn restart_engine<DB: DatabaseClient>(
+    Path(id): Path<EngineId>,
+    State(state): State<AppState<DB>>,
+) -> Result<()> {
     state
         .get_db()
         .update_engine_state(&id, [Stopped], Pending)
@@ -131,9 +141,9 @@ async fn restart_engine(Path(id): Path<EngineId>, State(state): State<AppState>)
         )
 }
 
-async fn get_engine(
+async fn get_engine<DB: DatabaseClient>(
     Path(id): Path<EngineId>,
-    State(state): State<AppState>,
+    State(state): State<AppState<DB>>,
 ) -> Result<Json<EngineInfo>> {
     state
         .get_db()
@@ -143,15 +153,17 @@ async fn get_engine(
         .ok_or(RucatError::engine_not_found(&id))
 }
 
-async fn list_engines(State(state): State<AppState>) -> Result<Json<Vec<EngineId>>> {
+async fn list_engines<DB: DatabaseClient>(
+    State(state): State<AppState<DB>>,
+) -> Result<Json<Vec<EngineId>>> {
     state.get_db().list_engines().await.map(Json)
 }
 
 /// Pass the data store endpoint later
-pub(crate) fn get_engine_router() -> Router<AppState> {
+pub(crate) fn get_engine_router<DB: DatabaseClient>() -> Router<AppState<DB>> {
     Router::new()
-        .route("/", post(create_engine).get(list_engines))
-        .route("/:id", get(get_engine).delete(delete_engine))
-        .route("/:id/stop", post(stop_engine))
-        .route("/:id/restart", post(restart_engine))
+        .route("/", post(create_engine::<DB>).get(list_engines::<DB>))
+        .route("/:id", get(get_engine::<DB>).delete(delete_engine::<DB>))
+        .route("/:id/stop", post(stop_engine::<DB>))
+        .route("/:id/restart", post(restart_engine::<DB>))
 }

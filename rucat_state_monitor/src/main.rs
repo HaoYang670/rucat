@@ -1,7 +1,7 @@
 use ::rucat_common::{
     anyhow::anyhow,
     config::{load_config, DatabaseConfig, DatabaseVariant},
-    database,
+    database::{surrealdb_client::SurrealDBClient, DatabaseClient},
     error::{Result, RucatError},
     tokio,
     tracing::{debug, info},
@@ -31,7 +31,7 @@ async fn main() -> Result<()> {
             "Cannot use embedded database."
         ))),
         DatabaseVariant::Local { uri } => {
-            let db = database::DatabaseClient::connect_local_db(credentials.as_ref(), uri).await?;
+            let db = SurrealDBClient::connect_local_db(credentials.as_ref(), uri).await?;
             loop {
                 let engines = db.list_engines().await?;
                 debug!("Detect {} Spark engines", engines.len());

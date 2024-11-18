@@ -1,4 +1,5 @@
 use ::rucat_common::{
+    database::surrealdb_client::SurrealDBClient,
     error::RucatError,
     tokio::{self, signal},
     tracing::info,
@@ -19,7 +20,7 @@ async fn main() -> Result<()> {
 
     let Args { config_path } = Args::parse_args();
     let endpoint = SocketAddrV4::new(Ipv4Addr::LOCALHOST, 3000);
-    let (app, embedded_db_ps) = get_server(config_path.as_str()).await?;
+    let (app, embedded_db_ps) = get_server::<SurrealDBClient>(config_path.as_str()).await?;
 
     // run it
     let listener = tokio::net::TcpListener::bind(endpoint)

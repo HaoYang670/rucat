@@ -30,7 +30,7 @@ struct ServerConfig {
 /// # Return
 /// - The router for the server
 /// - The process of the embedded database if the database is embedded
-pub async fn get_server(config_path: &str) -> Result<(Router, Option<Child>)> {
+pub async fn get_server<DB: DatabaseClient>(config_path: &str) -> Result<(Router, Option<Child>)> {
     let ServerConfig {
         auth_enable,
         database: DatabaseConfig {
@@ -41,19 +41,21 @@ pub async fn get_server(config_path: &str) -> Result<(Router, Option<Child>)> {
 
     let (db, embedded_db_ps) = match variant {
         DatabaseVariant::Embedded => {
-            let (db, ps) = DatabaseClient::create_embedded_db(credentials.as_ref()).await?;
+            let (db, ps) = DB::create_embedded_db(credentials.as_ref()).await?;
             (db, Some(ps))
         }
-        DatabaseVariant::Local { uri } => (
-            DatabaseClient::connect_local_db(credentials.as_ref(), uri).await?,
-            None,
-        ),
+        DatabaseVariant::Local { uri } => {
+            (DB::connect_local_db(credentials.as_ref(), uri).await?, None)
+        }
     };
     let app_state = AppState::new(db);
 
     // go through the router from outer to inner
     let router = Router::new()
-        .route("/", get(|_: State<AppState>| async { "welcome to rucat" }))
+        .route(
+            "/",
+            get(|_: State<AppState<DB>>| async { "welcome to rucat" }),
+        )
         .nest("/engine", get_engine_router())
         // TODO: use tower::ServiceBuilder to build the middleware stack
         // but need to be careful with the order of the middleware and the compatibility with axum::option_layer
