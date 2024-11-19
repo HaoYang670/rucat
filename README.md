@@ -67,7 +67,7 @@ stateDiagram
 ## How to test
 
 ```bash
-bash test.sh
+cargo test
 ```
 
 ## TODO
