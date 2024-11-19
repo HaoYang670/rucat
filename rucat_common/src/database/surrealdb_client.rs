@@ -21,9 +21,6 @@ use super::{DatabaseClient, UpdateEngineStateResponse};
 /// Store the metadata of Engines
 #[derive(Clone)]
 pub struct SurrealDBClient {
-    /// preserve `uri` for easily converting to [DatabaseType]
-    uri: String,
-    credentials: Option<Credentials>,
     client: Surreal<Client>,
 }
 
@@ -36,14 +33,6 @@ impl SurrealDBClient {
 // TODO: replace #[async_trait] by #[trait_variant::make(HttpService: Send)] in the future: https://blog.rust-lang.org/2023/12/21/async-fn-rpit-in-traits.html#should-i-still-use-the-async_trait-macro
 #[async_trait]
 impl DatabaseClient for SurrealDBClient {
-    fn get_uri(&self) -> &str {
-        &self.uri
-    }
-
-    fn get_credentials(&self) -> Option<&Credentials> {
-        self.credentials.as_ref()
-    }
-
     async fn connect_local_db(credentials: Option<&Credentials>, uri: String) -> Result<Self> {
         let client = Surreal::new::<Ws>(&uri)
             .await
@@ -59,11 +48,7 @@ impl DatabaseClient for SurrealDBClient {
             .use_db(Self::DATABASE)
             .await
             .map_err(RucatError::fail_to_connect_database)?;
-        Ok(Self {
-            uri,
-            client,
-            credentials: credentials.cloned(),
-        })
+        Ok(Self { client })
     }
 
     async fn add_engine(&self, engine: EngineInfo) -> Result<EngineId> {

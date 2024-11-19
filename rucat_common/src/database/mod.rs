@@ -27,12 +27,6 @@ pub struct UpdateEngineStateResponse {
 // TODO: replace #[async_trait] by #[trait_variant::make(HttpService: Send)] in the future: https://blog.rust-lang.org/2023/12/21/async-fn-rpit-in-traits.html#should-i-still-use-the-async_trait-macro
 #[async_trait]
 pub trait DatabaseClient: Sized + Send + Sync + 'static {
-    /// get URI of the database
-    fn get_uri(&self) -> &str;
-
-    /// get credentials of the database
-    fn get_credentials(&self) -> Option<&Credentials>;
-
     /// Connect to an existing local database, return the client.
     async fn connect_local_db(credentials: Option<&Credentials>, uri: String) -> Result<Self>;
 

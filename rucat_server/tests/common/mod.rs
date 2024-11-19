@@ -13,8 +13,6 @@ mock! {
     pub DBClient{}
     #[async_trait]
     impl DatabaseClient for DBClient {
-        fn get_uri(&self) -> &str;
-        fn get_credentials<'a>(&'a self) -> Option<&'a Credentials>;
         async fn connect_local_db<'a>(credentials: Option<&'a Credentials>, uri: String) -> Result<Self>;
         async fn add_engine(&self, engine: EngineInfo) -> Result<EngineId>;
         async fn delete_engine(&self, id: &EngineId) -> Result<Option<EngineInfo>>;
