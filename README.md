@@ -75,14 +75,12 @@ cargo test
 1. test graceful shutdown
 2. catch the spark driver log before deleting?
 3. implement rucat-client (based on spark-connect-rs)
-4. Test graceful shutdown <https://github.com/JosephLenton/axum-test/issues/88#issuecomment-2369720183>
-5. Rewrite engine state using Surreal Literal type <https://surrealdb.com/docs/surrealql/datamodel/literals>
-6. mock all, surrealdb and k8s. <https://github.com/asomers/mockall>
-7. miri testing <https://github.com/rust-lang/miri>
-8. fuzz testing <https://rust-fuzz.github.io/book/introduction.html>
-9. shared spark v.s. exclusive spark (for example for batch job)
-10. make all request fully async. tasks are submitted by storing info in cluster state, rucat monitor takes account of do the tasks and update the cluster state.
-11. Arrow flight sql as protocol
+4. Rewrite engine state using Surreal Literal type <https://surrealdb.com/docs/surrealql/datamodel/literals>
+5. mock all, surrealdb and k8s. <https://github.com/asomers/mockall>
+6. miri testing <https://github.com/rust-lang/miri>
+7. fuzz testing <https://rust-fuzz.github.io/book/introduction.html>
+8. make all request fully async. tasks are submitted by storing info in cluster state, rucat monitor takes account of do the tasks and update the cluster state.
+9. Arrow flight sql as protocol
 
 ## How to deploy on k8s
 
