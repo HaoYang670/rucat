@@ -34,33 +34,33 @@ flowchart
 ```mermaid
 stateDiagram
 
-    [*] --> Pending1: CREATE
-    Pending1 --> Pending2: create k8s pod
-    Pending1 --> Terminated: STOP
-    Pending1 --> [*]: DELETE
+    [*] --> WaitToCreate: CREATE
+    WaitToCreate --> CreateInProgress: create k8s pod
+    WaitToCreate --> Terminated: STOP
+    WaitToCreate --> [*]: DELETE
 
-    Pending2 --> Running: pod running
-    Pending2 --> Terminating1: STOP
-    Pending2 --> Deleting1: DELETE
+    CreateInProgress --> Running: pod running
+    CreateInProgress --> WaitToTerminate: STOP
+    CreateInProgress --> WaitToDelete: DELETE
 
-    Running --> Terminating1: STOP
-    Running --> Deleting1: DELETE
+    Running --> WaitToTerminate: STOP
+    Running --> WaitToDelete: DELETE
 
-    Terminating1 --> Running: RESTART
-    Terminating1 --> Terminating2: delete pod
+    WaitToTerminate --> Running: RESTART
+    WaitToTerminate --> TerminateInProgress: delete pod
 
-    Terminating2 --> Terminated: pod removed
+    TerminateInProgress --> Terminated: pod removed
 
-    Terminated --> Pending1: RESTART
+    Terminated --> WaitToCreate: RESTART
     Terminated --> [*]: DELETE
 
-    Deleting1 --> Deleting2: delete pod
+    WaitToDelete --> DeleteInProgress: delete pod
 
-    Deleting2 --> [*]: pod removed
+    DeleteInProgress --> [*]: pod removed
 
-    Error1 --> Error2: pod removed
-    Error2 --> Pending1: RESTART
-    Error2 --> [*]: DELETE
+    ErrorWaitToClean --> ErrorClean: pod removed
+    ErrorClean --> WaitToCreate: RESTART
+    ErrorClean --> [*]: DELETE
 
 ```
 
