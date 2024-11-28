@@ -127,7 +127,7 @@ pub struct EngineInfo {
     pub name: String,
     pub state: EngineState,
     pub config: EngineConfigs,
-    created_time: EngineTime,
+    last_update_time: EngineTime,
 }
 
 impl EngineInfo {
@@ -136,7 +136,7 @@ impl EngineInfo {
             name,
             state,
             config,
-            created_time: EngineTime::now(),
+            last_update_time: EngineTime::now(),
         }
     }
 }
