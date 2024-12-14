@@ -1,7 +1,7 @@
 //! Common types and utilities for the Rucat projects.
 
 pub mod config;
-pub mod database;
+pub mod database_client;
 pub mod engine;
 pub mod error;
 pub mod client_grpc {

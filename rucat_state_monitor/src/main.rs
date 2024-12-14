@@ -1,12 +1,16 @@
 use ::rucat_common::{
     config::{load_config, DatabaseConfig},
-    database::{surrealdb_client::SurrealDBClient, DatabaseClient},
+    database_client::surrealdb_client::SurrealDBClient,
     error::Result,
     tokio,
-    tracing::{debug, info},
+    tracing::info,
     tracing_subscriber,
 };
-use ::rucat_state_monitor::{StateMonitorConfig, CONFIG_FILE_PATH};
+use ::rucat_state_monitor::{
+    config::{StateMonitorConfig, CONFIG_FILE_PATH},
+    resource_client::k8s_client::K8sClient,
+    run_state_monitor,
+};
 
 // TODO: Convert the return type to `Result<!>` when it's stable
 // See <https://github.com/rust-lang/rust/issues/35121>
@@ -21,14 +25,8 @@ async fn main() -> Result<()> {
         database: DatabaseConfig { credentials, uri },
     } = load_config(CONFIG_FILE_PATH)?;
 
-    let db = SurrealDBClient::connect_local_db(credentials.as_ref(), uri).await?;
-    loop {
-        let engines = db.list_engines().await?;
-        debug!("Detect {} Spark engines", engines.len());
-        info!("Checking Spark state...");
-        // wait for some seconds
-        std::thread::sleep(std::time::Duration::from_millis(
-            check_interval_millis.get(),
-        ));
-    }
+    let db_client = SurrealDBClient::new(credentials.as_ref(), uri).await?;
+    let resource_client = K8sClient::new().await?;
+
+    run_state_monitor(db_client, resource_client, check_interval_millis.get()).await
 }

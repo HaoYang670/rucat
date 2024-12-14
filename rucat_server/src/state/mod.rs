@@ -2,7 +2,7 @@
 
 use ::std::sync::Arc;
 
-use rucat_common::database::DatabaseClient;
+use rucat_common::database_client::DatabaseClient;
 
 pub(crate) struct AppState<DB: DatabaseClient> {
     db: Arc<DB>,

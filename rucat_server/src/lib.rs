@@ -1,8 +1,5 @@
 use ::rucat_common::{
-    config::{load_config, DatabaseConfig},
-    database::DatabaseClient,
-    error::Result,
-    serde::Deserialize,
+    config::DatabaseConfig, database_client::DatabaseClient, error::Result, serde::Deserialize,
 };
 use authentication::auth;
 use axum::{extract::State, middleware, routing::get, Router};
@@ -19,32 +16,24 @@ pub(crate) mod state;
 #[derive(Debug, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 #[serde(crate = "rucat_common::serde")]
-struct ServerConfig {
-    auth_enable: bool,
-    database: DatabaseConfig,
+pub struct ServerConfig {
+    pub auth_enable: bool,
+    pub database: DatabaseConfig,
 }
 
 /// This is the only entry for users to get the rucat server.
 /// # Return the router for the server
-pub async fn get_server<DB: DatabaseClient>(config_path: &str) -> Result<Router> {
-    let ServerConfig {
-        auth_enable,
-        database: DatabaseConfig { credentials, uri },
-    } = load_config(config_path)?;
-
-    let db = DB::connect_local_db(credentials.as_ref(), uri).await?;
-    get_server_internal(auth_enable, db)
-}
-
-/// Split the get_server function into two parts to make mock testing easier.
-pub fn get_server_internal<DB: DatabaseClient>(auth_enable: bool, db: DB) -> Result<Router> {
-    let app_state = AppState::new(db);
+pub fn get_server<DBClient>(auth_enable: bool, db_client: DBClient) -> Result<Router>
+where
+    DBClient: DatabaseClient,
+{
+    let app_state = AppState::new(db_client);
 
     // go through the router from outer to inner
     let router = Router::new()
         .route(
             "/",
-            get(|_: State<AppState<DB>>| async { "welcome to rucat" }),
+            get(|_: State<AppState<DBClient>>| async { "welcome to rucat" }),
         )
         .nest("/engine", get_engine_router())
         // TODO: use tower::ServiceBuilder to build the middleware stack

@@ -19,9 +19,8 @@ enum RucatErrorType {
     NotAllowed,
     FailToStartServer,
     FailToStartStateMonitor,
-    FailToCreateEngine,
+    FailToStartEngine,
     FailToDeleteEngine,
-    FailToCreateDatabase,
     FailToConnectDatabase,
     FailToUpdateDatabase,
     FailToReadDatabase,
@@ -36,9 +35,8 @@ impl RucatErrorType {
             NotAllowed => StatusCode::FORBIDDEN,
             FailToStartServer => StatusCode::INTERNAL_SERVER_ERROR,
             FailToStartStateMonitor => StatusCode::INTERNAL_SERVER_ERROR,
-            FailToCreateEngine => StatusCode::INTERNAL_SERVER_ERROR,
+            FailToStartEngine => StatusCode::INTERNAL_SERVER_ERROR,
             FailToDeleteEngine => StatusCode::INTERNAL_SERVER_ERROR,
-            FailToCreateDatabase => StatusCode::INTERNAL_SERVER_ERROR,
             FailToConnectDatabase => StatusCode::INTERNAL_SERVER_ERROR,
             FailToUpdateDatabase => StatusCode::INTERNAL_SERVER_ERROR,
             FailToReadDatabase => StatusCode::INTERNAL_SERVER_ERROR,
@@ -55,9 +53,8 @@ impl Display for RucatErrorType {
             NotAllowed => write!(f, "Not allowed"),
             FailToStartServer => write!(f, "Fail to start server"),
             FailToStartStateMonitor => write!(f, "Fail to start state monitor"),
-            FailToCreateEngine => write!(f, "Fail to create engine"),
+            FailToStartEngine => write!(f, "Fail to start engine"),
             FailToDeleteEngine => write!(f, "Fail to delete engine"),
-            FailToCreateDatabase => write!(f, "Fail to create database"),
             FailToConnectDatabase => write!(f, "Fail to connect to database"),
             FailToUpdateDatabase => write!(f, "Fail to update database"),
             FailToReadDatabase => write!(f, "Fail to read database"),
@@ -96,8 +93,8 @@ impl RucatError {
     pub fn fail_to_start_state_monitor<E: Into<anyhow::Error>>(e: E) -> Self {
         Self::new(FailToStartStateMonitor, e)
     }
-    pub fn fail_to_create_engine<E: Into<anyhow::Error>>(e: E) -> Self {
-        Self::new(FailToCreateEngine, e)
+    pub fn fail_to_start_engine<E: Into<anyhow::Error>>(e: E) -> Self {
+        Self::new(FailToStartEngine, e)
     }
 
     pub fn fail_to_delete_engine<E: Into<anyhow::Error>>(e: E) -> Self {
@@ -106,10 +103,6 @@ impl RucatError {
 
     pub fn fail_to_load_config<E: Into<anyhow::Error>>(e: E) -> Self {
         Self::new(FailToLoadConfig, e)
-    }
-
-    pub fn fail_to_create_database<E: Into<anyhow::Error>>(e: E) -> Self {
-        Self::new(FailToCreateDatabase, e)
     }
 
     pub fn fail_to_connect_database<E: Into<anyhow::Error>>(e: E) -> Self {
@@ -189,9 +182,9 @@ mod tests {
     }
 
     #[test]
-    fn fail_to_create_engine() {
-        let error = RucatError::fail_to_create_engine(anyhow!("err_msg"));
-        assert!(error.to_string().contains("Fail to create engine: err_msg"));
+    fn fail_to_start_engine() {
+        let error = RucatError::fail_to_start_engine(anyhow!("err_msg"));
+        assert!(error.to_string().contains("Fail to start engine: err_msg"));
     }
 
     #[test]
@@ -204,14 +197,6 @@ mod tests {
     fn fail_to_load_config() {
         let error = RucatError::fail_to_load_config(anyhow!("err_msg"));
         assert!(error.to_string().contains("Fail to load config: err_msg"));
-    }
-
-    #[test]
-    fn fail_to_create_database() {
-        let error = RucatError::fail_to_create_database(anyhow!("err_msg"));
-        assert!(error
-            .to_string()
-            .contains("Fail to create database: err_msg"));
     }
 
     #[test]
@@ -238,11 +223,11 @@ mod tests {
 
     #[test]
     fn nested_error() {
-        let error = RucatError::fail_to_create_engine(RucatError::fail_to_update_database(
-            anyhow!("err_msg"),
-        ));
+        let error = RucatError::fail_to_start_engine(RucatError::fail_to_update_database(anyhow!(
+            "err_msg"
+        )));
         assert!(error
             .to_string()
-            .contains("Fail to create engine: Fail to update database: err_msg"));
+            .contains("Fail to start engine: Fail to update database: err_msg"));
     }
 }

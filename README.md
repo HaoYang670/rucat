@@ -1,6 +1,6 @@
 # Rucat
 
-Unified gateway to create, connect and manage data engine on Kubernetes.
+Unified gateway to start, connect and manage data engine on Kubernetes.
 
 Rucat is a Boy / Girl name, meaning is Guider, Discipline and Adventurer. The Numerology Number for the name Rucat is 9.
 
@@ -17,7 +17,7 @@ flowchart
     spark(Apache Spark)
     monitor(rucat state monitor)
     k8s-api(k8s api server)
-    db[(surreal db)]
+    db[(database)]
     user(rucat client)
     user -- REST requests / RPC --> server
 
@@ -34,33 +34,37 @@ flowchart
 ```mermaid
 stateDiagram
 
-    [*] --> WaitToCreate: CREATE
-    WaitToCreate --> CreateInProgress: create k8s pod
-    WaitToCreate --> Terminated: STOP
-    WaitToCreate --> [*]: DELETE
+    [*] --> WaitToStart: START
+    WaitToStart --> Terminated: STOP
+    WaitToStart --> [*]: DELETE
+    WaitToStart --> TriggerStart: (one state monitor takes the engine)
 
-    CreateInProgress --> Running: pod running
-    CreateInProgress --> WaitToTerminate: STOP
-    CreateInProgress --> WaitToDelete: DELETE
+    TriggerStart --> StartInProgress: create k8s pod
+
+    StartInProgress --> Running: pod running
+    StartInProgress --> WaitToTerminate: STOP
+    StartInProgress --> WaitToDelete: DELETE
 
     Running --> WaitToTerminate: STOP
     Running --> WaitToDelete: DELETE
 
     WaitToTerminate --> Running: RESTART
-    WaitToTerminate --> TerminateInProgress: delete pod
+    WaitToTerminate --> TriggerTermination: (one state monitor takes the engine)
+
+    TriggerTermination --> TerminateInProgress: delete pod
 
     TerminateInProgress --> Terminated: pod removed
 
-    Terminated --> WaitToCreate: RESTART
+    Terminated --> WaitToStart: RESTART
     Terminated --> [*]: DELETE
 
-    WaitToDelete --> DeleteInProgress: delete pod
+    WaitToDelete --> TriggerDeletion: (one state monitor takes the engine)
+    
+    TriggerDeletion --> DeleteInProgress: delete pod
 
     DeleteInProgress --> [*]: pod removed
 
-    ErrorWaitToClean --> ErrorClean: pod removed
-    ErrorClean --> WaitToCreate: RESTART
-    ErrorClean --> [*]: DELETE
+    Error --> WaitToDelete: DELETE
 
 ```
 

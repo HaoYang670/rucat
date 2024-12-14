@@ -1,118 +1,93 @@
-use ::core::num::NonZeroU64;
+use ::rucat_common::{
+    database_client::DatabaseClient,
+    engine::EngineState::*,
+    tracing::{debug, error, info, warn},
+};
+use resource_client::{ResourceClient, ResourceState};
 
-use ::rucat_common::{config::DatabaseConfig, serde::Deserialize};
+pub mod config;
+pub mod resource_client;
 
-/// Configuration for rucat state monitor
-#[derive(Debug, Deserialize, PartialEq, Eq)]
-#[serde(deny_unknown_fields)]
-#[serde(crate = "rucat_common::serde")]
-pub struct StateMonitorConfig {
-    /// Time interval in millisecond for checking each Spark state
-    pub check_interval_millis: NonZeroU64,
-    pub database: DatabaseConfig,
-}
+/// This function runs forever to monitor the state of engines.
+pub async fn run_state_monitor<DBClient, RSClient>(
+    db_client: DBClient,
+    resource_client: RSClient,
+    check_interval_millis: u64,
+) -> !
+where
+    DBClient: DatabaseClient,
+    RSClient: ResourceClient,
+{
+    let check_interval = std::time::Duration::from_millis(check_interval_millis);
+    loop {
+        match db_client.list_engines_need_update().await {
+            Ok(engines) => {
+                debug!("Detect {} engines need to update", engines.len());
+                // TODO: make this execute in parallel
+                for (id, info) in engines {
+                    match info.state {
+                        WaitToStart => todo!(),
+                        WaitToTerminate => todo!(),
+                        WaitToDelete => todo!(),
+                        ErrorWaitToClean(_) => todo!(),
 
-/// Load the configuration from the file
-/// Unlike rucat server, we don't allow users to specify the config file path
-/// because state monitor is a background service.
-pub static CONFIG_FILE_PATH: &str = "/rucat_state_monitor/config.json";
+                        old_state @ (Running | StartInProgress | TerminateInProgress | DeleteInProgress | ErrorCleanInProgress(_)) => {
+                            let resource_state = resource_client.get_resource_state(&id).await;
+                            let new_state = resource_state.update_engine_state(&old_state);
+                            match new_state {
+                                Some(new_state) => {
+                                    let response = db_client.update_engine_state(&id, vec![old_state.clone()], new_state.clone()).await;
+                                    match response {
+                                        Ok(Some(response)) => {
+                                            if response.update_success {
+                                                info!("Engine {} state updated from {:?} to {:?}", id, old_state, new_state);
+                                            } else {
+                                                error!("Failed to update engine {} as its state has been updated by others, from {:?} to {:?}", id, old_state, response.before_state);
+                                            }
+                                        }
+                                        Ok(None) => {
+                                            error!("Failed to update engine {} as it has been removed", id);
+                                        }
+                                        Err(e) => {
+                                            error!("Database error when updating the state of engine {}: {}", id, e);
+                                        }
+                                    }
+                                }
+                                None => {
+                                    let response = db_client.delete_engine(&id, vec![old_state.clone()]).await;
+                                    match response {
+                                        Ok(Some(response)) => {
+                                            if response.update_success {
+                                                info!("Delete engine {}", id);
+                                            } else {
+                                                error!("Failed to delete engine {} as its state has been updated by others, from {:?} to {:?}", id, old_state, response.before_state);
+                                            }
+                                        }
+                                        Ok(None) => {
+                                            warn!("Engine {} has been removed", id);
+                                        }
+                                        Err(e) => {
+                                            error!("Database error when deleting engine {}: {}", id, e);
+                                        }
+                                    }
+                                }
+                            }
+                        },
 
-#[cfg(test)]
-mod tests {
-    use ::rucat_common::{
-        anyhow::Result,
-        serde_json::{from_value, json},
-    };
-
-    use super::*;
-
-    #[test]
-    fn check_interval_millis_cannot_be_zero() {
-        let config = json!(
-            {
-                "check_interval_millis": 0,
-                "database": {
-                    "credentials": null,
-                    "uri": ""
+                        Terminated | ErrorClean(_) => {
+                            unreachable!(
+                                "list_engines_need_update should not return engine in state {:?}",
+                                info.state
+                            );
+                        }
+                    }
                 }
             }
-        );
-        let result = from_value::<StateMonitorConfig>(config);
-        assert_eq!(
-            result.unwrap_err().to_string(),
-            "invalid value: integer `0`, expected a nonzero u64"
-        );
-    }
-
-    #[test]
-    fn missing_field_check_interval_millis() {
-        let config = json!(
-            {
-                "database": {
-                    "credentials": null,
-                    "uri": ""
-                }
+            Err(e) => {
+                error!("Failed to get engine list: {}", e);
             }
-        );
-        let result = from_value::<StateMonitorConfig>(config);
-        assert_eq!(
-            result.unwrap_err().to_string(),
-            "missing field `check_interval_millis`"
-        );
-    }
-
-    #[test]
-    fn missing_field_database() {
-        let config = json!(
-            {
-                "check_interval_millis": 1000
-            }
-        );
-        let result = from_value::<StateMonitorConfig>(config);
-        assert_eq!(result.unwrap_err().to_string(), "missing field `database`");
-    }
-
-    #[test]
-    fn deny_unknown_fields() {
-        let config = json!(
-            {
-                "check_interval_millis": 1000,
-                "database": {
-                    "credentials": null,
-                    "uri": ""
-                },
-                "unknown_field": "unknown"
-            }
-        );
-        let result = from_value::<StateMonitorConfig>(config);
-        assert_eq!(
-            result.unwrap_err().to_string(),
-            "unknown field `unknown_field`, expected `check_interval_millis` or `database`"
-        );
-    }
-
-    #[test]
-    fn deserialize_state_monitor_config() -> Result<()> {
-        let config = json!(
-            {
-                "check_interval_millis": 1000,
-                "database": {
-                    "credentials": null,
-                    "uri":""
-                }
-            }
-        );
-        let result = from_value::<StateMonitorConfig>(config)?;
-        assert_eq!(
-            result,
-            StateMonitorConfig {
-                check_interval_millis: NonZeroU64::new(1000).unwrap(),
-                database: DatabaseConfig {
-                    credentials: None,
-                    uri: "".to_string()
-                }
-            }
-        );
-        Ok(())
+        }
+        // wait for some seconds
+        std::thread::sleep(check_interval);
     }
 }

@@ -2,7 +2,7 @@
 
 use axum::async_trait;
 
-use crate::engine::EngineId;
+use crate::engine::{EngineId, StartEngineRequest};
 use crate::error::{Result, RucatError};
 use crate::{
     config::Credentials,
@@ -19,6 +19,13 @@ use super::{DatabaseClient, UpdateEngineStateResponse};
 
 /// Client to interact with the database.
 /// Store the metadata of Engines
+/// Record format in the database:
+/// ```json
+/// {
+///   "id": "record id",
+///   "info": "engine info",
+///   "next_update_time": "timestamp that state monitor should do info update after it"
+/// }
 #[derive(Clone)]
 pub struct SurrealDBClient {
     client: Surreal<Client>,
@@ -28,12 +35,9 @@ impl SurrealDBClient {
     const TABLE: &'static str = "engines";
     const NAMESPACE: &'static str = "rucat";
     const DATABASE: &'static str = "rucat";
-}
 
-// TODO: replace #[async_trait] by #[trait_variant::make(HttpService: Send)] in the future: https://blog.rust-lang.org/2023/12/21/async-fn-rpit-in-traits.html#should-i-still-use-the-async_trait-macro
-#[async_trait]
-impl DatabaseClient for SurrealDBClient {
-    async fn connect_local_db(credentials: Option<&Credentials>, uri: String) -> Result<Self> {
+    /// Create a new [SurrealDBClient] to connect to an existing surreal database.
+    pub async fn new(credentials: Option<&Credentials>, uri: String) -> Result<Self> {
         let client = Surreal::new::<Ws>(&uri)
             .await
             .map_err(RucatError::fail_to_connect_database)?;
@@ -50,11 +54,18 @@ impl DatabaseClient for SurrealDBClient {
             .map_err(RucatError::fail_to_connect_database)?;
         Ok(Self { client })
     }
+}
 
-    async fn add_engine(&self, engine: EngineInfo) -> Result<EngineId> {
+// TODO: replace #[async_trait] by #[trait_variant::make(HttpService: Send)] in the future: https://blog.rust-lang.org/2023/12/21/async-fn-rpit-in-traits.html#should-i-still-use-the-async_trait-macro
+#[async_trait]
+impl DatabaseClient for SurrealDBClient {
+    async fn add_engine(&self, engine: StartEngineRequest) -> Result<EngineId> {
+        let info: EngineInfo = engine.try_into()?;
+        // always set next_update_time to time::min() when adding a new engine,
+        // so that the state monitor will update the engine info immediately
         let sql = r#"
             CREATE ONLY type::table($table)
-            SET info = $engine
+            SET info = $info, next_update_time = time::min();
             RETURN VALUE record::id(id);
         "#;
 
@@ -62,31 +73,39 @@ impl DatabaseClient for SurrealDBClient {
             .client
             .query(sql)
             .bind(("table", Self::TABLE))
-            .bind(("engine", engine))
+            .bind(("info", info))
             .await
             .map_err(RucatError::fail_to_update_database)?
             .take(0)
             .map_err(RucatError::fail_to_update_database)?;
         let id = record.map(EngineId::try_from);
         id.unwrap_or_else(|| {
-            RucatError::fail_to_update_database(anyhow!("Failed to create engine")).into()
+            RucatError::fail_to_update_database(anyhow!("Failed to add engine")).into()
         })
     }
 
-    async fn delete_engine(&self, id: &EngineId) -> Result<Option<EngineInfo>> {
+    async fn delete_engine(&self, id: &EngineId, current_states: Vec<EngineState>) -> Result<Option<UpdateEngineStateResponse>> {
         let sql = r#"
-            LET $id = type::thing($tb, $id);
-            IF $id.exists() THEN
-                SELECT VALUE info from (DELETE ONLY $id RETURN BEFORE)
-            ELSE
-                None
-            END;
+            let $record_id = type::thing($tb, $id);             // 0th return value
+            BEGIN TRANSACTION;
+            {
+                LET $current_state = (SELECT VALUE info.state from only $record_id);
+                IF $current_state IS NONE {
+                    RETURN NONE;                                                     // 1st return value
+                } ELSE IF $current_state IN $before {
+                    DELETE $record_id;
+                    RETURN {before_state: $current_state, update_success: true};                  // 1st return value
+                } ELSE {
+                    RETURN {before_state: $current_state, update_success: false};                 // 1st return value
+                }
+            };
+            COMMIT TRANSACTION;
         "#;
-        let result: Option<EngineInfo> = self
+        let result: Option<UpdateEngineStateResponse> = self
             .client
             .query(sql)
             .bind(("tb", Self::TABLE))
-            .bind(("id", id.to_string()))
+            .bind(("record_id", id.to_string()))
             .await
             .map_err(RucatError::fail_to_update_database)?
             .take(1)
@@ -153,7 +172,6 @@ impl DatabaseClient for SurrealDBClient {
         Ok(info)
     }
 
-    /// Return a sorted list of all engine ids
     async fn list_engines(&self) -> Result<Vec<EngineId>> {
         let sql = r#"
             SELECT VALUE record::id(id) FROM type::table($tb);
@@ -173,5 +191,23 @@ impl DatabaseClient for SurrealDBClient {
             .collect::<Result<_>>()?;
         ids.sort();
         Ok(ids)
+    }
+
+    async fn list_engines_need_update(&self) -> Result<Vec<(EngineId, EngineInfo)>> {
+        let sql = r#"
+            SELECT VALUE record::id(id), info
+            FROM type::table($tb)
+            WHERE info.state IN {WaitToStart, WaitToTerminate, WaitToDelete}
+                OR (info.state IN {RUNNING, StartInProgress, TerminateInProgress, DeleteInProgress, ErrorCleanInProgress}
+                    AND next_update_time < time::now());
+        "#;
+
+        self.client
+            .query(sql)
+            .bind(("tb", Self::TABLE))
+            .await
+            .map_err(RucatError::fail_to_read_database)?
+            .take(0)
+            .map_err(RucatError::fail_to_read_database)
     }
 }

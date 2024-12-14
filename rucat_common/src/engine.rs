@@ -10,7 +10,10 @@ use time::{
     format_description::BorrowedFormatItem, macros::format_description, Duration, OffsetDateTime,
 };
 
-use crate::error::{Result, RucatError};
+use crate::{
+    engine::EngineState::WaitToStart,
+    error::{Result, RucatError},
+};
 use serde::{Deserialize, Serialize};
 
 /// Preset configurations that are not allowed to be set.
@@ -39,6 +42,16 @@ pub fn get_spark_service_name(id: &EngineId) -> Cow<'static, str> {
     get_spark_app_id(id)
 }
 
+/// Request body to start an engine.
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct StartEngineRequest {
+    // The name of the engine
+    name: String,
+    // Spark configurations
+    configs: Option<HashMap<Cow<'static, str>, Cow<'static, str>>>,
+}
+
 /// Type of time in engine.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EngineTime(String);
@@ -49,7 +62,7 @@ impl EngineTime {
         "[year]-[month]-[day] [hour]:[minute]:[second] [offset_hour sign:mandatory]:[offset_minute]:[offset_second]"
     );
 
-    /// Create a new [EngineTime] with the current time.
+    /// Return a new [EngineTime] with the current time.
     pub fn now() -> Self {
         Self(
             // Use `unwrap` because the format is fixed.
@@ -58,6 +71,7 @@ impl EngineTime {
     }
 
     /// Get the elapsed time from the time of this [EngineTime].
+    /// TODO: remove this if not used.
     pub fn elapsed_time(&self) -> Duration {
         let now = OffsetDateTime::now_utc();
         // Use `unwrap` because the format is fixed.
@@ -111,15 +125,19 @@ impl TryFrom<HashMap<Cow<'static, str>, Cow<'static, str>>> for EngineConfigs {
 /// States of Rucat engine
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub enum EngineState {
-    Pending,
+    WaitToStart,
+    StartInProgress,
     Running,
-    Stopped,
+    WaitToTerminate,
+    TerminateInProgress,
+    Terminated,
+    WaitToDelete,
+    DeleteInProgress,
+    // TODO: use COW<'static, str> instead of String
+    ErrorWaitToClean(String),
+    ErrorCleanInProgress(String),
+    ErrorClean(String),
 }
-
-/// Engine state for fully async support.
-//enum EngineState2 {
-//    Pending1, Pending2, Running, Terminating1, Terminating2, Terminated, Deleting1, Deleting2, Error1, Error2,
-//}
 
 /// Whole information of an engine.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -127,17 +145,38 @@ pub struct EngineInfo {
     pub name: String,
     pub state: EngineState,
     pub config: EngineConfigs,
-    last_update_time: EngineTime,
+    /// time when the engine is created.
+    ///
+    /// Note, this is **not** the start time when the engine is RUNNING.
+    create_time: EngineTime,
 }
 
 impl EngineInfo {
-    pub fn new(name: String, state: EngineState, config: EngineConfigs) -> Self {
+    pub fn new(
+        name: String,
+        state: EngineState,
+        config: EngineConfigs,
+        create_time: EngineTime,
+    ) -> Self {
         Self {
             name,
             state,
             config,
-            last_update_time: EngineTime::now(),
+            create_time,
         }
+    }
+}
+
+impl TryFrom<StartEngineRequest> for EngineInfo {
+    type Error = RucatError;
+
+    fn try_from(value: StartEngineRequest) -> Result<Self> {
+        Ok(EngineInfo::new(
+            value.name,
+            WaitToStart,
+            value.configs.unwrap_or_default().try_into()?,
+            EngineTime::now(),
+        ))
     }
 }
 
@@ -170,7 +209,7 @@ impl<'de> Deserialize<'de> for EngineId {
 
 struct EngineIdVisitor;
 
-impl<'de> Visitor<'de> for EngineIdVisitor {
+impl Visitor<'_> for EngineIdVisitor {
     type Value = EngineId;
 
     fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {

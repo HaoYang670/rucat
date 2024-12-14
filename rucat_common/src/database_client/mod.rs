@@ -4,12 +4,9 @@ pub mod surrealdb_client;
 
 use axum::async_trait;
 
-use crate::engine::EngineId;
+use crate::engine::{EngineId, StartEngineRequest};
+use crate::engine::{EngineInfo, EngineState};
 use crate::error::Result;
-use crate::{
-    config::Credentials,
-    engine::{EngineInfo, EngineState},
-};
 use serde::Deserialize;
 
 /// Response of updating an engine state.
@@ -27,16 +24,16 @@ pub struct UpdateEngineStateResponse {
 // TODO: replace #[async_trait] by #[trait_variant::make(HttpService: Send)] in the future: https://blog.rust-lang.org/2023/12/21/async-fn-rpit-in-traits.html#should-i-still-use-the-async_trait-macro
 #[async_trait]
 pub trait DatabaseClient: Sized + Send + Sync + 'static {
-    /// Connect to an existing local database, return the client.
-    async fn connect_local_db(credentials: Option<&Credentials>, uri: String) -> Result<Self>;
+    /// Add the metadata of a new engine in the database,
+    /// generate an id for the engine and return it.
+    async fn add_engine(&self, engine: StartEngineRequest) -> Result<EngineId>;
 
-    /// Add the metadata of an Engine in the database,
-    /// generate an id for the Engine and return it.
-    async fn add_engine(&self, engine: EngineInfo) -> Result<EngineId>;
-
-    /// Remove Engine. Return `Ok(None)` if the Engine
-    /// does not exist, otherwise return the metadata.
-    async fn delete_engine(&self, id: &EngineId) -> Result<Option<EngineInfo>>;
+    /// Remove Engine.
+    /// # Return 
+    /// - `Ok(None)` if the engine does not exist.
+    /// - `Ok(Some(UpdateEngineStateResponse))` if the engine exists.
+    /// - `Err(_)` if any error occurs in the database.
+    async fn delete_engine(&self, id: &EngineId, current_states: Vec<EngineState>) -> Result<Option<UpdateEngineStateResponse>>;
 
     /// Update the engine state to `after` only when
     /// the engine exists and the current state is in `before`.
@@ -44,7 +41,6 @@ pub trait DatabaseClient: Sized + Send + Sync + 'static {
     /// - `Ok(None)` if the engine does not exist.
     /// - `Ok(Some(UpdateEngineStateResponse))` if the engine exists.
     /// - `Err(_)` if any error occurs in the database.
-    /// TODO: convert `before` to `[EngineState; N]` when mockall supports const generics.
     async fn update_engine_state(
         &self,
         id: &EngineId,
@@ -57,4 +53,9 @@ pub trait DatabaseClient: Sized + Send + Sync + 'static {
 
     /// Return a sorted list of all engine ids
     async fn list_engines(&self) -> Result<Vec<EngineId>>;
+
+    /// Return all engines that need to be updated.
+    /// This includes engines in state `WaitTo*`,
+    /// or those in `Running` and `*InProgress`, and the engine info has been outdated.
+    async fn list_engines_need_update(&self) -> Result<Vec<(EngineId, EngineInfo)>>;
 }
