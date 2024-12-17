@@ -7,8 +7,8 @@ use ::rucat_common::{
 
 pub trait ResourceState {
     /// get the new engine state based on old engine state and resource state.
-    /// Returning `None` means the engine should be deleted.
-    fn update_engine_state(&self, old_state: &EngineState) -> Option<EngineState>;
+    /// if new state is same as old state, return None.
+    fn get_new_engine_state(&self, old_state: &EngineState) -> Option<EngineState>;
 }
 
 #[allow(async_fn_in_trait)]

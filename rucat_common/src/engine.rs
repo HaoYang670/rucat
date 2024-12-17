@@ -126,15 +126,16 @@ impl TryFrom<HashMap<Cow<'static, str>, Cow<'static, str>>> for EngineConfigs {
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub enum EngineState {
     WaitToStart,
+    TriggerStart,
     StartInProgress,
     Running,
     WaitToTerminate,
+    TriggerTermination,
     TerminateInProgress,
     Terminated,
-    WaitToDelete,
-    DeleteInProgress,
     // TODO: use COW<'static, str> instead of String
     ErrorWaitToClean(String),
+    ErrorTriggerClean(String),
     ErrorCleanInProgress(String),
     ErrorClean(String),
 }

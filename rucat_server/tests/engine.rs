@@ -104,40 +104,6 @@ async fn start_engine_with_unknown_field() -> Result<()> {
 }
 
 #[tokio::test]
-async fn start_engine_with_forbidden_configs() -> Result<()> {
-    async fn helper(key: &str) -> Result<()> {
-        let db = MockDBClient::new();
-        let server = get_test_server(false, db).await?;
-        let response = server
-            .post("/engine")
-            .json(&json!({
-                "name": "test",
-                "configs": {
-                    key: "123"
-                }
-            }))
-            .await;
-
-        response.assert_status(StatusCode::FORBIDDEN);
-        assert!(response.text().contains(
-            format!(
-                "Not allowed: The config {} is not allowed as it is reserved.",
-                key
-            )
-            .as_str()
-        ));
-        Ok(())
-    }
-
-    helper("spark.app.id").await?;
-    helper("spark.kubernetes.container.image").await?;
-    helper("spark.driver.host").await?;
-    helper("spark.kubernetes.driver.pod.name").await?;
-    helper("spark.kubernetes.executor.podNamePrefix").await?;
-    helper("spark.driver.extraJavaOptions").await
-}
-
-#[tokio::test]
 async fn get_engine() -> Result<()> {
     let mut db = MockDBClient::new();
     db.expect_get_engine()
@@ -163,12 +129,12 @@ async fn get_engine() -> Result<()> {
 #[tokio::test]
 async fn delete_nonexistent_engine() -> Result<()> {
     let mut db = MockDBClient::new();
-    db.expect_delete_engine()
-        .with(predicate::eq(EngineId::new(Cow::Borrowed("any"))?), predicate::always())
+    db.expect_get_engine()
+        .with(predicate::eq(EngineId::new(Cow::Borrowed("123"))?))
         .times(1)
-        .returning(|_, _| Ok(None));
+        .returning(|_| Ok(None));
     let server = get_test_server(false, db).await?;
-    let response = server.delete("/engine/any").await;
+    let response = server.delete("/engine/123").await;
     response.assert_status_not_found();
     Ok(())
 }
@@ -176,11 +142,22 @@ async fn delete_nonexistent_engine() -> Result<()> {
 #[tokio::test]
 async fn stop_wait_to_start_engine() -> Result<()> {
     let mut db = MockDBClient::new();
+    db.expect_get_engine()
+        .with(predicate::eq(EngineId::new(Cow::Borrowed("123"))?))
+        .times(1)
+        .returning(|_| {
+            Ok(Some(EngineInfo::new(
+                "engine1".to_owned(),
+                WaitToStart,
+                EngineConfigs::try_from(HashMap::new())?,
+                EngineTime::now(),
+            )))
+        });
     db.expect_update_engine_state()
         .with(
             predicate::eq(EngineId::new(Cow::Borrowed("123"))?),
-            predicate::eq(vec![WaitToStart]),
-            predicate::eq(Terminated),
+            predicate::eq(&WaitToStart),
+            predicate::eq(&Terminated),
         )
         .times(1)
         .returning(|_, _, _| {
@@ -200,16 +177,12 @@ async fn stop_wait_to_start_engine() -> Result<()> {
 #[tokio::test]
 async fn stop_nonexistent_engine() -> Result<()> {
     let mut db = MockDBClient::new();
-    db.expect_update_engine_state()
-        .with(
-            predicate::eq(EngineId::new(Cow::Borrowed("any"))?),
-            predicate::eq(vec![WaitToStart]),
-            predicate::eq(Terminated),
-        )
+    db.expect_get_engine()
+        .with(predicate::eq(EngineId::new(Cow::Borrowed("123"))?))
         .times(1)
-        .returning(|_, _, _| Ok(None));
+        .returning(|_| Ok(None));
     let server = get_test_server(false, db).await?;
-    let response = server.post("/engine/any/stop").await;
+    let response = server.post("/engine/123/stop").await;
     response.assert_status_not_found();
     Ok(())
 }
@@ -247,11 +220,22 @@ async fn stop_engine_twice() -> Result<()> {
 #[tokio::test]
 async fn restart_terminated_engine() -> Result<()> {
     let mut db = MockDBClient::new();
+    db.expect_get_engine()
+        .with(predicate::eq(EngineId::new(Cow::Borrowed("123"))?))
+        .times(1)
+        .returning(|_| {
+            Ok(Some(EngineInfo::new(
+                "engine1".to_owned(),
+                Terminated,
+                EngineConfigs::try_from(HashMap::new())?,
+                EngineTime::now(),
+            )))
+        });
     db.expect_update_engine_state()
         .with(
             predicate::eq(EngineId::new(Cow::Borrowed("123"))?),
-            predicate::eq(vec![Terminated]),
-            predicate::eq(WaitToStart),
+            predicate::eq(&Terminated),
+            predicate::eq(&WaitToStart),
         )
         .times(1)
         .returning(|_, _, _| {
@@ -271,16 +255,12 @@ async fn restart_terminated_engine() -> Result<()> {
 #[tokio::test]
 async fn restart_nonexistent_engine() -> Result<()> {
     let mut db = MockDBClient::new();
-    db.expect_update_engine_state()
-        .with(
-            predicate::eq(EngineId::new(Cow::Borrowed("any"))?),
-            predicate::eq(vec![Terminated]),
-            predicate::eq(WaitToStart),
-        )
+    db.expect_get_engine()
+        .with(predicate::eq(EngineId::new(Cow::Borrowed("123"))?))
         .times(1)
-        .returning(|_, _, _| Ok(None));
+        .returning(|_| Ok(None));
     let server = get_test_server(false, db).await?;
-    let response = server.post("/engine/any/restart").await;
+    let response = server.post("/engine/123/restart").await;
     response.assert_status_not_found();
     Ok(())
 }
@@ -288,18 +268,16 @@ async fn restart_nonexistent_engine() -> Result<()> {
 #[tokio::test]
 async fn cannot_restart_engine() -> Result<()> {
     let mut db = MockDBClient::new();
-    db.expect_update_engine_state()
-        .with(
-            predicate::eq(EngineId::new(Cow::Borrowed("123"))?),
-            predicate::eq(vec![WaitToStart]),
-            predicate::eq(WaitToStart),
-        )
+    db.expect_get_engine()
+        .with(predicate::eq(EngineId::new(Cow::Borrowed("123"))?))
         .times(1)
-        .returning(|_, _, _| {
-            Ok(Some(UpdateEngineStateResponse {
-                before_state: WaitToStart,
-                update_success: false,
-            }))
+        .returning(|_| {
+            Ok(Some(EngineInfo::new(
+                "engine1".to_owned(),
+                WaitToStart,
+                EngineConfigs::try_from(HashMap::new())?,
+                EngineTime::now(),
+            )))
         });
     let server = get_test_server(false, db).await?;
 

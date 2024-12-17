@@ -40,13 +40,13 @@ stateDiagram
     WaitToStart --> TriggerStart: (one state monitor takes the engine)
 
     TriggerStart --> StartInProgress: create k8s pod
+    TriggerStart --> ErrorClean: create resource error
 
     StartInProgress --> Running: pod running
     StartInProgress --> WaitToTerminate: STOP
-    StartInProgress --> WaitToDelete: DELETE
+    StartInProgress --> ErrorWaitToClean: resource in error state
 
     Running --> WaitToTerminate: STOP
-    Running --> WaitToDelete: DELETE
 
     WaitToTerminate --> Running: RESTART
     WaitToTerminate --> TriggerTermination: (one state monitor takes the engine)
@@ -58,14 +58,10 @@ stateDiagram
     Terminated --> WaitToStart: RESTART
     Terminated --> [*]: DELETE
 
-    WaitToDelete --> TriggerDeletion: (one state monitor takes the engine)
-    
-    TriggerDeletion --> DeleteInProgress: delete pod
-
-    DeleteInProgress --> [*]: pod removed
-
-    Error --> WaitToDelete: DELETE
-
+    ErrorWaitToClean --> ErrorTriggerClean: (one state monitor takes the engine)
+    ErrorTriggerClean --> ErrorCleanInProgress: delete pod
+    ErrorCleanInProgress --> ErrorClean: pod removed
+    ErrorClean --> [*]: DELETE
 ```
 
 ## How to test
@@ -83,8 +79,8 @@ cargo test
 5. mock all, surrealdb and k8s. <https://github.com/asomers/mockall>
 6. miri testing <https://github.com/rust-lang/miri>
 7. fuzz testing <https://rust-fuzz.github.io/book/introduction.html>
-8. make all request fully async. tasks are submitted by storing info in cluster state, rucat monitor takes account of do the tasks and update the cluster state.
-9. Arrow flight sql as protocol
+8. Arrow flight sql as protocol
+9. Handle timeout for `Trigger*` states.
 
 ## How to deploy on k8s
 

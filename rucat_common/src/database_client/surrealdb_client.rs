@@ -84,7 +84,11 @@ impl DatabaseClient for SurrealDBClient {
         })
     }
 
-    async fn delete_engine(&self, id: &EngineId, current_states: Vec<EngineState>) -> Result<Option<UpdateEngineStateResponse>> {
+    async fn delete_engine(
+        &self,
+        id: &EngineId,
+        current_state: &EngineState,
+    ) -> Result<Option<UpdateEngineStateResponse>> {
         let sql = r#"
             let $record_id = type::thing($tb, $id);             // 0th return value
             BEGIN TRANSACTION;
@@ -92,7 +96,7 @@ impl DatabaseClient for SurrealDBClient {
                 LET $current_state = (SELECT VALUE info.state from only $record_id);
                 IF $current_state IS NONE {
                     RETURN NONE;                                                     // 1st return value
-                } ELSE IF $current_state IN $before {
+                } ELSE IF $current_state == $before {
                     DELETE $record_id;
                     RETURN {before_state: $current_state, update_success: true};                  // 1st return value
                 } ELSE {
@@ -105,7 +109,8 @@ impl DatabaseClient for SurrealDBClient {
             .client
             .query(sql)
             .bind(("tb", Self::TABLE))
-            .bind(("record_id", id.to_string()))
+            .bind(("id", id.to_string()))
+            .bind(("before", current_state.clone()))
             .await
             .map_err(RucatError::fail_to_update_database)?
             .take(1)
@@ -116,12 +121,9 @@ impl DatabaseClient for SurrealDBClient {
     async fn update_engine_state(
         &self,
         id: &EngineId,
-        before: Vec<EngineState>,
-        after: EngineState,
+        before: &EngineState,
+        after: &EngineState,
     ) -> Result<Option<UpdateEngineStateResponse>> {
-        // The query returns None if the engine does not exist
-        // Throws an error if the engine state is not in the expected state
-        // Otherwise, update the engine state and returns the engine state before update
         let sql = r#"
             let $record_id = type::thing($tb, $id);             // 0th return value
             BEGIN TRANSACTION;
@@ -129,7 +131,7 @@ impl DatabaseClient for SurrealDBClient {
                 LET $current_state = (SELECT VALUE info.state from only $record_id);
                 IF $current_state IS NONE {
                     RETURN NONE;                                                     // 1st return value
-                } ELSE IF $current_state IN $before {
+                } ELSE IF $current_state == $before {
                     UPDATE ONLY $record_id SET info.state = $after;
                     RETURN {before_state: $current_state, update_success: true};                  // 1st return value
                 } ELSE {
@@ -145,8 +147,8 @@ impl DatabaseClient for SurrealDBClient {
             .bind(("tb", Self::TABLE))
             .bind(("id", id.to_string()))
             // convert to vec because array cannot be serialized
-            .bind(("before", before))
-            .bind(("after", after))
+            .bind(("before", before.clone()))
+            .bind(("after", after.clone()))
             .await
             .map_err(RucatError::fail_to_update_database)?
             .take(1)

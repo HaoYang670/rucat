@@ -29,14 +29,18 @@ pub trait DatabaseClient: Sized + Send + Sync + 'static {
     async fn add_engine(&self, engine: StartEngineRequest) -> Result<EngineId>;
 
     /// Remove Engine.
-    /// # Return 
+    /// # Return
     /// - `Ok(None)` if the engine does not exist.
     /// - `Ok(Some(UpdateEngineStateResponse))` if the engine exists.
     /// - `Err(_)` if any error occurs in the database.
-    async fn delete_engine(&self, id: &EngineId, current_states: Vec<EngineState>) -> Result<Option<UpdateEngineStateResponse>>;
+    async fn delete_engine(
+        &self,
+        id: &EngineId,
+        current_state: &EngineState,
+    ) -> Result<Option<UpdateEngineStateResponse>>;
 
     /// Update the engine state to `after` only when
-    /// the engine exists and the current state is in `before`.
+    /// the engine exists and the current state is `before`.
     /// # Return
     /// - `Ok(None)` if the engine does not exist.
     /// - `Ok(Some(UpdateEngineStateResponse))` if the engine exists.
@@ -44,8 +48,8 @@ pub trait DatabaseClient: Sized + Send + Sync + 'static {
     async fn update_engine_state(
         &self,
         id: &EngineId,
-        before: Vec<EngineState>,
-        after: EngineState,
+        before: &EngineState,
+        after: &EngineState,
     ) -> Result<Option<UpdateEngineStateResponse>>;
 
     /// Return `Ok(None)` if the engine does not exist

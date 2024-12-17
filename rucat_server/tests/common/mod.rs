@@ -13,12 +13,12 @@ mock! {
     #[async_trait]
     impl DatabaseClient for DBClient {
         async fn add_engine(&self, engine: StartEngineRequest) -> Result<EngineId>;
-        async fn delete_engine(&self, id: &EngineId, current_states: Vec<EngineState>) -> Result<Option<UpdateEngineStateResponse>>;
+        async fn delete_engine(&self, id: &EngineId, current_state: &EngineState) -> Result<Option<UpdateEngineStateResponse>>;
         async fn update_engine_state(
             &self,
             id: &EngineId,
-            before: Vec<EngineState>,
-            after: EngineState,
+            before: &EngineState,
+            after: &EngineState,
         ) -> Result<Option<UpdateEngineStateResponse>>;
         async fn get_engine(&self, id: &EngineId) -> Result<Option<EngineInfo>>;
         async fn list_engines(&self) -> Result<Vec<EngineId>>;

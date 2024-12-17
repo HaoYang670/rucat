@@ -42,11 +42,10 @@ impl K8sPodState {
 }
 
 impl ResourceState for K8sPodState {
-    fn update_engine_state(&self, old_state: &EngineState) -> Option<EngineState> {
+    fn get_new_engine_state(&self, old_state: &EngineState) -> Option<EngineState> {
+        // TODO: wrap `Running` and `*InProgress` states in a new type
         match (old_state, self) {
-            (EngineState::StartInProgress, Self::Pending | Self::Unknown) => {
-                Some(EngineState::StartInProgress)
-            }
+            (EngineState::StartInProgress, Self::Pending | Self::Unknown) => None,
             (EngineState::StartInProgress, Self::Running) => Some(EngineState::Running),
             (EngineState::StartInProgress, Self::Succeeded | Self::Failed | Self::NotExisted) => {
                 Some(EngineState::ErrorClean("Engine fails to start.".to_owned()))
@@ -55,25 +54,21 @@ impl ResourceState for K8sPodState {
             (EngineState::Running, Self::Pending) => Some(EngineState::ErrorCleanInProgress(
                 "Engine restarts unexpected.".to_owned(),
             )),
-            (EngineState::Running, Self::Running | Self::Unknown) => Some(EngineState::Running),
+            (EngineState::Running, Self::Running | Self::Unknown) => None,
             (EngineState::Running, Self::Succeeded | Self::Failed | Self::NotExisted) => Some(
                 EngineState::ErrorClean("Engine terminates during running.".to_owned()),
             ),
 
             (EngineState::TerminateInProgress, Self::NotExisted) => Some(EngineState::Terminated),
-            (EngineState::TerminateInProgress, _) => Some(EngineState::TerminateInProgress),
-
-            (EngineState::DeleteInProgress, Self::NotExisted) => None,
-            (EngineState::DeleteInProgress, _) => Some(EngineState::DeleteInProgress),
+            (EngineState::TerminateInProgress, _) => None,
 
             (EngineState::ErrorCleanInProgress(s), Self::NotExisted) => {
                 Some(EngineState::ErrorClean(s.clone()))
             }
-            (EngineState::ErrorCleanInProgress(s), _) => {
-                Some(EngineState::ErrorCleanInProgress(s.clone()))
+            (EngineState::ErrorCleanInProgress(_), _) => None,
+            (s, _) => {
+                unreachable!("State {:?} should not be updated by resource state.", s);
             }
-            // panic here because it means we have a bug in the code
-            (s, _) => unreachable!("State {:?} should not be updated by resource state.", s),
         }
     }
 }
@@ -212,18 +207,20 @@ impl ResourceClient for K8sClient {
         // Create a Pod API instance
         let pods: Api<Pod> = Api::namespaced(self.client.clone(), "default");
         // Get the Pod phase
-        pods
-            .get_opt(&spark_driver_name).await
+        pods.get_opt(&spark_driver_name)
+            .await
             .map(|pod| {
-                let state = pod.map_or(
-                    K8sPodState::NotExisted,
-                    |pod| K8sPodState::from_phase(pod.status.and_then(|s| s.phase))
-                );
+                let state = pod.map_or(K8sPodState::NotExisted, |pod| {
+                    K8sPodState::from_phase(pod.status.and_then(|s| s.phase))
+                });
                 debug!("Get Pod: {} state: {:?}", spark_driver_name, state);
                 state
             })
             .unwrap_or_else(|e| {
-                warn!("Failed to get Pod: {} due to {}, mark it state as UnKnown.", spark_driver_name, e);
+                warn!(
+                    "Failed to get Pod: {} due to {}, mark it state as UnKnown.",
+                    spark_driver_name, e
+                );
                 K8sPodState::Unknown
             })
     }
