@@ -19,6 +19,12 @@ pub struct UpdateEngineStateResponse {
     pub update_success: bool,
 }
 
+#[derive(Deserialize)]
+pub struct EngineIdAndInfo {
+    pub id: EngineId,
+    pub info: EngineInfo,
+}
+
 /// Client of the database to store the Engine.
 /// Engine is stored in the format of using [EngineId] as key and [EngineInfo] as value.
 // TODO: replace #[async_trait] by #[trait_variant::make(HttpService: Send)] in the future: https://blog.rust-lang.org/2023/12/21/async-fn-rpit-in-traits.html#should-i-still-use-the-async_trait-macro
@@ -61,5 +67,5 @@ pub trait DatabaseClient: Sized + Send + Sync + 'static {
     /// Return all engines that need to be updated.
     /// This includes engines in state `WaitTo*`,
     /// or those in `Running` and `*InProgress`, and the engine info has been outdated.
-    async fn list_engines_need_update(&self) -> Result<Vec<(EngineId, EngineInfo)>>;
+    async fn list_engines_need_update(&self) -> Result<Vec<EngineIdAndInfo>>;
 }

@@ -1,5 +1,5 @@
 use ::rucat_common::{
-    database_client::DatabaseClient,
+    database_client::{DatabaseClient, EngineIdAndInfo},
     engine::{
         EngineId,
         EngineState::{self, *},
@@ -27,7 +27,7 @@ where
             Ok(engines) => {
                 debug!("Detect {} engines need to update", engines.len());
                 // TODO: make this execute in parallel
-                for (id, info) in engines {
+                for EngineIdAndInfo { id, info } in engines {
                     match info.state {
                         WaitToStart => {
                             // acquire the engine

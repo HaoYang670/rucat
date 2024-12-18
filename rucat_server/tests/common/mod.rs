@@ -1,6 +1,6 @@
 use ::mockall::mock;
 use ::rucat_common::{
-    database_client::{DatabaseClient, UpdateEngineStateResponse},
+    database_client::{DatabaseClient, EngineIdAndInfo, UpdateEngineStateResponse},
     engine::{EngineId, EngineInfo, EngineState, StartEngineRequest},
     error::*,
 };
@@ -22,7 +22,7 @@ mock! {
         ) -> Result<Option<UpdateEngineStateResponse>>;
         async fn get_engine(&self, id: &EngineId) -> Result<Option<EngineInfo>>;
         async fn list_engines(&self) -> Result<Vec<EngineId>>;
-        async fn list_engines_need_update(&self) -> Result<Vec<(EngineId, EngineInfo)>>;
+        async fn list_engines_need_update(&self) -> Result<Vec<EngineIdAndInfo>>;
     }
 }
 

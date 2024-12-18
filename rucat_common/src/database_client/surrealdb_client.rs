@@ -1,6 +1,7 @@
 //! Client of SurrealDB
 
 use axum::async_trait;
+use ::serde::Deserialize;
 
 use crate::engine::{EngineId, StartEngineRequest};
 use crate::error::{Result, RucatError};
@@ -15,7 +16,7 @@ use surrealdb::{
     Surreal,
 };
 
-use super::{DatabaseClient, UpdateEngineStateResponse};
+use super::{DatabaseClient, EngineIdAndInfo, UpdateEngineStateResponse};
 
 /// Client to interact with the database.
 /// Store the metadata of Engines
@@ -61,11 +62,11 @@ impl SurrealDBClient {
 impl DatabaseClient for SurrealDBClient {
     async fn add_engine(&self, engine: StartEngineRequest) -> Result<EngineId> {
         let info: EngineInfo = engine.try_into()?;
-        // always set next_update_time to time::min() when adding a new engine,
+        // always set next_update_time to now  when adding a new engine,
         // so that the state monitor will update the engine info immediately
         let sql = r#"
             CREATE ONLY type::table($table)
-            SET info = $info, next_update_time = time::min();
+            SET info = $info, next_update_time = time::now()
             RETURN VALUE record::id(id);
         "#;
 
@@ -195,21 +196,37 @@ impl DatabaseClient for SurrealDBClient {
         Ok(ids)
     }
 
-    async fn list_engines_need_update(&self) -> Result<Vec<(EngineId, EngineInfo)>> {
+    async fn list_engines_need_update(&self) -> Result<Vec<EngineIdAndInfo>> {
         let sql = r#"
-            SELECT VALUE record::id(id), info
+            SELECT VALUE {id: record::id(id), info: info}
             FROM type::table($tb)
-            WHERE info.state IN {WaitToStart, WaitToTerminate, WaitToDelete}
-                OR (info.state IN {RUNNING, StartInProgress, TerminateInProgress, DeleteInProgress, ErrorCleanInProgress}
+            WHERE info.state IN ["WaitToStart", "WaitToTerminate", "WaitToDelete"]
+                OR (info.state IN ["RUNNING", "StartInProgress", "TerminateInProgress", "DeleteInProgress", "ErrorCleanInProgress"]
                     AND next_update_time < time::now());
         "#;
 
-        self.client
+        #[derive(Deserialize)]
+        struct EngineIdStringAndInfo {
+            id: String,
+            info: EngineInfo,
+        }
+
+        let id_and_info: Vec<EngineIdStringAndInfo> = self.client
             .query(sql)
             .bind(("tb", Self::TABLE))
             .await
             .map_err(RucatError::fail_to_read_database)?
             .take(0)
-            .map_err(RucatError::fail_to_read_database)
+            .map_err(RucatError::fail_to_read_database)?;
+
+        id_and_info
+            .into_iter()
+            .map(|EngineIdStringAndInfo { id, info }| {
+                Ok(EngineIdAndInfo {
+                    id: EngineId::try_from(id)?,
+                    info,
+                })
+            })
+            .collect()
     }
 }
