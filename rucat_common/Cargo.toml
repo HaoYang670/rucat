@@ -7,21 +7,21 @@ edition = "2021"
 
 [dependencies]
 axum = {"version" = "0.7.9"}
-anyhow = {"version" = "1.0.93"}
-clap = { version = "4.5.21", features = ["derive"] }
+anyhow = {"version" = "1.0.94"}
+clap = { version = "4.5.23", features = ["derive"] }
 clap_derive = "4.5.18"
 kube = "0.97.0"
 k8s-openapi = { version = "0.23.0", features = ["latest"] }
-prost = "0.13.3"
+prost = "0.13.4"
 rand = "0.8.5"
-serde = {"version" = "1.0.215", features = ["derive"]}
+serde = {"version" = "1.0.216", features = ["derive"]}
 serde_json = "1.0.133"
-surrealdb = {"version" = "2.1.2", features = ["kv-mem", "native-tls"]}
-tokio = {"version" = "1.41.1", features = ["full"]}
+surrealdb = {"version" = "2.1.4", features = ["kv-mem", "native-tls"]}
+tokio = {"version" = "1.42.0", features = ["full"]}
 tonic = "0.12.3"
-time = {version = "0.3.36", features = ["serde-well-known", "parsing", "macros"]}
-tracing = {"version" = "0.1.40"}
-tracing-subscriber = {"version" = "0.3.18"}
+time = {version = "0.3.37", features = ["serde-well-known", "parsing", "macros"]}
+tracing = {"version" = "0.1.41"}
+tracing-subscriber = {"version" = "0.3.19"}
 
 [build-dependencies]
 tonic-build = "0.12.3"

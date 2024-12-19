@@ -65,6 +65,20 @@ impl DatabaseClient for SurrealDBClient {
         // always set next_update_time to now  when adding a new engine,
         // so that the state monitor will update the engine info immediately
         let sql = r#"
+            DEFINE FIELD IF NOT EXISTS info.state ON engines TYPE
+                'WaitToStart' |
+                'TriggerStart' |
+                'StartInProgress' |
+                'Running' |
+                'WaitToTerminate' |
+                'TriggerTermination' |
+                'TerminateInProgress' |
+                'Terminated' |
+                { ErrorWaitToClean: string} |
+                { ErrorTriggerClean: string } |
+                { ErrorCleanInProgress: string } |
+                { ErrorClean: string };
+
             CREATE ONLY type::table($table)
             SET info = $info, next_update_time = time::now()
             RETURN VALUE record::id(id);
@@ -77,7 +91,7 @@ impl DatabaseClient for SurrealDBClient {
             .bind(("info", info))
             .await
             .map_err(RucatError::fail_to_update_database)?
-            .take(0)
+            .take(1)
             .map_err(RucatError::fail_to_update_database)?;
         let id = record.map(EngineId::try_from);
         id.unwrap_or_else(|| {
@@ -92,6 +106,7 @@ impl DatabaseClient for SurrealDBClient {
     ) -> Result<Option<UpdateEngineStateResponse>> {
         let sql = r#"
             let $record_id = type::thing($tb, $id);             // 0th return value
+
             BEGIN TRANSACTION;
             {
                 LET $current_state = (SELECT VALUE info.state from only $record_id);
@@ -127,6 +142,7 @@ impl DatabaseClient for SurrealDBClient {
     ) -> Result<Option<UpdateEngineStateResponse>> {
         let sql = r#"
             let $record_id = type::thing($tb, $id);             // 0th return value
+
             BEGIN TRANSACTION;
             {
                 LET $current_state = (SELECT VALUE info.state from only $record_id);
@@ -200,8 +216,8 @@ impl DatabaseClient for SurrealDBClient {
         let sql = r#"
             SELECT VALUE {id: record::id(id), info: info}
             FROM type::table($tb)
-            WHERE info.state IN ["WaitToStart", "WaitToTerminate", "WaitToDelete"]
-                OR (info.state IN ["RUNNING", "StartInProgress", "TerminateInProgress", "DeleteInProgress", "ErrorCleanInProgress"]
+            WHERE (info.state IN ["WaitToStart", "WaitToTerminate", "WaitToDelete"] OR info.state.ErrorWaitToClean)
+                OR ((info.state IN ["Running", "StartInProgress", "TerminateInProgress", "DeleteInProgress"] OR info.state.ErrorCleanInProgress)
                     AND next_update_time < time::now());
         "#;
 

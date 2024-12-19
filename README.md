@@ -14,7 +14,7 @@ Rucat is a Boy / Girl name, meaning is Guider, Discipline and Adventurer. The Nu
 ```mermaid
 flowchart
     server(rucat server)
-    spark(Apache Spark)
+    engine(Apache Spark)
     monitor(rucat state monitor)
     k8s-api(k8s api server)
     db[(database)]
@@ -25,7 +25,7 @@ flowchart
     server -- create, remove, manage engine / get engine info --> db
     monitor -- regular engine state update --> db
     monitor -- create(delete) engine pod  / read pod info --> k8s-api
-    k8s-api -- manage --> spark
+    k8s-api -- manage --> engine
     end
 ```
 
@@ -72,15 +72,10 @@ cargo test
 
 ## TODO
 
-1. test graceful shutdown
-2. catch the spark driver log before deleting?
-3. implement rucat-client (based on spark-connect-rs)
-4. Rewrite engine state using Surreal Literal type <https://surrealdb.com/docs/surrealql/datamodel/literals>
-5. mock all, surrealdb and k8s. <https://github.com/asomers/mockall>
-6. miri testing <https://github.com/rust-lang/miri>
-7. fuzz testing <https://rust-fuzz.github.io/book/introduction.html>
-8. Arrow flight sql as protocol
-9. Handle timeout for `Trigger*` states.
+1. catch the spark driver log before deleting?
+2. implement rucat-client (based on spark-connect-rs)
+3. mock resource client. <https://github.com/asomers/mockall>
+4. Handle timeout for `Trigger*` states.
 
 ## How to deploy on k8s
 
