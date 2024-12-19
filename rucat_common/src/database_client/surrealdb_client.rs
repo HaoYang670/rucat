@@ -1,7 +1,7 @@
 //! Client of SurrealDB
 
-use axum::async_trait;
 use ::serde::Deserialize;
+use axum::async_trait;
 
 use crate::engine::{EngineId, StartEngineRequest};
 use crate::error::{Result, RucatError};
@@ -211,7 +211,8 @@ impl DatabaseClient for SurrealDBClient {
             info: EngineInfo,
         }
 
-        let id_and_info: Vec<EngineIdStringAndInfo> = self.client
+        let id_and_info: Vec<EngineIdStringAndInfo> = self
+            .client
             .query(sql)
             .bind(("tb", Self::TABLE))
             .await
