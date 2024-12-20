@@ -1,11 +1,11 @@
 mod common;
 
-use ::std::{borrow::Cow, collections::HashMap};
+use ::std::{borrow::Cow, collections::BTreeMap};
 
 use ::mockall::predicate;
 use ::rucat_common::{
     database_client::UpdateEngineStateResponse,
-    engine::{EngineConfigs, EngineId, EngineInfo, EngineState::*, EngineTime},
+    engine::{EngineId, EngineInfo, EngineState::*, EngineTime},
     error::*,
     serde_json::json,
     tokio,
@@ -113,7 +113,7 @@ async fn get_engine() -> Result<()> {
             Ok(Some(EngineInfo::new(
                 "engine1".to_owned(),
                 Running,
-                EngineConfigs::try_from(HashMap::new())?,
+                BTreeMap::new(),
                 EngineTime::now(),
             )))
         });
@@ -149,7 +149,7 @@ async fn stop_wait_to_start_engine() -> Result<()> {
             Ok(Some(EngineInfo::new(
                 "engine1".to_owned(),
                 WaitToStart,
-                EngineConfigs::try_from(HashMap::new())?,
+                BTreeMap::new(),
                 EngineTime::now(),
             )))
         });
@@ -227,7 +227,7 @@ async fn restart_terminated_engine() -> Result<()> {
             Ok(Some(EngineInfo::new(
                 "engine1".to_owned(),
                 Terminated,
-                EngineConfigs::try_from(HashMap::new())?,
+                BTreeMap::new(),
                 EngineTime::now(),
             )))
         });
@@ -275,7 +275,7 @@ async fn cannot_restart_engine() -> Result<()> {
             Ok(Some(EngineInfo::new(
                 "engine1".to_owned(),
                 WaitToStart,
-                EngineConfigs::try_from(HashMap::new())?,
+                BTreeMap::new(),
                 EngineTime::now(),
             )))
         });

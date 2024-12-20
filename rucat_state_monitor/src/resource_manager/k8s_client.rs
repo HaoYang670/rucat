@@ -1,15 +1,12 @@
-use ::std::borrow::Cow;
+use ::std::{borrow::Cow, collections::BTreeMap};
 
 use ::k8s_openapi::api::core::v1::{Pod, Service};
 use ::kube::{api::PostParams, Api, Client};
 use ::rucat_common::{
-    engine::{
+    anyhow::anyhow, engine::{
         get_spark_app_id, get_spark_driver_name, get_spark_service_name, EngineConfigs, EngineId,
         EngineState,
-    },
-    error::{Result, RucatError},
-    serde_json::{self, json},
-    tracing::{debug, warn},
+    }, error::{Result, RucatError}, serde_json::{self, json}, tracing::{debug, warn}
 };
 
 use super::{ResourceManager, ResourceState};
@@ -81,6 +78,54 @@ pub struct K8sClient {
 impl K8sClient {
     const SPARK_SERVICE_SELECTOR: &str = "rucat-engine-selector";
 
+    // convert engine configurations to Spark submit format
+    fn to_spark_submit_format(id: &EngineId, user_configs: &EngineConfigs) -> Result<Vec<Cow<'static, str>>> {
+        // Preset configurations for Spark on Kubernetes.
+        // Users are not allowed to set these configurations.
+        // make the map ordered for easier testing
+        let preset_configs = BTreeMap::from([
+            (Cow::Borrowed("spark.app.id"), get_spark_app_id(id)),
+            (Cow::Borrowed("spark.driver.extraJavaOptions"), Cow::Borrowed("-Divy.cache.dir=/tmp -Divy.home=/tmp")),
+            (Cow::Borrowed("spark.driver.host"), get_spark_service_name(id)),
+            (Cow::Borrowed("spark.kubernetes.container.image"), Cow::Borrowed("apache/spark:3.5.3")),
+            (Cow::Borrowed("spark.kubernetes.driver.pod.name"), get_spark_driver_name(id)),
+            (Cow::Borrowed("spark.kubernetes.executor.podNamePrefix"), get_spark_app_id(id)),
+        ]);
+
+        match preset_configs.keys()
+            .filter(|k| user_configs.contains_key(*k))
+            .next() {
+                Some(key) => {
+                    Err(RucatError::not_allowed(anyhow!(
+                        "The config {} is not allowed as it is reserved.",
+                        key
+                    )))
+                }
+                None => {
+                    Ok([
+                        Cow::Borrowed("--master"),
+                        Cow::Borrowed("k8s://https://kubernetes:443"),
+                        Cow::Borrowed("--deploy-mode"),
+                        Cow::Borrowed("client"),
+                        Cow::Borrowed("--packages"),
+                        Cow::Borrowed("org.apache.spark:spark-connect_2.12:3.5.3"),
+                    ]
+                    .iter()
+                    .cloned()
+                    .chain(
+                        preset_configs
+                            .iter()
+                            .chain(
+                                user_configs
+                                .iter()
+                            )
+                            .flat_map(|(k, v)| [Cow::Borrowed("--conf"), Cow::Owned(format!("{}={}", k, v))])
+                    )
+                    .collect())
+                }
+            }
+    }
+
     pub async fn new() -> Result<Self> {
         let client = Client::try_default()
             .await
@@ -92,19 +137,11 @@ impl K8sClient {
 impl ResourceManager for K8sClient {
     type ResourceState = K8sPodState;
 
-    async fn create_resource(&self, id: &EngineId, config: &EngineConfigs) -> Result<()> {
+    async fn create_resource(&self, id: &EngineId, configs: &EngineConfigs) -> Result<()> {
         let spark_app_id = get_spark_app_id(id);
         let spark_driver_name = get_spark_driver_name(id);
         let spark_service_name = get_spark_service_name(id);
-        let mut args = config.to_spark_submit_format_with_preset_configs(id);
-        args.extend([
-            Cow::Borrowed("--master"),
-            Cow::Borrowed("k8s://https://kubernetes:443"),
-            Cow::Borrowed("--deploy-mode"),
-            Cow::Borrowed("client"),
-            Cow::Borrowed("--packages"),
-            Cow::Borrowed("org.apache.spark:spark-connect_2.12:3.5.3"),
-        ]);
+        let args = Self::to_spark_submit_format(id, configs)?;
 
         let pod: Pod = serde_json::from_value(json!({
             "apiVersion": "v1",
@@ -246,6 +283,104 @@ impl ResourceManager for K8sClient {
             .await
             .map_err(RucatError::fail_to_delete_engine)?;
 
+        Ok(())
+    }
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    fn check_preset_config(key: &'static str) {
+        let config = BTreeMap::from([(Cow::Borrowed(key), Cow::Borrowed(""))]);
+        let id = EngineId::new(Cow::Borrowed("123")).unwrap();
+        let result = K8sClient::to_spark_submit_format(&id, &config);
+        assert!(result.is_err_and(|e| e.to_string().starts_with(&format!(
+            "Not allowed: The config {} is not allowed as it is reserved.",
+            key
+        ))));
+    }
+
+    #[test]
+    fn preset_configs_are_not_allowed_to_be_set() {
+        check_preset_config("spark.app.id");
+        check_preset_config("spark.driver.extraJavaOptions");
+        check_preset_config("spark.driver.host");
+        check_preset_config("spark.kubernetes.container.image");
+        check_preset_config("spark.kubernetes.driver.pod.name");
+        check_preset_config("spark.kubernetes.executor.podNamePrefix");
+    }
+
+    #[test]
+    fn empty_engine_config() -> Result<()> {
+        let spark_submit_format =
+            K8sClient::to_spark_submit_format(&EngineId::try_from("abc")?, &BTreeMap::new())?;
+        assert_eq!(
+            spark_submit_format,
+            vec![
+                "--master",
+                "k8s://https://kubernetes:443",
+                "--deploy-mode",
+                "client",
+                "--packages",
+                "org.apache.spark:spark-connect_2.12:3.5.3",
+                "--conf",
+                "spark.app.id=rucat-spark-abc",
+                "--conf",
+                "spark.driver.extraJavaOptions=-Divy.cache.dir=/tmp -Divy.home=/tmp",
+                "--conf",
+                "spark.driver.host=rucat-spark-abc",
+                "--conf",
+                "spark.kubernetes.container.image=apache/spark:3.5.3",
+                "--conf",
+                "spark.kubernetes.driver.pod.name=rucat-spark-abc-driver",
+                "--conf",
+                "spark.kubernetes.executor.podNamePrefix=rucat-spark-abc",
+            ]
+            .into_iter()
+            .map(String::from)
+            .collect::<Vec<_>>()
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn engine_config_with_1_item() -> Result<()> {
+        let configs = BTreeMap::from([(
+            Cow::Borrowed("spark.executor.instances"),
+            Cow::Borrowed("2"),
+        )]);
+
+        let spark_submit_format =
+            K8sClient::to_spark_submit_format(&EngineId::try_from("abc")?, &configs)?;
+        assert_eq!(
+            spark_submit_format,
+            vec![
+                "--master",
+                "k8s://https://kubernetes:443",
+                "--deploy-mode",
+                "client",
+                "--packages",
+                "org.apache.spark:spark-connect_2.12:3.5.3",
+                "--conf",
+                "spark.app.id=rucat-spark-abc",
+                "--conf",
+                "spark.driver.extraJavaOptions=-Divy.cache.dir=/tmp -Divy.home=/tmp",
+                "--conf",
+                "spark.driver.host=rucat-spark-abc",
+                "--conf",
+                "spark.kubernetes.container.image=apache/spark:3.5.3",
+                "--conf",
+                "spark.kubernetes.driver.pod.name=rucat-spark-abc-driver",
+                "--conf",
+                "spark.kubernetes.executor.podNamePrefix=rucat-spark-abc",
+                "--conf",
+                "spark.executor.instances=2",
+            ]
+            .into_iter()
+            .map(String::from)
+            .collect::<Vec<_>>()
+        );
         Ok(())
     }
 }

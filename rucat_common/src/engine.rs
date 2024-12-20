@@ -1,5 +1,5 @@
 use ::core::fmt::Display;
-use ::std::{borrow::Cow, collections::HashMap, fmt};
+use ::std::{borrow::Cow, collections::BTreeMap, fmt};
 
 use ::anyhow::anyhow;
 use ::serde::{
@@ -15,21 +15,6 @@ use crate::{
     error::{Result, RucatError},
 };
 use serde::{Deserialize, Serialize};
-
-/// Preset configurations that are not allowed to be set.
-type PresetConfig = (&'static str, fn(&EngineId) -> Cow<'static, str>);
-const PRESET_CONFIGS: [PresetConfig; 6] = [
-    ("spark.app.id", get_spark_app_id),
-    ("spark.kubernetes.container.image", |_| {
-        Cow::Borrowed("apache/spark:3.5.3")
-    }),
-    ("spark.driver.host", get_spark_service_name),
-    ("spark.kubernetes.driver.pod.name", get_spark_driver_name),
-    ("spark.kubernetes.executor.podNamePrefix", get_spark_app_id),
-    ("spark.driver.extraJavaOptions", |_| {
-        Cow::Borrowed("-Divy.cache.dir=/tmp -Divy.home=/tmp")
-    }),
-];
 
 pub fn get_spark_app_id(id: &EngineId) -> Cow<'static, str> {
     Cow::Owned(format!("rucat-spark-{}", id))
@@ -49,7 +34,7 @@ pub struct StartEngineRequest {
     // The name of the engine
     name: String,
     // Spark configurations
-    configs: Option<HashMap<Cow<'static, str>, Cow<'static, str>>>,
+    configs: Option<EngineConfigs>,
 }
 
 /// Type of time in engine.
@@ -80,47 +65,7 @@ impl EngineTime {
     }
 }
 
-/// User-defined configuration for creating an Spark app.
-#[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct EngineConfigs(HashMap<Cow<'static, str>, Cow<'static, str>>);
-
-impl EngineConfigs {
-    /// Convert the configuration to the format of `spark-submit`.
-    /// The preset configurations are set with the given engine id.
-    pub fn to_spark_submit_format_with_preset_configs(
-        &self,
-        id: &EngineId,
-    ) -> Vec<Cow<'static, str>> {
-        // Safety: keys in `PRESET_CONFIG` and `self.0` are not overlapping.
-        PRESET_CONFIGS
-            .iter()
-            .map(|(k, v)| Cow::Owned(format!("{}={}", k, v(id))))
-            .chain(
-                self.0
-                    .iter()
-                    .map(|(k, v)| Cow::Owned(format!("{}={}", k, v))),
-            )
-            .flat_map(|conf| [Cow::Borrowed("--conf"), conf])
-            .collect()
-    }
-}
-
-impl TryFrom<HashMap<Cow<'static, str>, Cow<'static, str>>> for EngineConfigs {
-    type Error = RucatError;
-
-    fn try_from(config: HashMap<Cow<'static, str>, Cow<'static, str>>) -> Result<Self> {
-        PRESET_CONFIGS
-            .iter()
-            .map(|(key, _)| key)
-            .find(|&&key| config.contains_key(key))
-            .map_or(Ok(Self(config)), |key| {
-                Err(RucatError::not_allowed(anyhow!(
-                    "The config {} is not allowed as it is reserved.",
-                    key
-                )))
-            })
-    }
-}
+pub type EngineConfigs = BTreeMap<Cow<'static, str>, Cow<'static, str>>;
 
 /// States of Rucat engine
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
@@ -175,7 +120,7 @@ impl TryFrom<StartEngineRequest> for EngineInfo {
         Ok(EngineInfo::new(
             value.name,
             WaitToStart,
-            value.configs.unwrap_or_default().try_into()?,
+            value.configs.unwrap_or_default(),
             EngineTime::now(),
         ))
     }
@@ -295,95 +240,6 @@ mod tests {
         fn deserialize_engine_id() -> anyhow::Result<()> {
             let result: EngineId = serde_json::from_value(json!("abc"))?;
             assert_eq!(result, EngineId::try_from("abc")?);
-            Ok(())
-        }
-    }
-
-    mod engine_config {
-        use super::*;
-
-        fn check_preset_config(key: &'static str) {
-            let config = HashMap::from([(Cow::Borrowed(key), Cow::Borrowed(""))]);
-            let result = EngineConfigs::try_from(config);
-            assert!(result.is_err_and(|e| e.to_string().starts_with(&format!(
-                "Not allowed: The config {} is not allowed as it is reserved.",
-                key
-            ))));
-        }
-
-        #[test]
-        fn preset_configs_are_not_allowed_to_be_set() {
-            check_preset_config("spark.app.id");
-            check_preset_config("spark.kubernetes.container.image");
-            check_preset_config("spark.driver.host");
-            check_preset_config("spark.kubernetes.driver.pod.name");
-            check_preset_config("spark.kubernetes.executor.podNamePrefix");
-            check_preset_config("spark.driver.extraJavaOptions");
-        }
-
-        #[test]
-        fn empty_engine_config() -> Result<()> {
-            let result = EngineConfigs::try_from(HashMap::new())?;
-            assert!(result.0 == HashMap::new());
-
-            let spark_submit_format =
-                result.to_spark_submit_format_with_preset_configs(&EngineId::try_from("abc")?);
-            assert_eq!(
-                spark_submit_format,
-                vec![
-                    "--conf",
-                    "spark.app.id=rucat-spark-abc",
-                    "--conf",
-                    "spark.kubernetes.container.image=apache/spark:3.5.3",
-                    "--conf",
-                    "spark.driver.host=rucat-spark-abc",
-                    "--conf",
-                    "spark.kubernetes.driver.pod.name=rucat-spark-abc-driver",
-                    "--conf",
-                    "spark.kubernetes.executor.podNamePrefix=rucat-spark-abc",
-                    "--conf",
-                    "spark.driver.extraJavaOptions=-Divy.cache.dir=/tmp -Divy.home=/tmp",
-                ]
-                .into_iter()
-                .map(String::from)
-                .collect::<Vec<_>>()
-            );
-            Ok(())
-        }
-
-        #[test]
-        fn engine_config_with_1_item() -> Result<()> {
-            let config = HashMap::from([(
-                Cow::Borrowed("spark.executor.instances"),
-                Cow::Borrowed("2"),
-            )]);
-            let result = EngineConfigs::try_from(config.clone())?;
-            assert!(result.0 == config);
-
-            let spark_submit_format =
-                result.to_spark_submit_format_with_preset_configs(&EngineId::try_from("abc")?);
-            assert_eq!(
-                spark_submit_format,
-                vec![
-                    "--conf",
-                    "spark.app.id=rucat-spark-abc",
-                    "--conf",
-                    "spark.kubernetes.container.image=apache/spark:3.5.3",
-                    "--conf",
-                    "spark.driver.host=rucat-spark-abc",
-                    "--conf",
-                    "spark.kubernetes.driver.pod.name=rucat-spark-abc-driver",
-                    "--conf",
-                    "spark.kubernetes.executor.podNamePrefix=rucat-spark-abc",
-                    "--conf",
-                    "spark.driver.extraJavaOptions=-Divy.cache.dir=/tmp -Divy.home=/tmp",
-                    "--conf",
-                    "spark.executor.instances=2",
-                ]
-                .into_iter()
-                .map(String::from)
-                .collect::<Vec<_>>()
-            );
             Ok(())
         }
     }
