@@ -12,7 +12,7 @@ use ::rucat_common::{
     tracing::{debug, warn},
 };
 
-use super::{ResourceClient, ResourceState};
+use super::{ResourceManager, ResourceState};
 
 /// Derive from K8s pod phase: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#pod-phase
 #[derive(Debug)]
@@ -89,7 +89,7 @@ impl K8sClient {
     }
 }
 
-impl ResourceClient for K8sClient {
+impl ResourceManager for K8sClient {
     type ResourceState = K8sPodState;
 
     async fn create_resource(&self, id: &EngineId, config: &EngineConfigs) -> Result<()> {

@@ -12,7 +12,7 @@ pub trait ResourceState {
 }
 
 #[allow(async_fn_in_trait)]
-pub trait ResourceClient {
+pub trait ResourceManager {
     type ResourceState: ResourceState;
 
     /// Create Engine and associated resources

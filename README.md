@@ -76,6 +76,11 @@ cargo test
 2. implement rucat-client (based on spark-connect-rs)
 3. mock resource client. <https://github.com/asomers/mockall>
 4. Handle timeout for `Trigger*` states.
+5. rucat server HA
+6. multi rucat state monitors
+7. Add engine type for extendibility to support other engines.
+8. Add engine version
+9. More resource clients: Yarn, Spark standalone, Spark local etc.
 
 ## How to deploy on k8s
 

@@ -6,20 +6,20 @@ use ::rucat_common::{
     },
     tracing::{debug, error, info, warn},
 };
-use resource_client::{ResourceClient, ResourceState};
+use resource_manager::{ResourceManager, ResourceState};
 
 pub mod config;
-pub mod resource_client;
+pub mod resource_manager;
 
 /// This function runs forever to monitor the state of engines.
-pub async fn run_state_monitor<DBClient, RSClient>(
+pub async fn run_state_monitor<DBClient, RSManager>(
     db_client: DBClient,
-    resource_client: RSClient,
+    resource_manager: RSManager,
     check_interval_millis: u64,
 ) -> !
 where
     DBClient: DatabaseClient,
-    RSClient: ResourceClient,
+    RSManager: ResourceManager,
 {
     let check_interval = std::time::Duration::from_millis(check_interval_millis);
     loop {
@@ -41,7 +41,7 @@ where
                             if acquired {
                                 info!("Start engine {}", id);
                                 // create engine resource
-                                match resource_client.create_resource(&id, &info.config).await {
+                                match resource_manager.create_resource(&id, &info.config).await {
                                     Ok(()) => {
                                         info!("Create engine resource for {}", id);
                                         // release the engine
@@ -74,7 +74,7 @@ where
                             if acquired {
                                 info!("Terminate engine {}", id);
                                 // clean engine resource
-                                match resource_client.clean_resource(&id).await {
+                                match resource_manager.clean_resource(&id).await {
                                     Ok(()) => {
                                         info!("Clean engine resource for {}", id);
                                         // release the engine
@@ -104,7 +104,7 @@ where
                             if acquired {
                                 info!("Clean resource for error state engine {}", id);
                                 // clean engine resource
-                                match resource_client.clean_resource(&id).await {
+                                match resource_manager.clean_resource(&id).await {
                                     Ok(()) => {
                                         info!("Clean engine resource for {}", id);
                                         // release the engine
@@ -129,7 +129,7 @@ where
                         | StartInProgress
                         | TerminateInProgress
                         | ErrorCleanInProgress(_)) => {
-                            let resource_state = resource_client.get_resource_state(&id).await;
+                            let resource_state = resource_manager.get_resource_state(&id).await;
                             let new_state = resource_state.get_new_engine_state(&old_state);
                             match new_state {
                                 Some(new_state) => {
