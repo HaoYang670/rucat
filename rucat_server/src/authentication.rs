@@ -42,7 +42,7 @@ fn get_credentials(headers: &HeaderMap) -> Result<Credentials> {
 
 fn validate_credentials(token: &Credentials) -> bool {
     match token {
-        Credentials::Basic(basic) => basic.username().eq("remzi") && basic.password().eq("yang"),
-        Credentials::Bearer(bearer) => bearer.token().eq("remziy"),
+        Credentials::Basic(basic) => basic.username().eq("admin") && basic.password().eq("admin"),
+        Credentials::Bearer(bearer) => bearer.token().eq("admin"),
     }
 }

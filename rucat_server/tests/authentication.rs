@@ -6,9 +6,9 @@ use common::{get_test_server, MockDBClient};
 use headers::Authorization;
 use http::{header::AUTHORIZATION, HeaderValue};
 
-static USERNAME: &str = "remzi";
-static PWD: &str = "yang";
-static TOKEN: &str = "remziy"; // Bearer token
+static USERNAME: &str = "admin";
+static PWD: &str = "admin";
+static TOKEN: &str = "admin"; // Bearer token
 
 #[tokio::test]
 async fn without_auth_header() -> Result<()> {
