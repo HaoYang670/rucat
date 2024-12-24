@@ -10,8 +10,6 @@ pub mod client_grpc {
 
 // re-export the dependencies for other crates to use
 pub use anyhow;
-pub use k8s_openapi;
-pub use kube;
 pub use serde;
 pub use serde_json;
 pub use tokio;
