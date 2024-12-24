@@ -5,28 +5,13 @@ use ::std::{borrow::Cow, collections::BTreeMap};
 use ::mockall::predicate;
 use ::rucat_common::{
     database::UpdateEngineStateResponse,
-    engine::{EngineId, EngineInfo, EngineState::*, EngineTime},
+    engine::{CreateEngineRequest, EngineId, EngineInfo, EngineState::*, EngineTime, EngineType},
     error::*,
     serde_json::json,
     tokio,
 };
 use common::{get_test_server, MockDB};
 use http::StatusCode;
-
-/// This is a helper function to start an engine.
-///
-/// **DO NOT** use this function when testing failed cases in start_engine
-/*
-async fn start_engine_helper(server: &TestServer) -> TestResponse {
-    server
-        .post("/engine")
-        .json(&json!({
-            "name": "test",
-            "configs": {},
-        }))
-        .await
-}
-*/
 
 #[tokio::test]
 async fn undefined_handler() -> Result<()> {
@@ -74,7 +59,8 @@ async fn create_engine_with_missing_field() -> Result<()> {
     let response = server
         .post("/engine")
         .json(&json!({
-            "configs": {}
+            "engine_type": "Spark",
+            "config": {}
         }))
         .await;
 
@@ -97,31 +83,86 @@ async fn create_engine_with_unknown_field() -> Result<()> {
         .await;
 
     response.assert_status(StatusCode::UNPROCESSABLE_ENTITY);
+    assert!(response.text().contains(
+        "invalid: unknown field `invalid`, expected one of `name`, `engine_type`, `config`"
+    ));
+    Ok(())
+}
+
+#[tokio::test]
+async fn create_engine_with_unsupported_engine_type() -> Result<()> {
+    let db = MockDB::new();
+    let server = get_test_server(false, db).await?;
+
+    let response = server
+        .post("/engine")
+        .json(&json!({
+            "name": "test",
+            "engine_type": "foo",
+            "config": {}
+        }))
+        .await;
+
+    response.assert_status(StatusCode::UNPROCESSABLE_ENTITY);
     assert!(response
         .text()
-        .contains("invalid: unknown field `invalid`, expected `name` or `configs`"));
+        .contains("engine_type: unknown variant `foo`"));
+    Ok(())
+}
+
+#[tokio::test]
+async fn create_engine() -> Result<()> {
+    let mut db = MockDB::new();
+    db.expect_add_engine()
+        .with(predicate::eq(CreateEngineRequest {
+            name: "test".to_owned(),
+            engine_type: EngineType::Spark,
+            config: Some(BTreeMap::from([(
+                Cow::Borrowed("spark.executor.instances"),
+                Cow::Borrowed("1"),
+            )])),
+        }))
+        .times(1)
+        .returning(|_| Ok(EngineId::new(Cow::Borrowed("123"))?));
+    let server = get_test_server(false, db).await?;
+
+    let response = server
+        .post("/engine")
+        .json(&json!({
+            "name": "test",
+            "engine_type": "Spark",
+            "config": {
+                "spark.executor.instances": "1"
+            }
+        }))
+        .await;
+
+    response.assert_json(&json!({
+        "id": "123"
+    }));
+
     Ok(())
 }
 
 #[tokio::test]
 async fn get_engine() -> Result<()> {
     let mut db = MockDB::new();
+    let engine_info = EngineInfo::new(
+        "engine1".to_owned(),
+        EngineType::Spark,
+        Running,
+        BTreeMap::new(),
+        EngineTime::now(),
+    );
+    let engine_info_cloned = engine_info.clone();
     db.expect_get_engine()
         .with(predicate::eq(EngineId::new(Cow::Borrowed("123"))?))
         .times(1)
-        .returning(|_| {
-            Ok(Some(EngineInfo::new(
-                "engine1".to_owned(),
-                Running,
-                BTreeMap::new(),
-                EngineTime::now(),
-            )))
-        });
+        .returning(move |_| Ok(Some(engine_info.clone())));
     let server = get_test_server(false, db).await?;
 
     let response: EngineInfo = server.get("/engine/123").await.json();
-    assert_eq!(response.name, "engine1");
-    assert_eq!(response.state, Running);
+    assert_eq!(response, engine_info_cloned);
 
     Ok(())
 }
@@ -148,6 +189,7 @@ async fn delete_engine() -> Result<()> {
         .returning(|_| {
             Ok(Some(EngineInfo::new(
                 "engine1".to_owned(),
+                EngineType::Spark,
                 WaitToStart,
                 BTreeMap::new(),
                 EngineTime::now(),
@@ -181,6 +223,7 @@ async fn stop_wait_to_start_engine() -> Result<()> {
         .returning(|_| {
             Ok(Some(EngineInfo::new(
                 "engine1".to_owned(),
+                EngineType::Spark,
                 WaitToStart,
                 BTreeMap::new(),
                 EngineTime::now(),
@@ -229,6 +272,7 @@ async fn restart_terminated_engine() -> Result<()> {
         .returning(|_| {
             Ok(Some(EngineInfo::new(
                 "engine1".to_owned(),
+                EngineType::Spark,
                 Terminated,
                 BTreeMap::new(),
                 EngineTime::now(),
@@ -277,6 +321,7 @@ async fn cannot_restart_engine() -> Result<()> {
         .returning(|_| {
             Ok(Some(EngineInfo::new(
                 "engine1".to_owned(),
+                EngineType::Spark,
                 WaitToStart,
                 BTreeMap::new(),
                 EngineTime::now(),

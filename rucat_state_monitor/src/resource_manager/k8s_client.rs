@@ -4,7 +4,7 @@ use ::k8s_openapi::api::core::v1::{Pod, Service};
 use ::kube::{api::PostParams, Api, Client};
 use ::rucat_common::{
     anyhow::anyhow,
-    engine::{EngineConfigs, EngineId, EngineState},
+    engine::{EngineConfig, EngineId, EngineInfo, EngineState, EngineType},
     error::{Result, RucatError},
     serde_json::{self, json},
     tracing::{debug, warn},
@@ -93,12 +93,12 @@ impl K8sClient {
     // convert engine configurations to Spark submit format
     fn to_spark_submit_format(
         id: &EngineId,
-        user_configs: &EngineConfigs,
+        user_config: &EngineConfig,
     ) -> Result<Vec<Cow<'static, str>>> {
         // Preset configurations for Spark on Kubernetes.
         // Users are not allowed to set these configurations.
         // make the map ordered for easier testing
-        let preset_configs = BTreeMap::from([
+        let preset_config = BTreeMap::from([
             (Cow::Borrowed("spark.app.id"), get_spark_app_id(id)),
             (
                 Cow::Borrowed("spark.driver.extraJavaOptions"),
@@ -122,10 +122,7 @@ impl K8sClient {
             ),
         ]);
 
-        match preset_configs
-            .keys()
-            .find(|k| user_configs.contains_key(*k))
-        {
+        match preset_config.keys().find(|k| user_config.contains_key(*k)) {
             Some(key) => Err(RucatError::not_allowed(anyhow!(
                 "The config {} is not allowed as it is reserved.",
                 key
@@ -141,9 +138,9 @@ impl K8sClient {
             .iter()
             .cloned()
             .chain(
-                preset_configs
+                preset_config
                     .iter()
-                    .chain(user_configs.iter())
+                    .chain(user_config.iter())
                     .flat_map(|(k, v)| {
                         [Cow::Borrowed("--conf"), Cow::Owned(format!("{}={}", k, v))]
                     }),
@@ -158,16 +155,12 @@ impl K8sClient {
             .map_err(RucatError::fail_to_delete_engine)?;
         Ok(Self { client })
     }
-}
 
-impl ResourceManager for K8sClient {
-    type ResourceState = K8sPodState;
-
-    async fn create_resource(&self, id: &EngineId, configs: &EngineConfigs) -> Result<()> {
+    pub async fn create_spark_resource(&self, id: &EngineId, config: &EngineConfig) -> Result<()> {
         let spark_app_id = get_spark_app_id(id);
         let spark_driver_name = get_spark_driver_name(id);
         let spark_service_name = get_spark_service_name(id);
-        let args = Self::to_spark_submit_format(id, configs)?;
+        let args = Self::to_spark_submit_format(id, config)?;
 
         let pod: Pod = serde_json::from_value(json!({
             "apiVersion": "v1",
@@ -264,6 +257,16 @@ impl ResourceManager for K8sClient {
 
         Ok(())
     }
+}
+
+impl ResourceManager for K8sClient {
+    type ResourceState = K8sPodState;
+
+    async fn create_resource(&self, id: &EngineId, info: &EngineInfo) -> Result<()> {
+        match info.engine_type {
+            EngineType::Spark => self.create_spark_resource(id, &info.config).await,
+        }
+    }
 
     async fn get_resource_state(&self, id: &EngineId) -> Self::ResourceState {
         let spark_driver_name = get_spark_driver_name(id);
@@ -349,7 +352,7 @@ mod tests {
     }
 
     #[test]
-    fn preset_configs_are_not_allowed_to_be_set() {
+    fn preset_config_are_not_allowed_to_be_set() {
         check_preset_config("spark.app.id");
         check_preset_config("spark.driver.extraJavaOptions");
         check_preset_config("spark.driver.host");
@@ -393,13 +396,13 @@ mod tests {
 
     #[test]
     fn engine_config_with_1_item() -> Result<()> {
-        let configs = BTreeMap::from([(
+        let config = BTreeMap::from([(
             Cow::Borrowed("spark.executor.instances"),
             Cow::Borrowed("2"),
         )]);
 
         let spark_submit_format =
-            K8sClient::to_spark_submit_format(&EngineId::try_from("abc")?, &configs)?;
+            K8sClient::to_spark_submit_format(&EngineId::try_from("abc")?, &config)?;
         assert_eq!(
             spark_submit_format,
             vec![

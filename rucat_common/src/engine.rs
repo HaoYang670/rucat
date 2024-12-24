@@ -15,18 +15,25 @@ use crate::{
     error::{Result, RucatError},
 };
 
+/// Type of engine.
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+pub enum EngineType {
+    Spark,
+}
+
 /// Request body to create an engine.
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub struct CreateEngineRequest {
     // The name of the engine
-    name: String,
+    pub name: String,
+    pub engine_type: EngineType,
     // Engine configurations
-    configs: Option<EngineConfigs>,
+    pub config: Option<EngineConfig>,
 }
 
 /// Type of time in engine.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct EngineTime(String);
 
 impl EngineTime {
@@ -53,7 +60,7 @@ impl EngineTime {
     }
 }
 
-pub type EngineConfigs = BTreeMap<Cow<'static, str>, Cow<'static, str>>;
+pub type EngineConfig = BTreeMap<Cow<'static, str>, Cow<'static, str>>;
 
 /// States of Rucat engine
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
@@ -74,11 +81,12 @@ pub enum EngineState {
 }
 
 /// Whole information of an engine.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct EngineInfo {
     pub name: String,
+    pub engine_type: EngineType,
     pub state: EngineState,
-    pub config: EngineConfigs,
+    pub config: EngineConfig,
     /// time when the engine is created.
     ///
     /// Note, this is **not** the start time when the engine is RUNNING.
@@ -88,12 +96,14 @@ pub struct EngineInfo {
 impl EngineInfo {
     pub fn new(
         name: String,
+        engine_type: EngineType,
         state: EngineState,
-        config: EngineConfigs,
+        config: EngineConfig,
         create_time: EngineTime,
     ) -> Self {
         Self {
             name,
+            engine_type,
             state,
             config,
             create_time,
@@ -107,8 +117,9 @@ impl TryFrom<CreateEngineRequest> for EngineInfo {
     fn try_from(value: CreateEngineRequest) -> Result<Self> {
         Ok(EngineInfo::new(
             value.name,
+            value.engine_type,
             WaitToStart,
-            value.configs.unwrap_or_default(),
+            value.config.unwrap_or_default(),
             EngineTime::now(),
         ))
     }

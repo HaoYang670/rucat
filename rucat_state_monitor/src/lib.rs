@@ -41,7 +41,7 @@ where
                             if acquired {
                                 info!("Start engine {}", id);
                                 // create engine resource
-                                match resource_manager.create_resource(&id, &info.config).await {
+                                match resource_manager.create_resource(&id, &info).await {
                                     Ok(()) => {
                                         info!("Create engine resource for {}", id);
                                         // release the engine

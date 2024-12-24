@@ -1,7 +1,7 @@
 pub mod k8s_client;
 
 use ::rucat_common::{
-    engine::{EngineConfigs, EngineId, EngineState},
+    engine::{EngineId, EngineInfo, EngineState},
     error::Result,
 };
 
@@ -16,7 +16,7 @@ pub trait ResourceManager {
     type ResourceState: ResourceState;
 
     /// Create Engine and associated resources
-    async fn create_resource(&self, id: &EngineId, config: &EngineConfigs) -> Result<()>;
+    async fn create_resource(&self, id: &EngineId, info: &EngineInfo) -> Result<()>;
 
     async fn get_resource_state(&self, id: &EngineId) -> Self::ResourceState;
 
