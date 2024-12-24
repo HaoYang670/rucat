@@ -67,7 +67,7 @@ async fn get_engine_not_found() -> Result<()> {
 }
 
 #[tokio::test]
-async fn start_engine_with_missing_field() -> Result<()> {
+async fn create_engine_with_missing_field() -> Result<()> {
     let db = MockDB::new();
     let server = get_test_server(false, db).await?;
 
@@ -84,7 +84,7 @@ async fn start_engine_with_missing_field() -> Result<()> {
 }
 
 #[tokio::test]
-async fn start_engine_with_unknown_field() -> Result<()> {
+async fn create_engine_with_unknown_field() -> Result<()> {
     let db = MockDB::new();
     let server = get_test_server(false, db).await?;
 
@@ -140,6 +140,39 @@ async fn delete_nonexistent_engine() -> Result<()> {
 }
 
 #[tokio::test]
+async fn delete_engine() -> Result<()> {
+    let mut db = MockDB::new();
+    db.expect_get_engine()
+        .with(predicate::eq(EngineId::new(Cow::Borrowed("123"))?))
+        .times(1)
+        .returning(|_| {
+            Ok(Some(EngineInfo::new(
+                "engine1".to_owned(),
+                WaitToStart,
+                BTreeMap::new(),
+                EngineTime::now(),
+            )))
+        });
+    db.expect_delete_engine()
+        .with(
+            predicate::eq(EngineId::new(Cow::Borrowed("123"))?),
+            predicate::eq(&WaitToStart),
+        )
+        .times(1)
+        .returning(|_, _| {
+            Ok(Some(UpdateEngineStateResponse {
+                before_state: WaitToStart,
+                update_success: true,
+            }))
+        });
+    let server = get_test_server(false, db).await?;
+
+    let response = server.delete("/engine/123").await;
+    response.assert_status_ok();
+    Ok(())
+}
+
+#[tokio::test]
 async fn stop_wait_to_start_engine() -> Result<()> {
     let mut db = MockDB::new();
     db.expect_get_engine()
@@ -186,36 +219,6 @@ async fn stop_nonexistent_engine() -> Result<()> {
     response.assert_status_not_found();
     Ok(())
 }
-
-/*/
-#[tokio::test]
-async fn delete_engine() -> Result<()> {
-    let server = get_test_server().await?;
-    let id: EngineId = start_engine_helper(&server).await.json();
-
-    let response = server.delete(&format!("/engine/{}", id)).await;
-    response.assert_status_ok();
-    Ok(())
-}
-
-#[tokio::test]
-async fn stop_engine_twice() -> Result<()> {
-    let server = get_test_server().await?;
-    let id: EngineId = start_engine_helper(&server).await.json();
-
-    server.post(&format!("/engine/{}/stop", id)).await;
-
-    let response = server.post(&format!("/engine/{}/stop", id)).await;
-    response.assert_status_forbidden();
-    response.assert_text(format!(
-        "Not allowed error: Engine {} is in Stopped state, cannot be stopped",
-        id
-    ));
-
-    Ok(())
-}
-
-*/
 
 #[tokio::test]
 async fn restart_terminated_engine() -> Result<()> {
