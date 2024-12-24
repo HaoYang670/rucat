@@ -4,9 +4,8 @@ use ::rucat_common::{
     anyhow::anyhow,
     database::Database,
     engine::{
-        EngineId, EngineInfo,
+        CreateEngineRequest, EngineId, EngineInfo,
         EngineState::{self, *},
-        StartEngineRequest,
     },
     error::{Result, RucatError},
     tracing::{debug, info},
@@ -20,9 +19,9 @@ use axum::{
 use crate::state::AppState;
 
 /// start an engine with the given configuration
-async fn start_engine<DB: Database>(
+async fn create_engine<DB: Database>(
     State(state): State<AppState<DB>>,
-    Json(body): Json<StartEngineRequest>,
+    Json(body): Json<CreateEngineRequest>,
 ) -> Result<Json<EngineId>> {
     let id = state.get_db().add_engine(body).await?;
     info!("Creating engine {}, wait to start", id);
@@ -171,7 +170,7 @@ where
 /// Pass the data store endpoint later
 pub(crate) fn get_engine_router<DB: Database>() -> Router<AppState<DB>> {
     Router::new()
-        .route("/", post(start_engine::<DB>).get(list_engines::<DB>))
+        .route("/", post(create_engine::<DB>).get(list_engines::<DB>))
         .route("/:id", get(get_engine::<DB>).delete(delete_engine::<DB>))
         .route("/:id/stop", post(stop_engine::<DB>))
         .route("/:id/restart", post(restart_engine::<DB>))

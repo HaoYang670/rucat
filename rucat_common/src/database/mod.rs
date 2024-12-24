@@ -4,7 +4,7 @@ pub mod surrealdb_client;
 
 use axum::async_trait;
 
-use crate::engine::{EngineId, StartEngineRequest};
+use crate::engine::{CreateEngineRequest, EngineId};
 use crate::engine::{EngineInfo, EngineState};
 use crate::error::Result;
 use serde::Deserialize;
@@ -32,7 +32,7 @@ pub struct EngineIdAndInfo {
 pub trait Database: Sized + Send + Sync + 'static {
     /// Add the metadata of a new engine in the database,
     /// generate an id for the engine and return it.
-    async fn add_engine(&self, engine: StartEngineRequest) -> Result<EngineId>;
+    async fn add_engine(&self, engine: CreateEngineRequest) -> Result<EngineId>;
 
     /// Remove Engine.
     /// # Return

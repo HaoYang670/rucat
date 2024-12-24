@@ -3,7 +3,7 @@
 use ::serde::Deserialize;
 use axum::async_trait;
 
-use crate::engine::{EngineId, StartEngineRequest};
+use crate::engine::{CreateEngineRequest, EngineId};
 use crate::error::{Result, RucatError};
 use crate::{
     config::Credentials,
@@ -60,7 +60,7 @@ impl SurrealDBClient {
 // TODO: replace #[async_trait] by #[trait_variant::make(HttpService: Send)] in the future: https://blog.rust-lang.org/2023/12/21/async-fn-rpit-in-traits.html#should-i-still-use-the-async_trait-macro
 #[async_trait]
 impl Database for SurrealDBClient {
-    async fn add_engine(&self, engine: StartEngineRequest) -> Result<EngineId> {
+    async fn add_engine(&self, engine: CreateEngineRequest) -> Result<EngineId> {
         let info: EngineInfo = engine.try_into()?;
         // always set next_update_time to now  when adding a new engine,
         // so that the state monitor will update the engine info immediately

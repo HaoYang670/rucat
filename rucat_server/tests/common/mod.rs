@@ -1,7 +1,7 @@
 use ::mockall::mock;
 use ::rucat_common::{
     database::{Database, EngineIdAndInfo, UpdateEngineStateResponse},
-    engine::{EngineId, EngineInfo, EngineState, StartEngineRequest},
+    engine::{CreateEngineRequest, EngineId, EngineInfo, EngineState},
     error::*,
 };
 use ::rucat_server::get_server;
@@ -12,7 +12,7 @@ mock! {
     pub DB{}
     #[async_trait]
     impl Database for DB {
-        async fn add_engine(&self, engine: StartEngineRequest) -> Result<EngineId>;
+        async fn add_engine(&self, engine: CreateEngineRequest) -> Result<EngineId>;
         async fn delete_engine(&self, id: &EngineId, current_state: &EngineState) -> Result<Option<UpdateEngineStateResponse>>;
         async fn update_engine_state(
             &self,

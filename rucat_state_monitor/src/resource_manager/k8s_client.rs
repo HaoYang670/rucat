@@ -4,16 +4,24 @@ use ::k8s_openapi::api::core::v1::{Pod, Service};
 use ::kube::{api::PostParams, Api, Client};
 use ::rucat_common::{
     anyhow::anyhow,
-    engine::{
-        get_spark_app_id, get_spark_driver_name, get_spark_service_name, EngineConfigs, EngineId,
-        EngineState,
-    },
+    engine::{EngineConfigs, EngineId, EngineState},
     error::{Result, RucatError},
     serde_json::{self, json},
     tracing::{debug, warn},
 };
 
 use super::{ResourceManager, ResourceState};
+
+pub fn get_spark_app_id(id: &EngineId) -> Cow<'static, str> {
+    Cow::Owned(format!("rucat-spark-{}", id))
+}
+
+pub fn get_spark_driver_name(id: &EngineId) -> Cow<'static, str> {
+    Cow::Owned(format!("{}-driver", get_spark_app_id(id)))
+}
+pub fn get_spark_service_name(id: &EngineId) -> Cow<'static, str> {
+    get_spark_app_id(id)
+}
 
 /// Derive from K8s pod phase: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#pod-phase
 #[derive(Debug)]
@@ -308,6 +316,28 @@ impl ResourceManager for K8sClient {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_get_spark_app_id() -> Result<()> {
+        let id = EngineId::try_from("abc")?;
+        assert_eq!(get_spark_app_id(&id), "rucat-spark-abc");
+        Ok(())
+    }
+
+    #[test]
+    fn test_get_spark_driver_name() -> Result<()> {
+        let id = EngineId::try_from("abc")?;
+        assert_eq!(get_spark_driver_name(&id), "rucat-spark-abc-driver");
+        Ok(())
+    }
+
+    #[test]
+    fn test_get_spark_service_name() -> Result<()> {
+        let id = EngineId::try_from("abc")?;
+        assert_eq!(get_spark_service_name(&id), "rucat-spark-abc");
+        Ok(())
+    }
+
     fn check_preset_config(key: &'static str) {
         let config = BTreeMap::from([(Cow::Borrowed(key), Cow::Borrowed(""))]);
         let id = EngineId::new(Cow::Borrowed("123")).unwrap();

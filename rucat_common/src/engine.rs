@@ -4,7 +4,7 @@ use ::std::{borrow::Cow, collections::BTreeMap, fmt};
 use ::anyhow::anyhow;
 use ::serde::{
     de::{self, Visitor},
-    Deserializer,
+    Deserialize, Deserializer, Serialize,
 };
 use time::{
     format_description::BorrowedFormatItem, macros::format_description, Duration, OffsetDateTime,
@@ -14,26 +14,14 @@ use crate::{
     engine::EngineState::WaitToStart,
     error::{Result, RucatError},
 };
-use serde::{Deserialize, Serialize};
 
-pub fn get_spark_app_id(id: &EngineId) -> Cow<'static, str> {
-    Cow::Owned(format!("rucat-spark-{}", id))
-}
-
-pub fn get_spark_driver_name(id: &EngineId) -> Cow<'static, str> {
-    Cow::Owned(format!("{}-driver", get_spark_app_id(id)))
-}
-pub fn get_spark_service_name(id: &EngineId) -> Cow<'static, str> {
-    get_spark_app_id(id)
-}
-
-/// Request body to start an engine.
+/// Request body to create an engine.
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
-pub struct StartEngineRequest {
+pub struct CreateEngineRequest {
     // The name of the engine
     name: String,
-    // Spark configurations
+    // Engine configurations
     configs: Option<EngineConfigs>,
 }
 
@@ -113,10 +101,10 @@ impl EngineInfo {
     }
 }
 
-impl TryFrom<StartEngineRequest> for EngineInfo {
+impl TryFrom<CreateEngineRequest> for EngineInfo {
     type Error = RucatError;
 
-    fn try_from(value: StartEngineRequest) -> Result<Self> {
+    fn try_from(value: CreateEngineRequest) -> Result<Self> {
         Ok(EngineInfo::new(
             value.name,
             WaitToStart,
@@ -193,54 +181,28 @@ impl TryFrom<&'static str> for EngineId {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ::serde_json::json;
 
     #[test]
-    fn test_get_spark_app_id() -> Result<()> {
-        let id = EngineId::try_from("abc")?;
-        assert_eq!(get_spark_app_id(&id), "rucat-spark-abc");
-        Ok(())
+    fn engine_id_cannot_be_empty() {
+        let result = EngineId::try_from("");
+        assert!(result.is_err_and(|e| e
+            .to_string()
+            .starts_with("Not allowed: Engine id cannot be empty.")));
     }
 
     #[test]
-    fn test_get_spark_driver_name() -> Result<()> {
-        let id = EngineId::try_from("abc")?;
-        assert_eq!(get_spark_driver_name(&id), "rucat-spark-abc-driver");
-        Ok(())
+    fn cannot_deserialize_empty_str_to_engine_id() {
+        let result: std::result::Result<EngineId, _> = serde_json::from_value(json!(""));
+        assert!(result.is_err_and(|e| e
+            .to_string()
+            .starts_with("Not allowed: Engine id cannot be empty.")));
     }
 
     #[test]
-    fn test_get_spark_service_name() -> Result<()> {
-        let id = EngineId::try_from("abc")?;
-        assert_eq!(get_spark_service_name(&id), "rucat-spark-abc");
+    fn deserialize_engine_id() -> anyhow::Result<()> {
+        let result: EngineId = serde_json::from_value(json!("abc"))?;
+        assert_eq!(result, EngineId::try_from("abc")?);
         Ok(())
-    }
-
-    mod engine_id {
-        use ::serde_json::json;
-
-        use super::*;
-
-        #[test]
-        fn engine_id_cannot_be_empty() {
-            let result = EngineId::try_from("");
-            assert!(result.is_err_and(|e| e
-                .to_string()
-                .starts_with("Not allowed: Engine id cannot be empty.")));
-        }
-
-        #[test]
-        fn cannot_deserialize_empty_str_to_engine_id() {
-            let result: std::result::Result<EngineId, _> = serde_json::from_value(json!(""));
-            assert!(result.is_err_and(|e| e
-                .to_string()
-                .starts_with("Not allowed: Engine id cannot be empty.")));
-        }
-
-        #[test]
-        fn deserialize_engine_id() -> anyhow::Result<()> {
-            let result: EngineId = serde_json::from_value(json!("abc"))?;
-            assert_eq!(result, EngineId::try_from("abc")?);
-            Ok(())
-        }
     }
 }
