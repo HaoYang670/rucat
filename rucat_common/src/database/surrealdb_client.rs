@@ -16,7 +16,7 @@ use surrealdb::{
     Surreal,
 };
 
-use super::{DatabaseClient, EngineIdAndInfo, UpdateEngineStateResponse};
+use super::{Database, EngineIdAndInfo, UpdateEngineStateResponse};
 
 /// Client to interact with the database.
 /// Store the metadata of Engines
@@ -59,7 +59,7 @@ impl SurrealDBClient {
 
 // TODO: replace #[async_trait] by #[trait_variant::make(HttpService: Send)] in the future: https://blog.rust-lang.org/2023/12/21/async-fn-rpit-in-traits.html#should-i-still-use-the-async_trait-macro
 #[async_trait]
-impl DatabaseClient for SurrealDBClient {
+impl Database for SurrealDBClient {
     async fn add_engine(&self, engine: StartEngineRequest) -> Result<EngineId> {
         let info: EngineInfo = engine.try_into()?;
         // always set next_update_time to now  when adding a new engine,

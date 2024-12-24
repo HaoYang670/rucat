@@ -25,11 +25,11 @@ pub struct EngineIdAndInfo {
     pub info: EngineInfo,
 }
 
-/// Client of the database to store the Engine.
+/// Database for storing the Engine metadata.
 /// Engine is stored in the format of using [EngineId] as key and [EngineInfo] as value.
 // TODO: replace #[async_trait] by #[trait_variant::make(HttpService: Send)] in the future: https://blog.rust-lang.org/2023/12/21/async-fn-rpit-in-traits.html#should-i-still-use-the-async_trait-macro
 #[async_trait]
-pub trait DatabaseClient: Sized + Send + Sync + 'static {
+pub trait Database: Sized + Send + Sync + 'static {
     /// Add the metadata of a new engine in the database,
     /// generate an id for the engine and return it.
     async fn add_engine(&self, engine: StartEngineRequest) -> Result<EngineId>;

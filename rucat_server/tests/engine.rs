@@ -4,13 +4,13 @@ use ::std::{borrow::Cow, collections::BTreeMap};
 
 use ::mockall::predicate;
 use ::rucat_common::{
-    database_client::UpdateEngineStateResponse,
+    database::UpdateEngineStateResponse,
     engine::{EngineId, EngineInfo, EngineState::*, EngineTime},
     error::*,
     serde_json::json,
     tokio,
 };
-use common::{get_test_server, MockDBClient};
+use common::{get_test_server, MockDB};
 use http::StatusCode;
 
 /// This is a helper function to start an engine.
@@ -30,7 +30,7 @@ async fn start_engine_helper(server: &TestServer) -> TestResponse {
 
 #[tokio::test]
 async fn undefined_handler() -> Result<()> {
-    let db = MockDBClient::new();
+    let db = MockDB::new();
     let server = get_test_server(false, db).await?;
 
     let response = server.get("/any").await;
@@ -41,7 +41,7 @@ async fn undefined_handler() -> Result<()> {
 
 #[tokio::test]
 async fn root_get_request() -> Result<()> {
-    let db = MockDBClient::new();
+    let db = MockDB::new();
     let server = get_test_server(false, db).await?;
 
     let response = server.get("/").await;
@@ -53,7 +53,7 @@ async fn root_get_request() -> Result<()> {
 
 #[tokio::test]
 async fn get_engine_not_found() -> Result<()> {
-    let mut db = MockDBClient::new();
+    let mut db = MockDB::new();
     db.expect_get_engine()
         .with(predicate::eq(EngineId::new(Cow::Borrowed("any"))?))
         .times(1)
@@ -68,7 +68,7 @@ async fn get_engine_not_found() -> Result<()> {
 
 #[tokio::test]
 async fn start_engine_with_missing_field() -> Result<()> {
-    let db = MockDBClient::new();
+    let db = MockDB::new();
     let server = get_test_server(false, db).await?;
 
     let response = server
@@ -85,7 +85,7 @@ async fn start_engine_with_missing_field() -> Result<()> {
 
 #[tokio::test]
 async fn start_engine_with_unknown_field() -> Result<()> {
-    let db = MockDBClient::new();
+    let db = MockDB::new();
     let server = get_test_server(false, db).await?;
 
     let response = server
@@ -105,7 +105,7 @@ async fn start_engine_with_unknown_field() -> Result<()> {
 
 #[tokio::test]
 async fn get_engine() -> Result<()> {
-    let mut db = MockDBClient::new();
+    let mut db = MockDB::new();
     db.expect_get_engine()
         .with(predicate::eq(EngineId::new(Cow::Borrowed("123"))?))
         .times(1)
@@ -128,7 +128,7 @@ async fn get_engine() -> Result<()> {
 
 #[tokio::test]
 async fn delete_nonexistent_engine() -> Result<()> {
-    let mut db = MockDBClient::new();
+    let mut db = MockDB::new();
     db.expect_get_engine()
         .with(predicate::eq(EngineId::new(Cow::Borrowed("123"))?))
         .times(1)
@@ -141,7 +141,7 @@ async fn delete_nonexistent_engine() -> Result<()> {
 
 #[tokio::test]
 async fn stop_wait_to_start_engine() -> Result<()> {
-    let mut db = MockDBClient::new();
+    let mut db = MockDB::new();
     db.expect_get_engine()
         .with(predicate::eq(EngineId::new(Cow::Borrowed("123"))?))
         .times(1)
@@ -176,7 +176,7 @@ async fn stop_wait_to_start_engine() -> Result<()> {
 
 #[tokio::test]
 async fn stop_nonexistent_engine() -> Result<()> {
-    let mut db = MockDBClient::new();
+    let mut db = MockDB::new();
     db.expect_get_engine()
         .with(predicate::eq(EngineId::new(Cow::Borrowed("123"))?))
         .times(1)
@@ -219,7 +219,7 @@ async fn stop_engine_twice() -> Result<()> {
 
 #[tokio::test]
 async fn restart_terminated_engine() -> Result<()> {
-    let mut db = MockDBClient::new();
+    let mut db = MockDB::new();
     db.expect_get_engine()
         .with(predicate::eq(EngineId::new(Cow::Borrowed("123"))?))
         .times(1)
@@ -254,7 +254,7 @@ async fn restart_terminated_engine() -> Result<()> {
 
 #[tokio::test]
 async fn restart_nonexistent_engine() -> Result<()> {
-    let mut db = MockDBClient::new();
+    let mut db = MockDB::new();
     db.expect_get_engine()
         .with(predicate::eq(EngineId::new(Cow::Borrowed("123"))?))
         .times(1)
@@ -267,7 +267,7 @@ async fn restart_nonexistent_engine() -> Result<()> {
 
 #[tokio::test]
 async fn cannot_restart_engine() -> Result<()> {
-    let mut db = MockDBClient::new();
+    let mut db = MockDB::new();
     db.expect_get_engine()
         .with(predicate::eq(EngineId::new(Cow::Borrowed("123"))?))
         .times(1)
@@ -292,7 +292,7 @@ async fn cannot_restart_engine() -> Result<()> {
 
 #[tokio::test]
 async fn list_engines_empty() -> Result<()> {
-    let mut db = MockDBClient::new();
+    let mut db = MockDB::new();
     db.expect_list_engines().times(1).returning(|| Ok(vec![]));
     let server = get_test_server(false, db).await?;
     let response = server.get("/engine").await;
@@ -308,7 +308,7 @@ async fn list_2_engines() -> Result<()> {
         EngineId::new(Cow::Borrowed("2"))?,
     ];
     let ids_cloned = ids.clone();
-    let mut db = MockDBClient::new();
+    let mut db = MockDB::new();
     db.expect_list_engines()
         .times(1)
         .returning(move || Ok(ids_cloned.to_vec()));

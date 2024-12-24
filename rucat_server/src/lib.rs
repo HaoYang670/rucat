@@ -1,5 +1,5 @@
 use ::rucat_common::{
-    config::DatabaseConfig, database_client::DatabaseClient, error::Result, serde::Deserialize,
+    config::DatabaseConfig, database::Database, error::Result, serde::Deserialize,
 };
 use authentication::auth;
 use axum::{extract::State, middleware, routing::get, Router};
@@ -23,9 +23,9 @@ pub struct ServerConfig {
 
 /// This is the only entry for users to get the rucat server.
 /// # Return the router for the server
-pub fn get_server<DBClient>(auth_enable: bool, db_client: DBClient) -> Result<Router>
+pub fn get_server<DB>(auth_enable: bool, db_client: DB) -> Result<Router>
 where
-    DBClient: DatabaseClient,
+    DB: Database,
 {
     let app_state = AppState::new(db_client);
 
@@ -33,7 +33,7 @@ where
     let router = Router::new()
         .route(
             "/",
-            get(|_: State<AppState<DBClient>>| async { "welcome to rucat" }),
+            get(|_: State<AppState<DB>>| async { "welcome to rucat" }),
         )
         .nest("/engine", get_engine_router())
         // TODO: use tower::ServiceBuilder to build the middleware stack

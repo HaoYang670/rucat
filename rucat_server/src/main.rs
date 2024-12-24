@@ -1,6 +1,6 @@
 use ::rucat_common::{
     config::{load_config, DatabaseConfig},
-    database_client::surrealdb_client::SurrealDBClient,
+    database::surrealdb_client::SurrealDBClient,
     error::RucatError,
     tokio,
     tracing::info,

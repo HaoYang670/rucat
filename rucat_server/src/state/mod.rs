@@ -2,14 +2,14 @@
 
 use ::std::sync::Arc;
 
-use rucat_common::database_client::DatabaseClient;
+use rucat_common::database::Database;
 
-pub(crate) struct AppState<DB: DatabaseClient> {
+pub(crate) struct AppState<DB: Database> {
     db: Arc<DB>,
 }
 
 // TODO: I don't know why derive(Clone) is not working here.
-impl<DB: DatabaseClient> Clone for AppState<DB> {
+impl<DB: Database> Clone for AppState<DB> {
     fn clone(&self) -> Self {
         Self {
             db: self.db.clone(),
@@ -17,7 +17,7 @@ impl<DB: DatabaseClient> Clone for AppState<DB> {
     }
 }
 
-impl<DB: DatabaseClient> AppState<DB> {
+impl<DB: Database> AppState<DB> {
     pub(crate) fn new(db: DB) -> Self {
         Self { db: Arc::new(db) }
     }

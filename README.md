@@ -105,11 +105,11 @@ Path of the configuration file is hard-coded as `/rucat_state_monitor/config.jso
 {
     "check_interval_millis": < non zero u64 >, # the interval of checking the engine state in milliseconds.
     "database": { # same as the database configurations in rucat server.
-    "credentials": {
-        "username": "admin",
-        "password": "admin"
-    },
-    "uri": "rucat-surrealdb:8000"
+      "credentials": {
+          "username": "admin",
+          "password": "admin"
+      },
+      "uri": "rucat-surrealdb:8000"
     }
 }
 ```
@@ -153,7 +153,7 @@ return:
   "state": <string> engine state,
   "configs": { # the configurations of the engine
     "spark.executor.instances": "1"
-  }
+  },
   "create_time": <date> created time of the engine
 }
 ```

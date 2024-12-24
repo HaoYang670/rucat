@@ -1,6 +1,6 @@
 use ::mockall::mock;
 use ::rucat_common::{
-    database_client::{DatabaseClient, EngineIdAndInfo, UpdateEngineStateResponse},
+    database::{Database, EngineIdAndInfo, UpdateEngineStateResponse},
     engine::{EngineId, EngineInfo, EngineState, StartEngineRequest},
     error::*,
 };
@@ -9,9 +9,9 @@ use axum::async_trait;
 use axum_test::TestServer;
 
 mock! {
-    pub DBClient{}
+    pub DB{}
     #[async_trait]
-    impl DatabaseClient for DBClient {
+    impl Database for DB {
         async fn add_engine(&self, engine: StartEngineRequest) -> Result<EngineId>;
         async fn delete_engine(&self, id: &EngineId, current_state: &EngineState) -> Result<Option<UpdateEngineStateResponse>>;
         async fn update_engine_state(
@@ -26,7 +26,7 @@ mock! {
     }
 }
 
-pub async fn get_test_server(auth_enable: bool, db: MockDBClient) -> Result<TestServer> {
+pub async fn get_test_server(auth_enable: bool, db: MockDB) -> Result<TestServer> {
     let app = get_server(auth_enable, db)?;
     TestServer::new(app).map_err(RucatError::fail_to_start_server)
 }

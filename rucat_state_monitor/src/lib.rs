@@ -1,5 +1,5 @@
 use ::rucat_common::{
-    database_client::{DatabaseClient, EngineIdAndInfo},
+    database::{Database, EngineIdAndInfo},
     engine::{
         EngineId,
         EngineState::{self, *},
@@ -12,13 +12,13 @@ pub mod config;
 pub mod resource_manager;
 
 /// This function runs forever to monitor the state of engines.
-pub async fn run_state_monitor<DBClient, RSManager>(
-    db_client: DBClient,
+pub async fn run_state_monitor<DB, RSManager>(
+    db_client: DB,
     resource_manager: RSManager,
     check_interval_millis: u64,
 ) -> !
 where
-    DBClient: DatabaseClient,
+    DB: Database,
     RSManager: ResourceManager,
 {
     let check_interval = std::time::Duration::from_millis(check_interval_millis);
@@ -159,13 +159,13 @@ where
 }
 
 /// Release engine in state `Trigger*`, after getting error when operating the engine resource.
-async fn release_engine_after_error<DBClient>(
-    db_client: &DBClient,
+async fn release_engine_after_error<DB>(
+    db_client: &DB,
     current_state: &EngineState,
     id: &EngineId,
     err_msg: &String,
 ) where
-    DBClient: DatabaseClient,
+    DB: Database,
 {
     // TODO: wrap `Trigger*` states in a new type
     let new_state = match current_state {
@@ -213,9 +213,9 @@ async fn release_engine_after_error<DBClient>(
 }
 
 /// For engine in state `Trigger*`, release it by updating its state to `*InProgress`.
-async fn release_engine<DBClient>(db_client: &DBClient, current_state: &EngineState, id: &EngineId)
+async fn release_engine<DB>(db_client: &DB, current_state: &EngineState, id: &EngineId)
 where
-    DBClient: DatabaseClient,
+    DB: Database,
 {
     // TODO: wrap `Trigger*` states in a new type
     let new_state = match current_state {
@@ -260,14 +260,14 @@ where
 
 /// Update the state of an engine in the database and log the result.
 /// Return whether the state is updated successfully.
-async fn inspect_engine_state_updating<DBClient>(
-    db_client: &DBClient,
+async fn inspect_engine_state_updating<DB>(
+    db_client: &DB,
     id: &EngineId,
     old_state: &EngineState,
     new_state: &EngineState,
 ) -> bool
 where
-    DBClient: DatabaseClient,
+    DB: Database,
 {
     let response = db_client
         .update_engine_state(id, old_state, new_state)
