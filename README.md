@@ -218,9 +218,7 @@ bash build rucat_state_monitor.sh
 4. Handle timeout for `Trigger*` states.
 5. rucat server HA
 6. multi rucat state monitors
-7. Add engine type for extendibility to support other engines.
-8. Add engine version
-9. More resource clients: Yarn, Spark standalone, Spark local etc.
+7. More resource clients: Yarn, Spark standalone, Spark local etc.
 
 ## Debug
 

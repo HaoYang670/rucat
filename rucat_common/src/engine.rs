@@ -21,6 +21,8 @@ pub enum EngineType {
     Spark,
 }
 
+pub type EngineVersion = String;
+
 /// Request body to create an engine.
 #[derive(Debug, Deserialize, Serialize, PartialEq)]
 #[serde(deny_unknown_fields)]
@@ -28,6 +30,7 @@ pub struct CreateEngineRequest {
     // The name of the engine
     pub name: String,
     pub engine_type: EngineType,
+    pub version: EngineVersion,
     // Engine configurations
     pub config: Option<EngineConfig>,
 }
@@ -85,10 +88,10 @@ pub enum EngineState {
 pub struct EngineInfo {
     pub name: String,
     pub engine_type: EngineType,
+    pub version: EngineVersion,
     pub state: EngineState,
     pub config: EngineConfig,
     /// time when the engine is created.
-    ///
     /// Note, this is **not** the start time when the engine is RUNNING.
     create_time: EngineTime,
 }
@@ -97,6 +100,7 @@ impl EngineInfo {
     pub fn new(
         name: String,
         engine_type: EngineType,
+        version: EngineVersion,
         state: EngineState,
         config: EngineConfig,
         create_time: EngineTime,
@@ -104,6 +108,7 @@ impl EngineInfo {
         Self {
             name,
             engine_type,
+            version,
             state,
             config,
             create_time,
@@ -118,6 +123,7 @@ impl TryFrom<CreateEngineRequest> for EngineInfo {
         Ok(EngineInfo::new(
             value.name,
             value.engine_type,
+            value.version,
             WaitToStart,
             value.config.unwrap_or_default(),
             EngineTime::now(),

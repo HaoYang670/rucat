@@ -4,7 +4,7 @@ use ::k8s_openapi::api::core::v1::{Pod, Service};
 use ::kube::{api::PostParams, Api, Client};
 use ::rucat_common::{
     anyhow::anyhow,
-    engine::{EngineConfig, EngineId, EngineInfo, EngineState, EngineType},
+    engine::{EngineConfig, EngineId, EngineInfo, EngineState, EngineType, EngineVersion},
     error::{Result, RucatError},
     serde_json::{self, json},
     tracing::{debug, warn},
@@ -12,15 +12,27 @@ use ::rucat_common::{
 
 use super::{ResourceManager, ResourceState};
 
-pub fn get_spark_app_id(id: &EngineId) -> Cow<'static, str> {
+fn get_spark_app_id(id: &EngineId) -> Cow<'static, str> {
     Cow::Owned(format!("rucat-spark-{}", id))
 }
 
-pub fn get_spark_driver_name(id: &EngineId) -> Cow<'static, str> {
+fn get_spark_driver_name(id: &EngineId) -> Cow<'static, str> {
     Cow::Owned(format!("{}-driver", get_spark_app_id(id)))
 }
-pub fn get_spark_service_name(id: &EngineId) -> Cow<'static, str> {
+
+fn get_spark_service_name(id: &EngineId) -> Cow<'static, str> {
     get_spark_app_id(id)
+}
+
+fn get_spark_docker_image_name(spark_version: &EngineVersion) -> Cow<'static, str> {
+    Cow::Owned(format!("apache/spark:{}", spark_version))
+}
+
+fn get_spark_connect_package_name(spark_version: &EngineVersion) -> Cow<'static, str> {
+    Cow::Owned(format!(
+        "org.apache.spark:spark-connect_2.12:{}",
+        spark_version
+    ))
 }
 
 /// Derive from K8s pod phase: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#pod-phase
@@ -89,10 +101,11 @@ pub struct K8sClient {
 
 impl K8sClient {
     const SPARK_SERVICE_SELECTOR: &str = "rucat-engine-selector";
-
+    const SPARK_VERSIONS: [&'static str; 1] = ["3.5.3"];
     // convert engine configurations to Spark submit format
     fn to_spark_submit_format(
         id: &EngineId,
+        spark_version: &EngineVersion,
         user_config: &EngineConfig,
     ) -> Result<Vec<Cow<'static, str>>> {
         // Preset configurations for Spark on Kubernetes.
@@ -110,7 +123,7 @@ impl K8sClient {
             ),
             (
                 Cow::Borrowed("spark.kubernetes.container.image"),
-                Cow::Borrowed("apache/spark:3.5.3"),
+                get_spark_docker_image_name(spark_version),
             ),
             (
                 Cow::Borrowed("spark.kubernetes.driver.pod.name"),
@@ -133,7 +146,7 @@ impl K8sClient {
                 Cow::Borrowed("--deploy-mode"),
                 Cow::Borrowed("client"),
                 Cow::Borrowed("--packages"),
-                Cow::Borrowed("org.apache.spark:spark-connect_2.12:3.5.3"),
+                get_spark_connect_package_name(spark_version),
             ]
             .iter()
             .cloned()
@@ -156,11 +169,23 @@ impl K8sClient {
         Ok(Self { client })
     }
 
-    pub async fn create_spark_resource(&self, id: &EngineId, config: &EngineConfig) -> Result<()> {
+    pub async fn create_spark_resource(
+        &self,
+        id: &EngineId,
+        spark_version: &EngineVersion,
+        config: &EngineConfig,
+    ) -> Result<()> {
+        if !Self::SPARK_VERSIONS.contains(&spark_version.as_str()) {
+            return Err(RucatError::not_allowed(anyhow!(
+                "Spark version {} is not supported. Supported versions: {:?}",
+                spark_version,
+                Self::SPARK_VERSIONS
+            )));
+        }
         let spark_app_id = get_spark_app_id(id);
         let spark_driver_name = get_spark_driver_name(id);
         let spark_service_name = get_spark_service_name(id);
-        let args = Self::to_spark_submit_format(id, config)?;
+        let args = Self::to_spark_submit_format(id, spark_version, config)?;
 
         let pod: Pod = serde_json::from_value(json!({
             "apiVersion": "v1",
@@ -176,7 +201,7 @@ impl K8sClient {
                 "containers": [
                     {
                         "name": "spark-driver",
-                        "image": "apache/spark:3.5.3",
+                        "image": get_spark_docker_image_name(spark_version),
                         "ports": [
                             { "containerPort": 4040 },
                             { "containerPort": 7078 },
@@ -264,7 +289,10 @@ impl ResourceManager for K8sClient {
 
     async fn create_resource(&self, id: &EngineId, info: &EngineInfo) -> Result<()> {
         match info.engine_type {
-            EngineType::Spark => self.create_spark_resource(id, &info.config).await,
+            EngineType::Spark => {
+                self.create_spark_resource(id, &info.version, &info.config)
+                    .await
+            }
         }
     }
 
@@ -344,7 +372,7 @@ mod tests {
     fn check_preset_config(key: &'static str) {
         let config = BTreeMap::from([(Cow::Borrowed(key), Cow::Borrowed(""))]);
         let id = EngineId::new(Cow::Borrowed("123")).unwrap();
-        let result = K8sClient::to_spark_submit_format(&id, &config);
+        let result = K8sClient::to_spark_submit_format(&id, &"3.5.3".to_owned(), &config);
         assert!(result.is_err_and(|e| e.to_string().starts_with(&format!(
             "Not allowed: The config {} is not allowed as it is reserved.",
             key
@@ -363,8 +391,11 @@ mod tests {
 
     #[test]
     fn empty_engine_config() -> Result<()> {
-        let spark_submit_format =
-            K8sClient::to_spark_submit_format(&EngineId::try_from("abc")?, &BTreeMap::new())?;
+        let spark_submit_format = K8sClient::to_spark_submit_format(
+            &EngineId::try_from("abc")?,
+            &"3.5.3".to_owned(),
+            &BTreeMap::new(),
+        )?;
         assert_eq!(
             spark_submit_format,
             vec![
@@ -401,8 +432,11 @@ mod tests {
             Cow::Borrowed("2"),
         )]);
 
-        let spark_submit_format =
-            K8sClient::to_spark_submit_format(&EngineId::try_from("abc")?, &config)?;
+        let spark_submit_format = K8sClient::to_spark_submit_format(
+            &EngineId::try_from("abc")?,
+            &"3.5.3".to_owned(),
+            &config,
+        )?;
         assert_eq!(
             spark_submit_format,
             vec![

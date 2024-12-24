@@ -59,6 +59,7 @@ async fn create_engine_with_missing_field() -> Result<()> {
     let response = server
         .post("/engine")
         .json(&json!({
+            "version": "3.5.3",
             "engine_type": "Spark",
             "config": {}
         }))
@@ -84,7 +85,7 @@ async fn create_engine_with_unknown_field() -> Result<()> {
 
     response.assert_status(StatusCode::UNPROCESSABLE_ENTITY);
     assert!(response.text().contains(
-        "invalid: unknown field `invalid`, expected one of `name`, `engine_type`, `config`"
+        "invalid: unknown field `invalid`, expected one of `name`, `engine_type`, `version`, `config`"
     ));
     Ok(())
 }
@@ -117,6 +118,7 @@ async fn create_engine() -> Result<()> {
         .with(predicate::eq(CreateEngineRequest {
             name: "test".to_owned(),
             engine_type: EngineType::Spark,
+            version: "3.5.3".to_owned(),
             config: Some(BTreeMap::from([(
                 Cow::Borrowed("spark.executor.instances"),
                 Cow::Borrowed("1"),
@@ -131,6 +133,7 @@ async fn create_engine() -> Result<()> {
         .json(&json!({
             "name": "test",
             "engine_type": "Spark",
+            "version": "3.5.3",
             "config": {
                 "spark.executor.instances": "1"
             }
@@ -150,6 +153,7 @@ async fn get_engine() -> Result<()> {
     let engine_info = EngineInfo::new(
         "engine1".to_owned(),
         EngineType::Spark,
+        "3.5.3".to_owned(),
         Running,
         BTreeMap::new(),
         EngineTime::now(),
@@ -190,6 +194,7 @@ async fn delete_engine() -> Result<()> {
             Ok(Some(EngineInfo::new(
                 "engine1".to_owned(),
                 EngineType::Spark,
+                "3.5.3".to_owned(),
                 WaitToStart,
                 BTreeMap::new(),
                 EngineTime::now(),
@@ -224,6 +229,7 @@ async fn stop_wait_to_start_engine() -> Result<()> {
             Ok(Some(EngineInfo::new(
                 "engine1".to_owned(),
                 EngineType::Spark,
+                "3.5.3".to_owned(),
                 WaitToStart,
                 BTreeMap::new(),
                 EngineTime::now(),
@@ -273,6 +279,7 @@ async fn restart_terminated_engine() -> Result<()> {
             Ok(Some(EngineInfo::new(
                 "engine1".to_owned(),
                 EngineType::Spark,
+                "3.5.3".to_owned(),
                 Terminated,
                 BTreeMap::new(),
                 EngineTime::now(),
@@ -322,6 +329,7 @@ async fn cannot_restart_engine() -> Result<()> {
             Ok(Some(EngineInfo::new(
                 "engine1".to_owned(),
                 EngineType::Spark,
+                "3.5.3".to_owned(),
                 WaitToStart,
                 BTreeMap::new(),
                 EngineTime::now(),
