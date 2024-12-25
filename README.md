@@ -127,6 +127,8 @@ request body:
 ```json
 {
   "name": <non empty string>, # the name of the engine
+  "engine_type": <string>, # the type of the engine, only support "Spark" for now.
+  "version": <string>, # the version of the engine, only support "3.5.3" for now.
   "configs": { # the configurations of the engine (Spark configurations for now)
     "spark.executor.instances": "1"
   }
@@ -150,6 +152,8 @@ return:
 ```json
 {
   "name": <string> engine name,
+  "engine_type": <string> type of engine,
+  "version": <string> version of the engine,
   "state": <string> engine state,
   "configs": { # the configurations of the engine
     "spark.executor.instances": "1"
@@ -219,6 +223,7 @@ bash build rucat_state_monitor.sh
 5. rucat server HA
 6. multi rucat state monitors
 7. More resource clients: Yarn, Spark standalone, Spark local etc.
+8. expose spark rpc port and web ui port
 
 ## Debug
 
