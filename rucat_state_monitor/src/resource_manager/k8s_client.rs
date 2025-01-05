@@ -101,7 +101,7 @@ pub struct K8sClient {
 
 impl K8sClient {
     const SPARK_SERVICE_SELECTOR: &str = "rucat-engine-selector";
-    const SPARK_VERSIONS: [&'static str; 1] = ["3.5.3"];
+    const SPARK_VERSIONS: [&'static str; 2] = ["3.5.3", "3.5.4"];
     // convert engine configurations to Spark submit format
     fn to_spark_submit_format(
         id: &EngineId,

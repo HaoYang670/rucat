@@ -216,14 +216,16 @@ bash build rucat_state_monitor.sh
 
 ## TODO
 
-1. catch the spark driver log before deleting?
-2. implement rucat-client (based on spark-connect-rs)
-3. mock resource client. <https://github.com/asomers/mockall>
-4. Handle timeout for `Trigger*` states.
+1. Handle timeout for `Trigger*` states.
+2. catch the spark driver log before deleting?
+3. implement rucat-client (based on spark-connect-rs)
+4. mock resource client. <https://github.com/asomers/mockall>
 5. rucat server HA
 6. multi rucat state monitors
 7. More resource clients: Yarn, Spark standalone, Spark local etc.
 8. expose spark rpc port and web ui port
+9. update `UpdateEngineStateResponse` as enum
+10. upgrade axum to 0.8 after axum-test support 0.8 <https://github.com/JosephLenton/axum-test/issues/129>
 
 ## Debug
 
