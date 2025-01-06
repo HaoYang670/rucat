@@ -1,7 +1,6 @@
 //! Client of SurrealDB
 
 use ::serde::Deserialize;
-use async_trait::async_trait;
 
 use crate::engine::{CreateEngineRequest, EngineId};
 use crate::error::{Result, RucatError};
@@ -57,8 +56,6 @@ impl SurrealDBClient {
     }
 }
 
-// TODO: replace #[async_trait] by #[trait_variant::make(HttpService: Send)] in the future: https://blog.rust-lang.org/2023/12/21/async-fn-rpit-in-traits.html#should-i-still-use-the-async_trait-macro
-#[async_trait]
 impl Database for SurrealDBClient {
     async fn add_engine(&self, engine: CreateEngineRequest) -> Result<EngineId> {
         let info: EngineInfo = engine.try_into()?;

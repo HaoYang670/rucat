@@ -1,5 +1,7 @@
 pub mod k8s_client;
 
+use ::core::future::Future;
+
 use ::rucat_common::{
     engine::{EngineId, EngineInfo, EngineState},
     error::Result,
@@ -11,15 +13,14 @@ pub trait ResourceState {
     fn get_new_engine_state(&self, old_state: &EngineState) -> Option<EngineState>;
 }
 
-#[allow(async_fn_in_trait)]
 pub trait ResourceManager {
     type ResourceState: ResourceState;
 
     /// Create Engine and associated resources
-    async fn create_resource(&self, id: &EngineId, info: &EngineInfo) -> Result<()>;
+    fn create_resource(&self, id: &EngineId, info: &EngineInfo) -> impl Future<Output = Result<()>>;
 
-    async fn get_resource_state(&self, id: &EngineId) -> Self::ResourceState;
+    fn get_resource_state(&self, id: &EngineId) -> impl Future<Output = Self::ResourceState>;
 
     /// Remove all resources related to the Engine
-    async fn clean_resource(&self, id: &EngineId) -> Result<()>;
+    fn clean_resource(&self, id: &EngineId) -> impl Future<Output = Result<()>>;
 }

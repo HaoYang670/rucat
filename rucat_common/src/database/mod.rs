@@ -1,10 +1,11 @@
 //! Datastore to record engines' information
 
 pub mod surrealdb_client;
+use ::core::future::Future;
+
 use crate::engine::{CreateEngineRequest, EngineId};
 use crate::engine::{EngineInfo, EngineState};
 use crate::error::Result;
-use async_trait::async_trait;
 use serde::Deserialize;
 
 /// Response of updating an engine state.
@@ -25,23 +26,21 @@ pub struct EngineIdAndInfo {
 
 /// Database for storing the Engine metadata.
 /// Engine is stored in the format of using [EngineId] as key and [EngineInfo] as value.
-// TODO: replace #[async_trait] by #[trait_variant::make(HttpService: Send)] in the future: https://blog.rust-lang.org/2023/12/21/async-fn-rpit-in-traits.html#should-i-still-use-the-async_trait-macro
-#[async_trait]
 pub trait Database: Sized + Send + Sync + 'static {
     /// Add the metadata of a new engine in the database,
     /// generate an id for the engine and return it.
-    async fn add_engine(&self, engine: CreateEngineRequest) -> Result<EngineId>;
+    fn add_engine(&self, engine: CreateEngineRequest) -> impl Future<Output = Result<EngineId>> + Send;
 
     /// Remove Engine.
     /// # Return
     /// - `Ok(None)` if the engine does not exist.
     /// - `Ok(Some(UpdateEngineStateResponse))` if the engine exists.
     /// - `Err(_)` if any error occurs in the database.
-    async fn delete_engine(
+    fn delete_engine(
         &self,
         id: &EngineId,
         current_state: &EngineState,
-    ) -> Result<Option<UpdateEngineStateResponse>>;
+    ) -> impl Future<Output = Result<Option<UpdateEngineStateResponse>>> + Send;
 
     /// Update the engine state to `after` only when
     /// the engine exists and the current state is `before`.
@@ -49,21 +48,21 @@ pub trait Database: Sized + Send + Sync + 'static {
     /// - `Ok(None)` if the engine does not exist.
     /// - `Ok(Some(UpdateEngineStateResponse))` if the engine exists.
     /// - `Err(_)` if any error occurs in the database.
-    async fn update_engine_state(
+    fn update_engine_state(
         &self,
         id: &EngineId,
         before: &EngineState,
         after: &EngineState,
-    ) -> Result<Option<UpdateEngineStateResponse>>;
+    ) -> impl Future<Output = Result<Option<UpdateEngineStateResponse>>> + Send;
 
     /// Return `Ok(None)` if the engine does not exist
-    async fn get_engine(&self, id: &EngineId) -> Result<Option<EngineInfo>>;
+    fn get_engine(&self, id: &EngineId) -> impl Future<Output = Result<Option<EngineInfo>>> + Send;
 
     /// Return a sorted list of all engine ids
-    async fn list_engines(&self) -> Result<Vec<EngineId>>;
+    fn list_engines(&self) -> impl Future<Output = Result<Vec<EngineId>>> + Send;
 
     /// Return all engines that need to be updated.
     /// This includes engines in state `WaitTo*`,
     /// or those in `Running` and `*InProgress`, and the engine info has been outdated.
-    async fn list_engines_need_update(&self) -> Result<Vec<EngineIdAndInfo>>;
+    fn list_engines_need_update(&self) -> impl Future<Output = Result<Vec<EngineIdAndInfo>>> + Send;
 }

@@ -5,12 +5,10 @@ use ::rucat_common::{
     error::*,
 };
 use ::rucat_server::get_server;
-use async_trait::async_trait;
 use axum_test::TestServer;
 
 mock! {
     pub DB{}
-    #[async_trait]
     impl Database for DB {
         async fn add_engine(&self, engine: CreateEngineRequest) -> Result<EngineId>;
         async fn delete_engine(&self, id: &EngineId, current_state: &EngineState) -> Result<Option<UpdateEngineStateResponse>>;
