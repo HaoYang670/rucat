@@ -1,7 +1,7 @@
 //! Client of SurrealDB
 
 use ::serde::Deserialize;
-use axum::async_trait;
+use async_trait::async_trait;
 
 use crate::engine::{CreateEngineRequest, EngineId};
 use crate::error::{Result, RucatError};

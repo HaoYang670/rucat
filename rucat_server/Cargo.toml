@@ -7,8 +7,8 @@ edition = "2021"
 
 [dependencies]
 rucat_common = {path = "../rucat_common"}
-axum = {"version" = "0.7.9", features = ["macros"]}
-axum-extra = {"version" = "0.9.6", features = ["typed-header"]}
+axum = {"version" = "0.8.1", features = ["macros"]}
+axum-extra = {"version" = "0.10.0", features = ["typed-header"]}
 bytes = {"version" = "1.9.0"}
 http = {"version" = "1.2.0"}
 http-body = {"version" = "1.0.1"}
@@ -18,6 +18,7 @@ tonic = "0.12.3"
 # test dependencies
 
 [dev-dependencies]
-axum-test = {"version" = "16.4.1"}
+async-trait = "0.1.84"
+axum-test = {"version" = "17.0.1"}
 headers = {"version" = "0.4.0"}
 mockall = "0.13.1"

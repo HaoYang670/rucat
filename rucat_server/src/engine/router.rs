@@ -171,7 +171,7 @@ where
 pub(crate) fn get_engine_router<DB: Database>() -> Router<AppState<DB>> {
     Router::new()
         .route("/", post(create_engine::<DB>).get(list_engines::<DB>))
-        .route("/:id", get(get_engine::<DB>).delete(delete_engine::<DB>))
-        .route("/:id/stop", post(stop_engine::<DB>))
-        .route("/:id/restart", post(restart_engine::<DB>))
+        .route("/{id}", get(get_engine::<DB>).delete(delete_engine::<DB>))
+        .route("/{id}/stop", post(stop_engine::<DB>))
+        .route("/{id}/restart", post(restart_engine::<DB>))
 }

@@ -1,12 +1,10 @@
 //! Datastore to record engines' information
 
 pub mod surrealdb_client;
-
-use axum::async_trait;
-
 use crate::engine::{CreateEngineRequest, EngineId};
 use crate::engine::{EngineInfo, EngineState};
 use crate::error::Result;
+use async_trait::async_trait;
 use serde::Deserialize;
 
 /// Response of updating an engine state.

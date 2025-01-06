@@ -225,7 +225,6 @@ bash build rucat_state_monitor.sh
 7. More resource clients: Yarn, Spark standalone, Spark local etc.
 8. expose spark rpc port and web ui port
 9. update `UpdateEngineStateResponse` as enum
-10. upgrade axum to 0.8 after axum-test support 0.8 <https://github.com/JosephLenton/axum-test/issues/129>
 
 ## Debug
 

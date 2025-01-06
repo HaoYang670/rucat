@@ -5,7 +5,7 @@ use ::rucat_common::{
     error::*,
 };
 use ::rucat_server::get_server;
-use axum::async_trait;
+use async_trait::async_trait;
 use axum_test::TestServer;
 
 mock! {
