@@ -17,7 +17,8 @@ pub trait ResourceManager {
     type ResourceState: ResourceState;
 
     /// Create Engine and associated resources
-    fn create_resource(&self, id: &EngineId, info: &EngineInfo) -> impl Future<Output = Result<()>>;
+    fn create_resource(&self, id: &EngineId, info: &EngineInfo)
+        -> impl Future<Output = Result<()>>;
 
     fn get_resource_state(&self, id: &EngineId) -> impl Future<Output = Self::ResourceState>;
 

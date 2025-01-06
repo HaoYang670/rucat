@@ -128,7 +128,7 @@ request body:
 {
   "name": <non empty string>, # the name of the engine
   "engine_type": <string>, # the type of the engine, only support "Spark" for now.
-  "version": <string>, # the version of the engine, only support "3.5.3" for now.
+  "version": <string>, # version of the engine.
   "configs": { # the configurations of the engine (Spark configurations for now)
     "spark.executor.instances": "1"
   }
@@ -222,7 +222,7 @@ bash build rucat_state_monitor.sh
 4. mock resource client. <https://github.com/asomers/mockall>
 5. rucat server HA
 6. multi rucat state monitors
-7. More resource clients: Yarn, Spark standalone, Spark local etc.
+7. More resource clients: Yarn, Spark standalone, Spark local, rust shuttle etc.
 8. expose spark rpc port and web ui port
 9. update `UpdateEngineStateResponse` as enum
 

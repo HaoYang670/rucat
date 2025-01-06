@@ -29,7 +29,10 @@ pub struct EngineIdAndInfo {
 pub trait Database: Sized + Send + Sync + 'static {
     /// Add the metadata of a new engine in the database,
     /// generate an id for the engine and return it.
-    fn add_engine(&self, engine: CreateEngineRequest) -> impl Future<Output = Result<EngineId>> + Send;
+    fn add_engine(
+        &self,
+        engine: CreateEngineRequest,
+    ) -> impl Future<Output = Result<EngineId>> + Send;
 
     /// Remove Engine.
     /// # Return
@@ -64,5 +67,6 @@ pub trait Database: Sized + Send + Sync + 'static {
     /// Return all engines that need to be updated.
     /// This includes engines in state `WaitTo*`,
     /// or those in `Running` and `*InProgress`, and the engine info has been outdated.
-    fn list_engines_need_update(&self) -> impl Future<Output = Result<Vec<EngineIdAndInfo>>> + Send;
+    fn list_engines_need_update(&self)
+        -> impl Future<Output = Result<Vec<EngineIdAndInfo>>> + Send;
 }
