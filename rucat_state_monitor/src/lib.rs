@@ -25,6 +25,7 @@ where
 {
     let check_interval = std::time::Duration::from_millis(check_interval_millis);
     loop {
+        let start_time = std::time::Instant::now();
         match db_client.list_engines_need_update().await {
             Ok(engines) => {
                 info!("Detect {} engines need to update", engines.len());
@@ -155,8 +156,13 @@ where
                 error!("Failed to get engine list: {}", e);
             }
         }
-        // wait for some seconds
-        std::thread::sleep(check_interval);
+        let elapsed = start_time.elapsed();
+        let sleep_duration = check_interval.checked_sub(elapsed).unwrap_or_default();
+        info!(
+            "Takes {:?} to finish one round monitoring, sleep for {:?}",
+            elapsed, sleep_duration
+        );
+        std::thread::sleep(sleep_duration);
     }
 }
 
