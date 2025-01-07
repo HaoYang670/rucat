@@ -224,7 +224,6 @@ bash build rucat_state_monitor.sh
 6. multi rucat state monitors
 7. More resource clients: Yarn, Spark standalone, Spark local, rust shuttle etc.
 8. expose spark rpc port and web ui port
-9. update `UpdateEngineStateResponse` as enum
 
 ## Debug
 

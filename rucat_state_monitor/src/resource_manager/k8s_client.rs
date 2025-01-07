@@ -69,15 +69,17 @@ impl ResourceState for K8sPodState {
             (EngineState::StartInProgress, Self::Pending | Self::Unknown) => None,
             (EngineState::StartInProgress, Self::Running) => Some(EngineState::Running),
             (EngineState::StartInProgress, Self::Succeeded | Self::Failed | Self::NotExisted) => {
-                Some(EngineState::ErrorClean("Engine fails to start.".to_owned()))
+                Some(EngineState::ErrorClean(Cow::Borrowed(
+                    "Engine fails to start.",
+                )))
             }
 
             (EngineState::Running, Self::Pending) => Some(EngineState::ErrorCleanInProgress(
-                "Engine restarts unexpected.".to_owned(),
+                Cow::Borrowed("Engine restarts unexpected."),
             )),
             (EngineState::Running, Self::Running | Self::Unknown) => None,
             (EngineState::Running, Self::Succeeded | Self::Failed | Self::NotExisted) => Some(
-                EngineState::ErrorClean("Engine terminates during running.".to_owned()),
+                EngineState::ErrorClean(Cow::Borrowed("Engine terminates during running.")),
             ),
 
             (EngineState::TerminateInProgress, Self::NotExisted) => Some(EngineState::Terminated),

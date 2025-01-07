@@ -76,11 +76,10 @@ pub enum EngineState {
     TriggerTermination,
     TerminateInProgress,
     Terminated,
-    // TODO: use COW<'static, str> instead of String
-    ErrorWaitToClean(String),
-    ErrorTriggerClean(String),
-    ErrorCleanInProgress(String),
-    ErrorClean(String),
+    ErrorWaitToClean(Cow<'static, str>),
+    ErrorTriggerClean(Cow<'static, str>),
+    ErrorCleanInProgress(Cow<'static, str>),
+    ErrorClean(Cow<'static, str>),
 }
 
 /// Whole information of an engine.

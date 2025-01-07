@@ -1,3 +1,5 @@
+use ::std::borrow::Cow;
+
 use ::rucat_common::{
     database::{Database, EngineIdAndInfo},
     engine::{
@@ -25,7 +27,7 @@ where
     loop {
         match db_client.list_engines_need_update().await {
             Ok(engines) => {
-                debug!("Detect {} engines need to update", engines.len());
+                info!("Detect {} engines need to update", engines.len());
                 // TODO: make this execute in parallel
                 for EngineIdAndInfo { id, info } in engines {
                     match info.state {
@@ -56,7 +58,7 @@ where
                                             &db_client,
                                             &TriggerStart,
                                             &id,
-                                            &e.to_string(),
+                                            Cow::Owned(e.to_string()),
                                         )
                                         .await;
                                     }
@@ -86,7 +88,7 @@ where
                                             &db_client,
                                             &TriggerTermination,
                                             &id,
-                                            &e.to_string(),
+                                            Cow::Owned(e.to_string()),
                                         )
                                         .await;
                                     }
@@ -117,7 +119,7 @@ where
                                             &db_client,
                                             &ErrorTriggerClean(s),
                                             &id,
-                                            &e.to_string(),
+                                            Cow::Owned(e.to_string()),
                                         )
                                         .await;
                                     }
@@ -163,16 +165,16 @@ async fn release_engine_after_error<DB>(
     db_client: &DB,
     current_state: &EngineState,
     id: &EngineId,
-    err_msg: &String,
+    err_msg: Cow<'static, str>,
 ) where
     DB: Database,
 {
     // TODO: wrap `Trigger*` states in a new type
     let new_state = match current_state {
-        TriggerStart => ErrorClean(err_msg.clone()),
-        TriggerTermination => ErrorWaitToClean(err_msg.clone()),
+        TriggerStart => ErrorClean(err_msg),
+        TriggerTermination => ErrorWaitToClean(err_msg),
         ErrorTriggerClean(s) => {
-            let err_msg = format!("{}\n{}", s, err_msg);
+            let err_msg = Cow::Owned(format!("{}\n{}", s, err_msg));
             ErrorWaitToClean(err_msg)
         }
         _ => unreachable!("Should not release engine in state {:?}", current_state),
