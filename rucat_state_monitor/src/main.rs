@@ -28,5 +28,5 @@ async fn main() -> Result<()> {
     let db_client = SurrealDBClient::new(credentials.as_ref(), uri).await?;
     let resource_manager = K8sClient::new().await?;
 
-    run_state_monitor(db_client, resource_manager, check_interval_millis.get()).await
+    run_state_monitor(db_client, resource_manager, check_interval_millis).await
 }

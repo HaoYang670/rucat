@@ -1,5 +1,3 @@
-use ::core::num::NonZeroU64;
-
 use ::rucat_common::{config::DatabaseConfig, serde::Deserialize};
 
 /// Configuration for rucat state monitor
@@ -7,8 +5,8 @@ use ::rucat_common::{config::DatabaseConfig, serde::Deserialize};
 #[serde(deny_unknown_fields)]
 #[serde(crate = "rucat_common::serde")]
 pub struct StateMonitorConfig {
-    /// Time interval in millisecond for checking each Spark state
-    pub check_interval_millis: NonZeroU64,
+    /// Time interval in millisecond for checking engine state
+    pub check_interval_millis: u64,
     pub database: DatabaseConfig,
 }
 
@@ -25,24 +23,6 @@ mod tests {
     };
 
     use super::*;
-
-    #[test]
-    fn check_interval_millis_cannot_be_zero() {
-        let config = json!(
-            {
-                "check_interval_millis": 0,
-                "database": {
-                    "credentials": null,
-                    "uri": ""
-                }
-            }
-        );
-        let result = from_value::<StateMonitorConfig>(config);
-        assert_eq!(
-            result.unwrap_err().to_string(),
-            "invalid value: integer `0`, expected a nonzero u64"
-        );
-    }
 
     #[test]
     fn missing_field_check_interval_millis() {
@@ -106,7 +86,7 @@ mod tests {
         assert_eq!(
             result,
             StateMonitorConfig {
-                check_interval_millis: NonZeroU64::new(1000).unwrap(),
+                check_interval_millis: 1000,
                 database: DatabaseConfig {
                     credentials: None,
                     uri: "".to_string()
