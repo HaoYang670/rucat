@@ -44,26 +44,21 @@ where
                             if acquired {
                                 info!("Start engine {}", id);
                                 // create engine resource
-                                match resource_manager.create_resource(&id, &info).await {
-                                    Ok(()) => {
-                                        info!("Create engine resource for {}", id);
-                                        // release the engine
-                                        release_engine(&db_client, &TriggerStart, &id).await;
-                                    }
-                                    Err(e) => {
-                                        error!(
-                                            "Failed to create engine resource for {}: {}",
-                                            id, e
-                                        );
-                                        release_engine_after_error(
-                                            &db_client,
-                                            &TriggerStart,
-                                            &id,
-                                            Cow::Owned(e.to_string()),
-                                        )
-                                        .await;
-                                    }
-                                }
+                                let err_msg =
+                                    match resource_manager.create_resource(&id, &info).await {
+                                        Ok(()) => {
+                                            info!("Create engine resource for {}", id);
+                                            None
+                                        }
+                                        Err(e) => {
+                                            error!(
+                                                "Failed to create engine resource for {}: {}",
+                                                id, e
+                                            );
+                                            Some(Cow::Owned(e.to_string()))
+                                        }
+                                    };
+                                release_engine(&db_client, &TriggerStart, &id, err_msg).await;
                             }
                         }
                         WaitToTerminate => {
@@ -77,23 +72,17 @@ where
                             if acquired {
                                 info!("Terminate engine {}", id);
                                 // clean engine resource
-                                match resource_manager.clean_resource(&id).await {
+                                let err_msg = match resource_manager.clean_resource(&id).await {
                                     Ok(()) => {
                                         info!("Clean engine resource for {}", id);
-                                        // release the engine
-                                        release_engine(&db_client, &TriggerTermination, &id).await;
+                                        None
                                     }
                                     Err(e) => {
                                         error!("Failed to clean engine resource for {}: {}", id, e);
-                                        release_engine_after_error(
-                                            &db_client,
-                                            &TriggerTermination,
-                                            &id,
-                                            Cow::Owned(e.to_string()),
-                                        )
-                                        .await;
+                                        Some(Cow::Owned(e.to_string()))
                                     }
-                                }
+                                };
+                                release_engine(&db_client, &TriggerTermination, &id, err_msg).await;
                             }
                         }
                         ErrorWaitToClean(s) => {
@@ -107,24 +96,18 @@ where
                             if acquired {
                                 info!("Clean resource for error state engine {}", id);
                                 // clean engine resource
-                                match resource_manager.clean_resource(&id).await {
+                                let err_msg = match resource_manager.clean_resource(&id).await {
                                     Ok(()) => {
                                         info!("Clean engine resource for {}", id);
-                                        // release the engine
-                                        release_engine(&db_client, &ErrorTriggerClean(s), &id)
-                                            .await;
+                                        None
                                     }
                                     Err(e) => {
                                         error!("Failed to clean engine resource for {}: {}", id, e);
-                                        release_engine_after_error(
-                                            &db_client,
-                                            &ErrorTriggerClean(s),
-                                            &id,
-                                            Cow::Owned(e.to_string()),
-                                        )
-                                        .await;
+                                        Some(Cow::Owned(e.to_string()))
                                     }
-                                }
+                                };
+                                release_engine(&db_client, &ErrorTriggerClean(s), &id, err_msg)
+                                    .await;
                             }
                         }
 
@@ -166,22 +149,25 @@ where
     }
 }
 
-/// Release engine in state `Trigger*`, after getting error when operating the engine resource.
-async fn release_engine_after_error<DB>(
+/// For engine in state `Trigger*`, release it by updating its state to `*InProgress`,
+/// or to Error states if error message is provided.
+async fn release_engine<DB>(
     db_client: &DB,
     current_state: &EngineState,
     id: &EngineId,
-    err_msg: Cow<'static, str>,
+    err_msg: Option<Cow<'static, str>>,
 ) where
     DB: Database,
 {
     // TODO: wrap `Trigger*` states in a new type
-    let new_state = match current_state {
-        TriggerStart => ErrorClean(err_msg),
-        TriggerTermination => ErrorWaitToClean(err_msg),
-        ErrorTriggerClean(s) => {
-            let err_msg = Cow::Owned(format!("{}\n{}", s, err_msg));
-            ErrorWaitToClean(err_msg)
+    let new_state = match (current_state, err_msg) {
+        (TriggerStart, None) => StartInProgress,
+        (TriggerStart, Some(s)) => ErrorCleanInProgress(s),
+        (TriggerTermination, None) => TerminateInProgress,
+        (TriggerTermination, Some(s)) => ErrorWaitToClean(s),
+        (ErrorTriggerClean(s), None) => ErrorCleanInProgress(s.clone()),
+        (ErrorTriggerClean(s1), Some(s2)) => {
+            ErrorWaitToClean(Cow::Owned(format!("{}\n{}", s1, s2)))
         }
         _ => unreachable!("Should not release engine in state {:?}", current_state),
     };
@@ -196,61 +182,14 @@ async fn release_engine_after_error<DB>(
                     id, current_state, new_state
                 );
             } else {
-                error!(
-                    "Bug: engine {} in {:?} state is updated to {:?} by others",
-                    id, current_state, response.before_state
-                );
-            }
-        }
-        Ok(None) => {
-            error!(
-                "Bug: engine {} in {:?} state is removed by others",
-                id, current_state
-            );
-        }
-        Err(e) => {
-            // in this case we keep the engine in the current state and let other monitors to
-            // to find and update it after it is timed out.
-            // TODO: engine might hang in the current state forever, need to handle this case
-            warn!(
-                "Database error when updating engine {} from {:?} to {:?}: {}",
-                id, current_state, new_state, e
-            );
-        }
-    }
-}
-
-/// For engine in state `Trigger*`, release it by updating its state to `*InProgress`.
-async fn release_engine<DB>(db_client: &DB, current_state: &EngineState, id: &EngineId)
-where
-    DB: Database,
-{
-    // TODO: wrap `Trigger*` states in a new type
-    let new_state = match current_state {
-        TriggerStart => StartInProgress,
-        TriggerTermination => TerminateInProgress,
-        ErrorTriggerClean(s) => ErrorCleanInProgress(s.clone()),
-        _ => unreachable!("Should not release engine in state {:?}", current_state),
-    };
-    let response = db_client
-        .update_engine_state(id, current_state, &new_state)
-        .await;
-    match response {
-        Ok(Some(response)) => {
-            if response.update_success {
-                info!(
-                    "Engine {} state updated from {:?} to {:?}",
-                    id, current_state, new_state
-                );
-            } else {
-                error!(
+                unreachable!(
                     "Bug: engine {} in {:?} start is updated to {:?} by others",
                     id, current_state, response.before_state
                 );
             }
         }
         Ok(None) => {
-            error!(
+            unreachable!(
                 "Bug: engine {} in {:?} state is removed by others",
                 id, current_state
             );
