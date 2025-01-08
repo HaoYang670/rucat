@@ -6,6 +6,7 @@ use ::rucat_common::{
         EngineId,
         EngineState::{self, *},
     },
+    tokio,
     tracing::{debug, error, info, warn},
 };
 use resource_manager::{ResourceManager, ResourceState};
@@ -145,7 +146,7 @@ where
             "Takes {:?} to finish one round monitoring, sleep for {:?}",
             elapsed, sleep_duration
         );
-        std::thread::sleep(sleep_duration);
+        tokio::time::sleep(sleep_duration).await;
     }
 }
 
@@ -162,12 +163,12 @@ async fn release_engine<DB>(
     // TODO: wrap `Trigger*` states in a new type
     let new_state = match (current_state, err_msg) {
         (TriggerStart, None) => StartInProgress,
-        (TriggerStart, Some(s)) => ErrorCleanInProgress(s),
+        (TriggerStart, Some(s)) => ErrorClean(s),
         (TriggerTermination, None) => TerminateInProgress,
         (TriggerTermination, Some(s)) => ErrorWaitToClean(s),
         (ErrorTriggerClean(s), None) => ErrorCleanInProgress(s.clone()),
         (ErrorTriggerClean(s1), Some(s2)) => {
-            ErrorWaitToClean(Cow::Owned(format!("{}\n{}", s1, s2)))
+            ErrorWaitToClean(Cow::Owned(format!("{}\n\n{}", s1, s2)))
         }
         _ => unreachable!("Should not release engine in state {:?}", current_state),
     };
@@ -195,8 +196,8 @@ async fn release_engine<DB>(
             );
         }
         Err(e) => {
-            // in this case we keep the engine in the current state and let other monitors to
-            // to find and update it after it is timed out.
+            // In this case, we keep the engine in the current state and let other monitors
+            // find and update it after it times out.
             warn!(
                 "Database error when updating the state of engine {}: {}",
                 id, e
@@ -228,7 +229,11 @@ where
                 );
                 true
             } else {
-                warn!("Failed to update engine {} as its state has been updated by others, from {:?} to {:?}", id, old_state, response.before_state);
+                warn!(
+                    "Failed to update engine {} as its state has been updated by others, \
+                    from {:?} to {:?}",
+                    id, old_state, response.before_state
+                );
                 false
             }
         }
