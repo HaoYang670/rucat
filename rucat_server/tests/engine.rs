@@ -115,17 +115,20 @@ async fn create_engine_with_unsupported_engine_type() -> Result<()> {
 async fn create_engine() -> Result<()> {
     let mut db = MockDB::new();
     db.expect_add_engine()
-        .with(predicate::eq(CreateEngineRequest {
-            name: "test".to_owned(),
-            engine_type: EngineType::Spark,
-            version: "3.5.3".to_owned(),
-            config: Some(BTreeMap::from([(
-                Cow::Borrowed("spark.executor.instances"),
-                Cow::Borrowed("1"),
-            )])),
-        }))
+        .with(
+            predicate::eq(CreateEngineRequest {
+                name: "test".to_owned(),
+                engine_type: EngineType::Spark,
+                version: "3.5.3".to_owned(),
+                config: Some(BTreeMap::from([(
+                    Cow::Borrowed("spark.executor.instances"),
+                    Cow::Borrowed("1"),
+                )])),
+            }),
+            predicate::always(),
+        )
         .times(1)
-        .returning(|_| Ok(EngineId::new(Cow::Borrowed("123"))?));
+        .returning(|_, _| Ok(EngineId::new(Cow::Borrowed("123"))?));
     let server = get_test_server(false, db).await?;
 
     let response = server
@@ -200,7 +203,7 @@ async fn delete_engine() -> Result<()> {
                 EngineTime::now(),
             )))
         });
-    db.expect_delete_engine()
+    db.expect_remove_engine()
         .with(
             predicate::eq(EngineId::new(Cow::Borrowed("123"))?),
             predicate::eq(&WaitToStart),
@@ -240,9 +243,10 @@ async fn stop_wait_to_start_engine() -> Result<()> {
             predicate::eq(EngineId::new(Cow::Borrowed("123"))?),
             predicate::eq(&WaitToStart),
             predicate::eq(&Terminated),
+            predicate::eq(None),
         )
         .times(1)
-        .returning(|_, _, _| {
+        .returning(|_, _, _, _| {
             Ok(Some(UpdateEngineStateResponse {
                 before_state: WaitToStart,
                 update_success: true,
@@ -290,9 +294,10 @@ async fn restart_terminated_engine() -> Result<()> {
             predicate::eq(EngineId::new(Cow::Borrowed("123"))?),
             predicate::eq(&Terminated),
             predicate::eq(&WaitToStart),
+            predicate::always(),
         )
         .times(1)
-        .returning(|_, _, _| {
+        .returning(|_, _, _, _| {
             Ok(Some(UpdateEngineStateResponse {
                 before_state: Terminated,
                 update_success: true,

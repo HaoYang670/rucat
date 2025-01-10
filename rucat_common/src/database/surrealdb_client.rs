@@ -1,5 +1,7 @@
 //! Client of SurrealDB
 
+use ::std::time::{SystemTime, UNIX_EPOCH};
+
 use ::serde::Deserialize;
 
 use crate::engine::{CreateEngineRequest, EngineId};
@@ -54,10 +56,18 @@ impl SurrealDBClient {
             .map_err(RucatError::fail_to_connect_database)?;
         Ok(Self { client })
     }
+
+    fn convert_system_time_to_millis(time: SystemTime) -> u128 {
+        time.duration_since(UNIX_EPOCH).unwrap().as_millis()
+    }
 }
 
 impl Database for SurrealDBClient {
-    async fn add_engine(&self, engine: CreateEngineRequest) -> Result<EngineId> {
+    async fn add_engine(
+        &self,
+        engine: CreateEngineRequest,
+        next_update_time: Option<SystemTime>,
+    ) -> Result<EngineId> {
         let info: EngineInfo = engine.try_into()?;
         // always set next_update_time to now  when adding a new engine,
         // so that the state monitor will update the engine info immediately
@@ -77,7 +87,7 @@ impl Database for SurrealDBClient {
                 { ErrorClean: string };
 
             CREATE ONLY type::table($table)
-            SET info = $info, next_update_time = time::now()
+            SET info = $info, next_update_time = $next_update_time
             RETURN VALUE record::id(id);
         "#;
 
@@ -86,6 +96,11 @@ impl Database for SurrealDBClient {
             .query(sql)
             .bind(("table", Self::TABLE))
             .bind(("info", info))
+            // the next_update_time field is not set in surreal when it is None
+            .bind((
+                "next_update_time",
+                next_update_time.map(Self::convert_system_time_to_millis),
+            ))
             .await
             .map_err(RucatError::fail_to_update_database)?
             .take(1)
@@ -96,7 +111,7 @@ impl Database for SurrealDBClient {
         })
     }
 
-    async fn delete_engine(
+    async fn remove_engine(
         &self,
         id: &EngineId,
         current_state: &EngineState,
@@ -136,6 +151,7 @@ impl Database for SurrealDBClient {
         id: &EngineId,
         before: &EngineState,
         after: &EngineState,
+        next_update_time: Option<SystemTime>,
     ) -> Result<Option<UpdateEngineStateResponse>> {
         let sql = r#"
             let $record_id = type::thing($tb, $id);             // 0th return value
@@ -146,7 +162,7 @@ impl Database for SurrealDBClient {
                 IF $current_state IS NONE {
                     RETURN NONE;                                                     // 1st return value
                 } ELSE IF $current_state == $before {
-                    UPDATE ONLY $record_id SET info.state = $after;
+                    UPDATE ONLY $record_id SET info.state = $after, next_update_time = $next_update_time;
                     RETURN {before_state: $current_state, update_success: true};                  // 1st return value
                 } ELSE {
                     RETURN {before_state: $current_state, update_success: false};                 // 1st return value
@@ -154,15 +170,17 @@ impl Database for SurrealDBClient {
             };
             COMMIT TRANSACTION;
         "#;
-
         let before_state: Option<UpdateEngineStateResponse> = self
             .client
             .query(sql)
             .bind(("tb", Self::TABLE))
             .bind(("id", id.to_string()))
-            // convert to vec because array cannot be serialized
             .bind(("before", before.clone()))
             .bind(("after", after.clone()))
+            .bind((
+                "next_update_time",
+                next_update_time.map(Self::convert_system_time_to_millis),
+            ))
             .await
             .map_err(RucatError::fail_to_update_database)?
             .take(1)
@@ -213,9 +231,7 @@ impl Database for SurrealDBClient {
         let sql = r#"
             SELECT VALUE {id: record::id(id), info: info}
             FROM type::table($tb)
-            WHERE (info.state IN ["WaitToStart", "WaitToTerminate", "WaitToDelete"] OR info.state.ErrorWaitToClean)
-                OR ((info.state IN ["Running", "StartInProgress", "TerminateInProgress", "DeleteInProgress"] OR info.state.ErrorCleanInProgress)
-                    AND next_update_time < time::now());
+            WHERE next_update_time != None && next_update_time < $now;
         "#;
 
         #[derive(Deserialize)]
@@ -228,6 +244,10 @@ impl Database for SurrealDBClient {
             .client
             .query(sql)
             .bind(("tb", Self::TABLE))
+            .bind((
+                "now",
+                Self::convert_system_time_to_millis(SystemTime::now()),
+            ))
             .await
             .map_err(RucatError::fail_to_read_database)?
             .take(0)

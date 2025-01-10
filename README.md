@@ -216,15 +216,17 @@ bash build rucat_state_monitor.sh
 
 ## TODO
 
-1. Handle timeout for `Trigger*` states.
-2. catch the spark driver log before deleting?
-3. implement rucat-client (based on spark-connect-rs)
-4. mock resource client. <https://github.com/asomers/mockall>
-5. rucat server HA
-6. multi rucat state monitors
-7. More resource clients: Yarn, Spark standalone, Spark local, rust shuttle etc.
-8. expose spark rpc port and web ui port
-9. Remove all unreachable code by using stronger type.
+1. catch the spark driver log before deleting?
+2. implement rucat-client (based on spark-connect-rs)
+3. mock resource client. <https://github.com/asomers/mockall>
+4. rucat server HA
+5. multi rucat state monitors
+6. More resource clients: Yarn, Spark standalone, Spark local, rust shuttle etc.
+7. expose spark rpc port and web ui port
+8. Remove all unreachable code by using stronger type.
+9. Define state monitor as a type.
+10. rename WaitToStart to WaitToCreate
+11. don't need to use millis for check interval, seconds is enough.
 
 ## Debug
 

@@ -1,4 +1,5 @@
-use ::std::borrow::Cow;
+use ::core::time::Duration;
+use ::std::{borrow::Cow, time::SystemTime};
 
 use ::rucat_common::{
     database::{Database, EngineIdAndInfo},
@@ -24,7 +25,9 @@ where
     DB: Database,
     RSManager: ResourceManager,
 {
-    let check_interval = std::time::Duration::from_millis(check_interval_millis);
+    let check_interval = Duration::from_millis(check_interval_millis);
+    // TODO: make this configurable
+    let trigger_state_timeout = Duration::from_millis(60000);
     loop {
         let start_time = std::time::Instant::now();
         match db_client.list_engines_need_update().await {
@@ -35,15 +38,15 @@ where
                     match info.state {
                         WaitToStart => {
                             // acquire the engine
-                            let acquired = inspect_engine_state_updating(
+                            let acquired = acquire_engine(
                                 &db_client,
                                 &id,
                                 &WaitToStart,
-                                &TriggerStart,
+                                trigger_state_timeout,
                             )
                             .await;
                             if acquired {
-                                info!("Start engine {}", id);
+                                info!("Create engine {}", id);
                                 // create engine resource
                                 let err_msg =
                                     match resource_manager.create_resource(&id, &info).await {
@@ -59,15 +62,22 @@ where
                                             Some(Cow::Owned(e.to_string()))
                                         }
                                     };
-                                release_engine(&db_client, &TriggerStart, &id, err_msg).await;
+                                release_engine(
+                                    &db_client,
+                                    &TriggerStart,
+                                    &id,
+                                    check_interval,
+                                    err_msg,
+                                )
+                                .await;
                             }
                         }
                         WaitToTerminate => {
-                            let acquired = inspect_engine_state_updating(
+                            let acquired = acquire_engine(
                                 &db_client,
                                 &id,
                                 &WaitToTerminate,
-                                &TriggerTermination,
+                                trigger_state_timeout,
                             )
                             .await;
                             if acquired {
@@ -83,15 +93,22 @@ where
                                         Some(Cow::Owned(e.to_string()))
                                     }
                                 };
-                                release_engine(&db_client, &TriggerTermination, &id, err_msg).await;
+                                release_engine(
+                                    &db_client,
+                                    &TriggerTermination,
+                                    &id,
+                                    check_interval,
+                                    err_msg,
+                                )
+                                .await;
                             }
                         }
                         ErrorWaitToClean(s) => {
-                            let acquired = inspect_engine_state_updating(
+                            let acquired = acquire_engine(
                                 &db_client,
                                 &id,
                                 &ErrorWaitToClean(s.clone()),
-                                &ErrorTriggerClean(s.clone()),
+                                trigger_state_timeout,
                             )
                             .await;
                             if acquired {
@@ -107,8 +124,14 @@ where
                                         Some(Cow::Owned(e.to_string()))
                                     }
                                 };
-                                release_engine(&db_client, &ErrorTriggerClean(s), &id, err_msg)
-                                    .await;
+                                release_engine(
+                                    &db_client,
+                                    &ErrorTriggerClean(s),
+                                    &id,
+                                    check_interval,
+                                    err_msg,
+                                )
+                                .await;
                             }
                         }
 
@@ -117,18 +140,21 @@ where
                         | TerminateInProgress
                         | ErrorCleanInProgress(_)) => {
                             let resource_state = resource_manager.get_resource_state(&id).await;
-                            let new_state = resource_state.get_new_engine_state(&old_state);
-                            match new_state {
-                                Some(new_state) => {
-                                    inspect_engine_state_updating(
-                                        &db_client, &id, &old_state, &new_state,
-                                    )
-                                    .await;
-                                }
-                                None => {
-                                    debug!("Engine {} state remains unchanged", id);
-                                }
-                            }
+                            let new_state = resource_state
+                                .get_new_engine_state(&old_state)
+                                .unwrap_or(old_state.clone());
+                            inspect_engine_state_updating(
+                                &db_client,
+                                &id,
+                                &old_state,
+                                &new_state,
+                                get_next_update_time(
+                                    &new_state,
+                                    check_interval,
+                                    trigger_state_timeout,
+                                ),
+                            )
+                            .await;
                         }
                         other => {
                             error!("Should not monitor engine {} in state {:?}", id, other);
@@ -142,7 +168,7 @@ where
         }
         let elapsed = start_time.elapsed();
         let sleep_duration = check_interval.checked_sub(elapsed).unwrap_or_default();
-        info!(
+        debug!(
             "Takes {:?} to finish one round monitoring, sleep for {:?}",
             elapsed, sleep_duration
         );
@@ -156,24 +182,28 @@ async fn release_engine<DB>(
     db_client: &DB,
     current_state: &EngineState,
     id: &EngineId,
+    check_interval: Duration,
     err_msg: Option<Cow<'static, str>>,
 ) where
     DB: Database,
 {
+    let now = SystemTime::now();
+    let next_update_time = Some(now + check_interval);
     // TODO: wrap `Trigger*` states in a new type
-    let new_state = match (current_state, err_msg) {
-        (TriggerStart, None) => StartInProgress,
-        (TriggerStart, Some(s)) => ErrorClean(s),
-        (TriggerTermination, None) => TerminateInProgress,
-        (TriggerTermination, Some(s)) => ErrorWaitToClean(s),
-        (ErrorTriggerClean(s), None) => ErrorCleanInProgress(s.clone()),
-        (ErrorTriggerClean(s1), Some(s2)) => {
-            ErrorWaitToClean(Cow::Owned(format!("{}\n\n{}", s1, s2)))
-        }
+    let (new_state, next_update_time) = match (current_state, err_msg) {
+        (TriggerStart, None) => (StartInProgress, next_update_time),
+        (TriggerStart, Some(s)) => (ErrorClean(s), None),
+        (TriggerTermination, None) => (TerminateInProgress, next_update_time),
+        (TriggerTermination, Some(s)) => (ErrorWaitToClean(s), Some(now)),
+        (ErrorTriggerClean(s), None) => (ErrorCleanInProgress(s.clone()), next_update_time),
+        (ErrorTriggerClean(s1), Some(s2)) => (
+            ErrorWaitToClean(Cow::Owned(format!("{}\n\n{}", s1, s2))),
+            Some(now),
+        ),
         _ => unreachable!("Should not release engine in state {:?}", current_state),
     };
     let response = db_client
-        .update_engine_state(id, current_state, &new_state)
+        .update_engine_state(id, current_state, &new_state, next_update_time)
         .await;
     match response {
         Ok(Some(response)) => {
@@ -206,6 +236,35 @@ async fn release_engine<DB>(
     }
 }
 
+/// Acquire the engine by updating its state from *WaitTo* to *Trigger*.
+/// # Parameters
+/// - `db_client`: The database client.
+/// - `id`: The id of the engine.
+/// - `current_state`: The expected state of the engine before the update. It should be *WaitTo*.
+/// - `trigger_state_timeout`: *Trigger* states are expected to exist only for a very short time,
+///   and then be updated to *InProgress* or *Error* states. However, there is a possibility that
+///   the state monitor is down when the engine is in *Trigger* state, so we need to set a timeout
+///   to avoid the engine being stuck in *Trigger* state. State monitor will pick up those timed out engines
+///   and retrigger them.
+async fn acquire_engine<DB>(
+    db_client: &DB,
+    id: &EngineId,
+    current_state: &EngineState,
+    trigger_state_timeout: Duration,
+) -> bool
+where
+    DB: Database,
+{
+    let next_update_time = Some(SystemTime::now() + trigger_state_timeout);
+    let new_state = match current_state {
+        WaitToStart => TriggerStart,
+        WaitToTerminate => TriggerTermination,
+        ErrorWaitToClean(s) => ErrorTriggerClean(s.clone()),
+        _ => unreachable!("Should not acquire engine in state {:?}", current_state),
+    };
+    inspect_engine_state_updating(db_client, id, current_state, &new_state, next_update_time).await
+}
+
 /// Update the state of an engine in the database and log the result.
 /// Return whether the state is updated successfully.
 async fn inspect_engine_state_updating<DB>(
@@ -213,12 +272,13 @@ async fn inspect_engine_state_updating<DB>(
     id: &EngineId,
     old_state: &EngineState,
     new_state: &EngineState,
+    next_update_time: Option<SystemTime>,
 ) -> bool
 where
     DB: Database,
 {
     let response = db_client
-        .update_engine_state(id, old_state, new_state)
+        .update_engine_state(id, old_state, new_state, next_update_time)
         .await;
     match response {
         Ok(Some(response)) => {
@@ -248,5 +308,23 @@ where
             );
             false
         }
+    }
+}
+
+fn get_next_update_time(
+    state: &EngineState,
+    check_interval: Duration,
+    trigger_state_timeout: Duration,
+) -> Option<SystemTime> {
+    let now = SystemTime::now();
+    match state {
+        WaitToStart | WaitToTerminate | ErrorWaitToClean(_) => Some(now),
+        TriggerStart | TriggerTermination | ErrorTriggerClean(_) => {
+            Some(now + trigger_state_timeout)
+        }
+        StartInProgress | Running | TerminateInProgress | ErrorCleanInProgress(_) => {
+            Some(now + check_interval)
+        }
+        Terminated | ErrorClean(_) => None,
     }
 }

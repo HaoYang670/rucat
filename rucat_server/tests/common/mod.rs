@@ -1,3 +1,5 @@
+use ::std::time::SystemTime;
+
 use ::mockall::mock;
 use ::rucat_common::{
     database::{Database, EngineIdAndInfo, UpdateEngineStateResponse},
@@ -10,13 +12,14 @@ use axum_test::TestServer;
 mock! {
     pub DB{}
     impl Database for DB {
-        async fn add_engine(&self, engine: CreateEngineRequest) -> Result<EngineId>;
-        async fn delete_engine(&self, id: &EngineId, current_state: &EngineState) -> Result<Option<UpdateEngineStateResponse>>;
+        async fn add_engine(&self, engine: CreateEngineRequest, next_update_time: Option<SystemTime>) -> Result<EngineId>;
+        async fn remove_engine(&self, id: &EngineId, current_state: &EngineState) -> Result<Option<UpdateEngineStateResponse>>;
         async fn update_engine_state(
             &self,
             id: &EngineId,
             before: &EngineState,
             after: &EngineState,
+            next_update_time: Option<SystemTime>,
         ) -> Result<Option<UpdateEngineStateResponse>>;
         async fn get_engine(&self, id: &EngineId) -> Result<Option<EngineInfo>>;
         async fn list_engines(&self) -> Result<Vec<EngineId>>;

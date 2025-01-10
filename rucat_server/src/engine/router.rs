@@ -1,5 +1,7 @@
 //! Restful API for engine management.
 
+use ::std::time::SystemTime;
+
 use ::rucat_common::{
     anyhow::anyhow,
     database::Database,
@@ -23,7 +25,10 @@ async fn create_engine<DB: Database>(
     State(state): State<AppState<DB>>,
     Json(body): Json<CreateEngineRequest>,
 ) -> Result<Json<EngineId>> {
-    let id = state.get_db().add_engine(body).await?;
+    let id = state
+        .get_db()
+        .add_engine(body, Some(SystemTime::now()))
+        .await?;
     info!("Creating engine {}, wait to start", id);
     Ok(Json(id))
 }
@@ -42,7 +47,7 @@ where
         match current_state {
             s @ (WaitToStart | Terminated | ErrorClean(_)) => {
                 let response = db_client
-                    .delete_engine(&id, &s)
+                    .remove_engine(&id, &s)
                     .await?
                     .ok_or_else(|| RucatError::engine_not_found(&id))?;
                 if response.update_success {
@@ -75,9 +80,9 @@ async fn stop_engine<DB: Database>(
     let mut current_state = get_engine_state(&id, db_client).await?;
 
     loop {
-        let new_state = match current_state {
-            WaitToStart => Terminated,
-            StartInProgress | Running => WaitToTerminate,
+        let (new_state, next_update_time) = match current_state {
+            WaitToStart => (Terminated, None),
+            StartInProgress | Running => (WaitToTerminate, Some(SystemTime::now())),
             other => {
                 return Err(RucatError::not_allowed(anyhow!(
                     "Engine {} is in {:?} state, cannot be stopped",
@@ -87,7 +92,7 @@ async fn stop_engine<DB: Database>(
             }
         };
         let response = db_client
-            .update_engine_state(&id, &current_state, &new_state)
+            .update_engine_state(&id, &current_state, &new_state, next_update_time)
             .await?
             .ok_or_else(|| RucatError::engine_not_found(&id))?;
         if response.update_success {
@@ -123,7 +128,9 @@ async fn restart_engine<DB: Database>(
             }
         };
         let response = db_client
-            .update_engine_state(&id, &current_state, &new_state)
+            // For Running state, we set next_update_time to current time to trigger the state monitor immediately because
+            // rucat server does not know the check interval of the state monitor.
+            .update_engine_state(&id, &current_state, &new_state, Some(SystemTime::now()))
             .await?
             .ok_or_else(|| RucatError::engine_not_found(&id))?;
         if response.update_success {
