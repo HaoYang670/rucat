@@ -9,7 +9,7 @@ use ::rucat_common::{
 use ::rucat_state_monitor::{
     config::{StateMonitorConfig, CONFIG_FILE_PATH},
     resource_manager::k8s_client::K8sClient,
-    run_state_monitor,
+    StateMonitor,
 };
 
 // TODO: Convert the return type to `Result<!>` when it's stable
@@ -28,12 +28,11 @@ async fn main() -> Result<()> {
 
     let db_client = SurrealDBClient::new(credentials.as_ref(), uri).await?;
     let resource_manager = K8sClient::new().await?;
-
-    run_state_monitor(
+    let state_monitor = StateMonitor::new(
         db_client,
         resource_manager,
         check_interval_secs,
         trigger_state_timeout_secs,
-    )
-    .await
+    );
+    state_monitor.run_state_monitor().await
 }

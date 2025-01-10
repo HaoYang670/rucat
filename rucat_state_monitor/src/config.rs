@@ -8,6 +8,11 @@ pub struct StateMonitorConfig {
     /// Time interval in second for checking engine state
     pub check_interval_secs: u8,
     /// Time interval in second for checking trigger state timeout
+    /// *Trigger* states are expected to exist only for a very short time,
+    /// and then be updated to *InProgress* or *Error* states. However, there is a possibility that
+    /// the state monitor is down when the engine is in *Trigger* state, so we need to set a timeout
+    /// to avoid the engine being stuck in *Trigger* state. State monitor will pick up those timed out engines
+    /// and retrigger them.
     pub trigger_state_timeout_secs: u16,
     pub database: DatabaseConfig,
 }

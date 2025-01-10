@@ -224,7 +224,6 @@ bash build rucat_state_monitor.sh
 6. More resource clients: Yarn, Spark standalone, Spark local, rust shuttle etc.
 7. expose spark rpc port and web ui port
 8. Remove all unreachable code by using stronger type.
-9. Define state monitor as a type.
 
 ## Debug
 
