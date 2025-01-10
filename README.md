@@ -34,7 +34,7 @@ flowchart
 ```mermaid
 stateDiagram
 
-    [*] --> WaitToStart: START
+    [*] --> WaitToStart: CREATE
     WaitToStart --> Terminated: STOP
     WaitToStart --> [*]: DELETE
     WaitToStart --> TriggerStart: (one state monitor takes the engine)
@@ -103,7 +103,7 @@ Path of the configuration file is hard-coded as `/rucat_state_monitor/config.jso
 
 ```json
 {
-    "check_interval_millis": < non zero u64 >, # the interval of checking the engine state in milliseconds.
+    "check_interval_secs": < u8 >, # the interval of checking the engine state in second.
     "database": { # same as the database configurations in rucat server.
       "credentials": {
           "username": "admin",
@@ -225,8 +225,7 @@ bash build rucat_state_monitor.sh
 7. expose spark rpc port and web ui port
 8. Remove all unreachable code by using stronger type.
 9. Define state monitor as a type.
-10. rename WaitToStart to WaitToCreate
-11. don't need to use millis for check interval, seconds is enough.
+10. don't need to use millis for check interval, seconds is enough.
 
 ## Debug
 

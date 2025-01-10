@@ -57,8 +57,8 @@ impl SurrealDBClient {
         Ok(Self { client })
     }
 
-    fn convert_system_time_to_millis(time: SystemTime) -> u128 {
-        time.duration_since(UNIX_EPOCH).unwrap().as_millis()
+    fn convert_system_time_to_secs(time: SystemTime) -> u64 {
+        time.duration_since(UNIX_EPOCH).unwrap().as_secs()
     }
 }
 
@@ -99,7 +99,7 @@ impl Database for SurrealDBClient {
             // the next_update_time field is not set in surreal when it is None
             .bind((
                 "next_update_time",
-                next_update_time.map(Self::convert_system_time_to_millis),
+                next_update_time.map(Self::convert_system_time_to_secs),
             ))
             .await
             .map_err(RucatError::fail_to_update_database)?
@@ -179,7 +179,7 @@ impl Database for SurrealDBClient {
             .bind(("after", after.clone()))
             .bind((
                 "next_update_time",
-                next_update_time.map(Self::convert_system_time_to_millis),
+                next_update_time.map(Self::convert_system_time_to_secs),
             ))
             .await
             .map_err(RucatError::fail_to_update_database)?
@@ -246,7 +246,7 @@ impl Database for SurrealDBClient {
             .bind(("tb", Self::TABLE))
             .bind((
                 "now",
-                Self::convert_system_time_to_millis(SystemTime::now()),
+                Self::convert_system_time_to_secs(SystemTime::now()),
             ))
             .await
             .map_err(RucatError::fail_to_read_database)?

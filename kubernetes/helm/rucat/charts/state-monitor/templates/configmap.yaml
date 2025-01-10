@@ -7,7 +7,7 @@ metadata:
 data:
   config.json: |-
     {
-      "check_interval_millis": 5000,
+      "check_interval_secs": 5,
       "database": {
         "credentials": {
           "username": "admin",

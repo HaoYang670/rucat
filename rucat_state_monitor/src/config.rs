@@ -5,8 +5,8 @@ use ::rucat_common::{config::DatabaseConfig, serde::Deserialize};
 #[serde(deny_unknown_fields)]
 #[serde(crate = "rucat_common::serde")]
 pub struct StateMonitorConfig {
-    /// Time interval in millisecond for checking engine state
-    pub check_interval_millis: u64,
+    /// Time interval in second for checking engine state
+    pub check_interval_secs: u8,
     pub database: DatabaseConfig,
 }
 
@@ -25,7 +25,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn missing_field_check_interval_millis() {
+    fn missing_field_check_interval_secs() {
         let config = json!(
             {
                 "database": {
@@ -37,7 +37,7 @@ mod tests {
         let result = from_value::<StateMonitorConfig>(config);
         assert_eq!(
             result.unwrap_err().to_string(),
-            "missing field `check_interval_millis`"
+            "missing field `check_interval_secs`"
         );
     }
 
@@ -45,7 +45,7 @@ mod tests {
     fn missing_field_database() {
         let config = json!(
             {
-                "check_interval_millis": 1000
+                "check_interval_secs": 1
             }
         );
         let result = from_value::<StateMonitorConfig>(config);
@@ -56,7 +56,7 @@ mod tests {
     fn deny_unknown_fields() {
         let config = json!(
             {
-                "check_interval_millis": 1000,
+                "check_interval_secs": 1,
                 "database": {
                     "credentials": null,
                     "uri": ""
@@ -67,7 +67,7 @@ mod tests {
         let result = from_value::<StateMonitorConfig>(config);
         assert_eq!(
             result.unwrap_err().to_string(),
-            "unknown field `unknown_field`, expected `check_interval_millis` or `database`"
+            "unknown field `unknown_field`, expected `check_interval_secs` or `database`"
         );
     }
 
@@ -75,7 +75,7 @@ mod tests {
     fn deserialize_state_monitor_config() -> Result<()> {
         let config = json!(
             {
-                "check_interval_millis": 1000,
+                "check_interval_secs": 1,
                 "database": {
                     "credentials": null,
                     "uri":""
@@ -86,7 +86,7 @@ mod tests {
         assert_eq!(
             result,
             StateMonitorConfig {
-                check_interval_millis: 1000,
+                check_interval_secs: 1,
                 database: DatabaseConfig {
                     credentials: None,
                     uri: "".to_string()

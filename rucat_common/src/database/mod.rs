@@ -60,7 +60,7 @@ pub trait Database: Sized + Send + Sync + 'static {
     /// - `id`: The id of the engine.
     /// - `before`: The expected state of the engine before the update.
     /// - `after`: The state that engine is wanted to be updated to.
-    /// - `next_update_time_millis`: The time when the engine should be updated by the state monitor.
+    /// - `next_update_time`: The time when the engine should be updated by the state monitor.
     ///                              `None` means the engine does not need to be updated anymore.
     /// # Return
     /// - `Ok(None)` if the engine does not exist.
@@ -71,7 +71,7 @@ pub trait Database: Sized + Send + Sync + 'static {
         id: &EngineId,
         before: &EngineState,
         after: &EngineState,
-        next_update_time_millis: Option<SystemTime>,
+        next_update_time: Option<SystemTime>,
     ) -> impl Future<Output = Result<Option<UpdateEngineStateResponse>>> + Send;
 
     /// Return `Ok(None)` if the engine does not exist
