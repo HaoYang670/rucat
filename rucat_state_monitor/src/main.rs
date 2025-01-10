@@ -22,11 +22,18 @@ async fn main() -> Result<()> {
 
     let StateMonitorConfig {
         check_interval_secs,
+        trigger_state_timeout_secs,
         database: DatabaseConfig { credentials, uri },
     } = load_config(CONFIG_FILE_PATH)?;
 
     let db_client = SurrealDBClient::new(credentials.as_ref(), uri).await?;
     let resource_manager = K8sClient::new().await?;
 
-    run_state_monitor(db_client, resource_manager, check_interval_secs).await
+    run_state_monitor(
+        db_client,
+        resource_manager,
+        check_interval_secs,
+        trigger_state_timeout_secs,
+    )
+    .await
 }

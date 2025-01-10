@@ -244,10 +244,7 @@ impl Database for SurrealDBClient {
             .client
             .query(sql)
             .bind(("tb", Self::TABLE))
-            .bind((
-                "now",
-                Self::convert_system_time_to_secs(SystemTime::now()),
-            ))
+            .bind(("now", Self::convert_system_time_to_secs(SystemTime::now())))
             .await
             .map_err(RucatError::fail_to_read_database)?
             .take(0)

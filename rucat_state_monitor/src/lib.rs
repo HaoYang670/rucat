@@ -20,14 +20,18 @@ pub async fn run_state_monitor<DB, RSManager>(
     db_client: DB,
     resource_manager: RSManager,
     check_interval_secs: u8,
+    trigger_state_timeout_secs: u16,
 ) -> !
 where
     DB: Database,
     RSManager: ResourceManager,
 {
     let check_interval = Duration::from_secs(check_interval_secs as u64);
-    // TODO: make this configurable
-    let trigger_state_timeout = Duration::from_secs(60);
+    let trigger_state_timeout = Duration::from_secs(trigger_state_timeout_secs as u64);
+    info!(
+        "Initialize state monitor with check interval {:?} and trigger state timeout {:?}",
+        check_interval, trigger_state_timeout
+    );
     loop {
         let start_time = std::time::Instant::now();
         match db_client.list_engines_need_update().await {
