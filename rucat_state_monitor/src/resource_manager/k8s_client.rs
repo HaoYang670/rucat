@@ -64,7 +64,6 @@ impl K8sPodState {
 
 impl ResourceState for K8sPodState {
     fn get_new_engine_state(&self, old_state: &EngineState) -> Option<EngineState> {
-        // TODO: wrap `Running` and `*InProgress` states in a new type
         match (old_state, self) {
             (EngineState::StartInProgress, Self::Pending | Self::Unknown) => None,
             (EngineState::StartInProgress, Self::Running) => Some(EngineState::Running),

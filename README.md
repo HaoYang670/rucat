@@ -64,12 +64,6 @@ stateDiagram
     ErrorClean --> [*]: DELETE
 ```
 
-## How to test
-
-```bash
-cargo test
-```
-
 ## Configurations
 
 ### rucat server configurations
@@ -214,6 +208,19 @@ bash build rucat_state_monitor.sh
 - create an Apache Spark using the REST API
 - connect to the spark connect server
 
+## Test
+
+### Unit test
+
+```bash
+cargo test
+```
+
+### Integration test (not automated)
+
+1. Create a Spark engine, wait it to be running. Get the engine info, stop the engine, restart the engine, delete the engine.
+2. Create a Spark engine with wrong configurations, wait it to be in error state. Delete the engine.
+
 ## TODO
 
 1. catch the spark driver log before deleting?
@@ -224,7 +231,9 @@ bash build rucat_state_monitor.sh
 6. More resource clients: Yarn, Spark standalone, Spark local, rust shuttle etc.
 7. expose spark rpc port and web ui port
 8. Remove all unreachable code by using stronger type.
+9. Add test for state monitor.
+10. Define engine states into 3 subtypes: InProgress, WaitTo and Stable. Customized the serde for the engine state.
 
 ## Debug
 
-Dummy command that can make a pod running forever: `tail -f /dev/null`
+Dummy command that can make a pod run forever: `tail -f /dev/null`

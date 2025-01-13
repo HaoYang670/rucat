@@ -1,5 +1,8 @@
 use ::core::time::Duration;
-use ::std::{borrow::Cow, time::SystemTime};
+use ::std::{
+    borrow::Cow,
+    time::{Instant, SystemTime},
+};
 
 use ::rucat_common::{
     database::{Database, EngineIdAndInfo},
@@ -51,102 +54,13 @@ where
     /// This function runs forever to monitor the state of engines.
     pub async fn run_state_monitor(&self) -> ! {
         loop {
-            let start_time = std::time::Instant::now();
+            let start_time = Instant::now();
             match self.db_client.list_engines_need_update().await {
                 Ok(engines) => {
                     info!("Detect {} engines need to update", engines.len());
                     // TODO: make this execute in parallel
-                    for EngineIdAndInfo { id, info } in engines {
-                        match info.state {
-                            WaitToStart => {
-                                if self.acquire_engine(&id, &WaitToStart).await {
-                                    info!("Create engine {}", id);
-                                    // create engine resource
-                                    let err_msg = match self
-                                        .resource_manager
-                                        .create_resource(&id, &info)
-                                        .await
-                                    {
-                                        Ok(()) => {
-                                            info!("Create engine resource for {}", id);
-                                            None
-                                        }
-                                        Err(e) => {
-                                            error!(
-                                                "Failed to create engine resource for {}: {}",
-                                                id, e
-                                            );
-                                            Some(Cow::Owned(e.to_string()))
-                                        }
-                                    };
-                                    self.release_engine(&TriggerStart, &id, err_msg).await;
-                                }
-                            }
-                            WaitToTerminate => {
-                                if self.acquire_engine(&id, &WaitToTerminate).await {
-                                    info!("Terminate engine {}", id);
-                                    // clean engine resource
-                                    let err_msg =
-                                        match self.resource_manager.clean_resource(&id).await {
-                                            Ok(()) => {
-                                                info!("Clean engine resource for {}", id);
-                                                None
-                                            }
-                                            Err(e) => {
-                                                error!(
-                                                    "Failed to clean engine resource for {}: {}",
-                                                    id, e
-                                                );
-                                                Some(Cow::Owned(e.to_string()))
-                                            }
-                                        };
-                                    self.release_engine(&TriggerTermination, &id, err_msg).await;
-                                }
-                            }
-                            ErrorWaitToClean(s) => {
-                                if self.acquire_engine(&id, &ErrorWaitToClean(s.clone())).await {
-                                    info!("Clean resource for error state engine {}", id);
-                                    // clean engine resource
-                                    let err_msg =
-                                        match self.resource_manager.clean_resource(&id).await {
-                                            Ok(()) => {
-                                                info!("Clean engine resource for {}", id);
-                                                None
-                                            }
-                                            Err(e) => {
-                                                error!(
-                                                    "Failed to clean engine resource for {}: {}",
-                                                    id, e
-                                                );
-                                                Some(Cow::Owned(e.to_string()))
-                                            }
-                                        };
-                                    self.release_engine(&ErrorTriggerClean(s), &id, err_msg)
-                                        .await;
-                                }
-                            }
-
-                            old_state @ (Running
-                            | StartInProgress
-                            | TerminateInProgress
-                            | ErrorCleanInProgress(_)) => {
-                                let resource_state =
-                                    self.resource_manager.get_resource_state(&id).await;
-                                let new_state = resource_state
-                                    .get_new_engine_state(&old_state)
-                                    .unwrap_or(old_state.clone());
-                                self.inspect_engine_state_updating(
-                                    &id,
-                                    &old_state,
-                                    &new_state,
-                                    self.get_next_update_time(&new_state),
-                                )
-                                .await;
-                            }
-                            other => {
-                                error!("Should not monitor engine {} in state {:?}", id, other);
-                            }
-                        }
+                    for e in engines {
+                        self.sync_engine(e).await;
                     }
                 }
                 Err(e) => {
@@ -163,6 +77,86 @@ where
         }
     }
 
+    /// Sync the engine state with the resource manager.
+    /// And update the engine state in the database.
+    async fn sync_engine(&self, engine: EngineIdAndInfo) {
+        let EngineIdAndInfo { id, info } = engine;
+        match info.state {
+            WaitToStart => {
+                if self.acquire_engine(&id, &WaitToStart).await {
+                    info!("Create engine {}", id);
+                    // create engine resource
+                    let err_msg = match self.resource_manager.create_resource(&id, &info).await {
+                        Ok(()) => {
+                            info!("Create engine resource for {}", id);
+                            None
+                        }
+                        Err(e) => {
+                            error!("Failed to create engine resource for {}: {}", id, e);
+                            Some(Cow::Owned(e.to_string()))
+                        }
+                    };
+                    self.release_engine(&TriggerStart, &id, err_msg).await;
+                }
+            }
+            WaitToTerminate => {
+                if self.acquire_engine(&id, &WaitToTerminate).await {
+                    info!("Terminate engine {}", id);
+                    // clean engine resource
+                    let err_msg = match self.resource_manager.clean_resource(&id).await {
+                        Ok(()) => {
+                            info!("Clean engine resource for {}", id);
+                            None
+                        }
+                        Err(e) => {
+                            error!("Failed to clean engine resource for {}: {}", id, e);
+                            Some(Cow::Owned(e.to_string()))
+                        }
+                    };
+                    self.release_engine(&TriggerTermination, &id, err_msg).await;
+                }
+            }
+            ErrorWaitToClean(s) => {
+                if self.acquire_engine(&id, &ErrorWaitToClean(s.clone())).await {
+                    info!("Clean resource for error state engine {}", id);
+                    // clean engine resource
+                    let err_msg = match self.resource_manager.clean_resource(&id).await {
+                        Ok(()) => {
+                            info!("Clean engine resource for {}", id);
+                            None
+                        }
+                        Err(e) => {
+                            error!("Failed to clean engine resource for {}: {}", id, e);
+                            Some(Cow::Owned(e.to_string()))
+                        }
+                    };
+                    self.release_engine(&ErrorTriggerClean(s), &id, err_msg)
+                        .await;
+                }
+            }
+
+            old_state @ (Running
+            | StartInProgress
+            | TerminateInProgress
+            | ErrorCleanInProgress(_)) => {
+                let resource_state = self.resource_manager.get_resource_state(&id).await;
+                let new_state = resource_state
+                    .get_new_engine_state(&old_state)
+                    .unwrap_or(old_state.clone());
+                self.inspect_engine_state_updating(
+                    &id,
+                    &old_state,
+                    &new_state,
+                    self.get_next_update_time(&new_state),
+                )
+                .await;
+            }
+            other => {
+                error!("Should not monitor engine {} in state {:?}", id, other);
+            }
+        }
+    }
+
     /// For engine in state `Trigger*`, release it by updating its state to `*InProgress`,
     /// or to Error states if error message is provided.
     async fn release_engine(
@@ -173,7 +167,6 @@ where
     ) {
         let now = SystemTime::now();
         let next_update_time = Some(now + self.check_interval);
-        // TODO: wrap `Trigger*` states in a new type
         let (new_state, next_update_time) = match (current_state, err_msg) {
             (TriggerStart, None) => (StartInProgress, next_update_time),
             (TriggerStart, Some(s)) => (ErrorClean(s), None),
