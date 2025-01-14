@@ -10,7 +10,7 @@ use ::rucat_common::{
         EngineState::{self, *},
     },
     error::{Result, RucatError},
-    tracing::{debug, info},
+    tracing::info,
 };
 use axum::{
     extract::{Path, State},
@@ -51,10 +51,10 @@ where
                     .await?
                     .ok_or_else(|| RucatError::engine_not_found(&id))?;
                 if response.update_success {
-                    info!("Engine {} is deleted", id);
+                    info!("Engine {} is in {:?} state, delete it", id, s);
                     return Ok(());
                 }
-                debug!(
+                info!(
                     "Engine {} has been updated from {:?} to {:?}, retry to delete",
                     id, s, response.before_state
                 );
@@ -96,10 +96,13 @@ async fn stop_engine<DB: Database>(
             .await?
             .ok_or_else(|| RucatError::engine_not_found(&id))?;
         if response.update_success {
-            info!("Engine {} is stopped", id);
+            info!(
+                "Update Engine {} from {:?} to {:?}",
+                id, current_state, new_state
+            );
             return Ok(());
         }
-        debug!(
+        info!(
             "Engine {} has been updated from {:?} to {:?}, retry to stop",
             id, current_state, response.before_state
         );
@@ -134,10 +137,13 @@ async fn restart_engine<DB: Database>(
             .await?
             .ok_or_else(|| RucatError::engine_not_found(&id))?;
         if response.update_success {
-            info!("Wait for Engine {} to restart", id);
+            info!(
+                "Update Engine {} from {:?} to {:?}",
+                id, current_state, new_state
+            );
             return Ok(());
         }
-        debug!(
+        info!(
             "Engine {} has been updated from {:?} to {:?}, retry to restart",
             id, current_state, response.before_state
         );
