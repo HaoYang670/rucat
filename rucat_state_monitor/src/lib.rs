@@ -147,12 +147,7 @@ where
                     &id,
                     &old_state,
                     &new_state,
-                    get_next_update_time(
-                        &new_state,
-                        SystemTime::now(),
-                        self.check_interval,
-                        self.trigger_state_timeout,
-                    ),
+                    self.get_next_update_time(&new_state),
                 )
                 .await;
             }
@@ -181,12 +176,7 @@ where
             }
             _ => unreachable!("Should not release engine in state {:?}", current_state),
         };
-        let next_update_time = get_next_update_time(
-            &new_state,
-            SystemTime::now(),
-            self.check_interval,
-            self.trigger_state_timeout,
-        );
+        let next_update_time = self.get_next_update_time(&new_state);
         let response = self
             .db_client
             .update_engine_state(id, current_state, &new_state, next_update_time)
@@ -235,12 +225,7 @@ where
             ErrorWaitToClean(s) => ErrorTriggerClean(s.clone()),
             _ => unreachable!("Should not acquire engine in state {:?}", current_state),
         };
-        let next_update_time = get_next_update_time(
-            &new_state,
-            SystemTime::now(),
-            self.check_interval,
-            self.trigger_state_timeout,
-        );
+        let next_update_time = self.get_next_update_time(&new_state);
         self.inspect_engine_state_updating(id, current_state, &new_state, next_update_time)
             .await
     }
@@ -288,6 +273,15 @@ where
                 false
             }
         }
+    }
+
+    fn get_next_update_time(&self, state: &EngineState) -> Option<SystemTime> {
+        get_next_update_time(
+            state,
+            SystemTime::now(),
+            self.check_interval,
+            self.trigger_state_timeout,
+        )
     }
 }
 
