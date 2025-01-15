@@ -229,10 +229,8 @@ cargo test
 4. rucat server HA
 5. multi rucat state monitors
 6. More resource clients: Yarn, Spark standalone, Spark local, rust shuttle etc.
-7. expose spark rpc port and web ui port
-8. Remove all unreachable code by using stronger type.
-9. Add test for state monitor.
-10. Define engine states into 3 subtypes: InProgress, WaitTo and Stable. Customized the serde for the engine state.
+7. Add test for state monitor.
+8. rucat session for RPC connect. (Protocol design)
 
 ## Debug
 
