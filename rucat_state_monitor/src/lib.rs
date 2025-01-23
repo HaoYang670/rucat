@@ -135,26 +135,49 @@ where
                 }
             }
 
-            old_state @ (Running
+            in_progress_state @ (Running
             | StartInProgress
             | TerminateInProgress
             | ErrorCleanInProgress(_)) => {
                 let resource_state = self.resource_manager.get_resource_state(&id).await;
                 let new_state = resource_state
-                    .get_new_engine_state(&old_state)
-                    .unwrap_or(old_state.clone());
-                self.inspect_engine_state_updating(
-                    &id,
-                    &old_state,
-                    &new_state,
-                    self.get_next_update_time(&new_state),
-                )
-                .await;
+                    .get_new_engine_state(&in_progress_state)
+                    .unwrap_or(in_progress_state.clone());
+                self.inspect_engine_state_updating(&id, &in_progress_state, &new_state)
+                    .await;
             }
-            other => {
-                error!("Should not monitor engine {} in state {:?}", id, other);
+            // For timed out Trigger* states, switch back to the WaitTo* state to retry.
+            timed_out_triggered_state @ (TriggerStart | TriggerTermination
+            | ErrorTriggerClean(_)) => {
+                self.retry_triggering_engine(&id, &timed_out_triggered_state)
+                    .await;
+            }
+            stable_state @ (Terminated | ErrorClean(_)) => {
+                unreachable!(
+                    "Should not monitor engine {} in state {:?}",
+                    id, stable_state
+                );
             }
         }
+    }
+
+    /// For timed out Trigger* states, retry triggering the engine by updating its state to WaitTo*.
+    async fn retry_triggering_engine(&self, id: &EngineId, current_state: &EngineState) {
+        let new_state = match current_state {
+            TriggerStart => WaitToStart,
+            TriggerTermination => WaitToTerminate,
+            ErrorTriggerClean(s) => ErrorWaitToClean(s.clone()),
+            _ => unreachable!(
+                "Should not retry triggering engine in state {:?}",
+                current_state
+            ),
+        };
+        warn!(
+            "Engine {} in state {:?} times out, retry triggering it",
+            id, current_state
+        );
+        self.inspect_engine_state_updating(id, current_state, &new_state)
+            .await;
     }
 
     /// For engine in state `Trigger*`, release it by updating its state to `*InProgress`,
@@ -225,8 +248,7 @@ where
             ErrorWaitToClean(s) => ErrorTriggerClean(s.clone()),
             _ => unreachable!("Should not acquire engine in state {:?}", current_state),
         };
-        let next_update_time = self.get_next_update_time(&new_state);
-        self.inspect_engine_state_updating(id, current_state, &new_state, next_update_time)
+        self.inspect_engine_state_updating(id, current_state, &new_state)
             .await
     }
 
@@ -238,8 +260,8 @@ where
         id: &EngineId,
         old_state: &EngineState,
         new_state: &EngineState,
-        next_update_time: Option<SystemTime>,
     ) -> bool {
+        let next_update_time = self.get_next_update_time(new_state);
         let response = self
             .db_client
             .update_engine_state(id, old_state, new_state, next_update_time)

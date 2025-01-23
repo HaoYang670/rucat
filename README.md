@@ -230,7 +230,8 @@ cargo test
 5. multi rucat state monitors
 6. More resource clients: Yarn, Spark standalone, Spark local, rust shuttle etc.
 7. Add test for state monitor.
-8. rucat session for RPC connect. (Protocol design)
+8. rucat session for Spark connect. (RPC or REST for the API? Also see <https://tech.fpcomplete.com/blog/axum-hyper-tonic-tower-part4/> for rpc and rest in one port) 0.2 version
+9. Rucat client for engine APIs
 
 ## Debug
 
