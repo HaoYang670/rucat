@@ -230,6 +230,7 @@ cargo test
 5. Add test for state monitor. (0.1)
 6. rucat connection for Spark connect. (RPC or REST for the API? Also see <https://tech.fpcomplete.com/blog/axum-hyper-tonic-tower-part4/> for rpc and rest in one port) 0.2 version
 7. Rucat client for engine APIs (0.1)
+8. Generic authentication (0.1)
 
 ## Debug
 
