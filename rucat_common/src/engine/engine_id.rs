@@ -1,11 +1,8 @@
 use ::core::fmt::Display;
-use ::std::{borrow::Cow, fmt};
+use ::std::borrow::Cow;
 
 use ::anyhow::anyhow;
-use ::serde::{
-    de::{self, Visitor},
-    Deserialize, Deserializer, Serialize,
-};
+use ::serde::{de, Deserialize, Deserializer, Serialize};
 
 use crate::error::{Result, RucatError};
 
@@ -27,29 +24,24 @@ impl EngineId {
     }
 }
 
+/// Almost same as the derive macro generated implementation, except empty string is not allowed.
 impl<'de> Deserialize<'de> for EngineId {
     fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {
-        deserializer.deserialize_string(EngineIdVisitor)
-    }
-}
+        #[derive(Deserialize)]
+        #[serde(deny_unknown_fields)]
+        struct _EngineId {
+            id: String,
+        }
 
-struct EngineIdVisitor;
-
-impl Visitor<'_> for EngineIdVisitor {
-    type Value = EngineId;
-
-    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-        formatter.write_str("a non-empty string representing an EngineId")
-    }
-
-    fn visit_str<E>(self, value: &str) -> std::result::Result<Self::Value, E>
-    where
-        E: de::Error,
-    {
-        EngineId::try_from(value.to_owned()).map_err(de::Error::custom)
+        let _EngineId { id } = _EngineId::deserialize(deserializer).map_err(|_| {
+            de::Error::custom(
+                r#"Failed to deserialize EngineId, expect a map `{"id": <non empty string>}`"#,
+            )
+        })?;
+        EngineId::try_from(id).map_err(de::Error::custom)
     }
 }
 
@@ -87,8 +79,33 @@ mod tests {
     }
 
     #[test]
-    fn cannot_deserialize_empty_str_to_engine_id() {
-        let result: std::result::Result<EngineId, _> = serde_json::from_value(json!(""));
+    fn display_engine_id() {
+        let id = EngineId::try_from("abc").unwrap();
+        assert_eq!(format!("{}", id), "abc");
+    }
+
+    #[test]
+    fn cannot_deserialize_str_to_engine_id() {
+        let result: std::result::Result<EngineId, _> = serde_json::from_value(json!("123"));
+        print!("{:?}", result);
+        assert!(result.is_err_and(|e| e
+            .to_string()
+            .eq("Failed to deserialize EngineId, expect a map `{\"id\": <non empty string>}`")));
+    }
+
+    #[test]
+    fn deny_unknown_fields_in_deserialization() {
+        let result: std::result::Result<EngineId, _> =
+            serde_json::from_value(json!({"id": "123", "other": "456"}));
+        print!("{:?}", result);
+        assert!(result.is_err_and(|e| e
+            .to_string()
+            .eq("Failed to deserialize EngineId, expect a map `{\"id\": <non empty string>}`")));
+    }
+
+    #[test]
+    fn cannot_deserialize_map_with_empty_str_to_engine_id() {
+        let result: std::result::Result<EngineId, _> = serde_json::from_value(json!({"id": ""}));
         assert!(result.is_err_and(|e| e
             .to_string()
             .starts_with("Not allowed: Engine id cannot be empty.")));
@@ -96,8 +113,26 @@ mod tests {
 
     #[test]
     fn deserialize_engine_id() -> anyhow::Result<()> {
-        let result: EngineId = serde_json::from_value(json!("abc"))?;
+        let result: EngineId = serde_json::from_value(json!({"id": "abc"}))?;
         assert_eq!(result, EngineId::try_from("abc")?);
+        Ok(())
+    }
+
+    #[test]
+    fn engine_id_ser_de_identity() -> anyhow::Result<()> {
+        let id = EngineId::try_from("abc")?;
+        let json = serde_json::to_value(&id)?;
+        let id2: EngineId = serde_json::from_value(json)?;
+        assert_eq!(id, id2);
+        Ok(())
+    }
+
+    #[test]
+    fn engine_id_de_ser_identity() -> anyhow::Result<()> {
+        let json = json!({"id": "abc"});
+        let id: EngineId = serde_json::from_value(json.clone())?;
+        let json2 = serde_json::to_value(&id)?;
+        assert_eq!(json, json2);
         Ok(())
     }
 }
