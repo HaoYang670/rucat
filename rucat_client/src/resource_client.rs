@@ -22,7 +22,10 @@ impl<'a> ResourceClient<'a> {
         }
     }
 
-    pub async fn create_engine(&self, request: &CreateEngineRequest) -> Result<EngineId, reqwest::Error> {
+    pub async fn create_engine(
+        &self,
+        request: &CreateEngineRequest,
+    ) -> Result<EngineId, reqwest::Error> {
         let url = self.build_url("/engine");
         let builder = self.client.post(url).json(request);
         let builder = self.enable_auth_for_request(builder);

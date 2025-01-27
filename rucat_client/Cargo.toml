@@ -6,3 +6,6 @@ edition = "2021"
 [dependencies]
 rucat_common = {path = "../rucat_common"}
 reqwest = { version = "0.12.12", features = ["json"] }
+
+[dev-dependencies]
+httpmock = "0.7.0"
