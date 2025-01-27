@@ -1,4 +1,4 @@
-use ::rucat_client::{engine::create_engine, Credentials};
+use ::rucat_client::{resource_client, Credentials};
 use ::rucat_common::engine::{CreateEngineRequest, EngineType};
 use rucat_common::tokio;
 
@@ -11,7 +11,8 @@ async fn main() -> Result<(), reqwest::Error> {
         config: None,
     };
     let credentials = Credentials::Bearer { token: "admin" };
-    let id = create_engine(&request, Some(&credentials)).await?;
+    let client = resource_client::ResourceClient::new("http://localhost:3000", Some(credentials));
+    let id = client.create_engine(&request).await?;
     println!("Engine created with id: {}", id);
     Ok(())
 }
