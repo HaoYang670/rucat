@@ -5,7 +5,11 @@ use std::panic::catch_unwind;
 use axum::{extract::Request, http::HeaderMap, middleware::Next, response::Response};
 use axum_extra::headers::authorization::{Basic, Bearer, Credentials as _};
 use rucat_common::anyhow::anyhow;
-use rucat_common::error::{Result, RucatError};
+use rucat_common::error::RucatError;
+
+use crate::error::RucatServerError;
+
+type Result<T> = std::result::Result<T, RucatServerError>;
 
 enum Credentials {
     Basic(Basic),
@@ -19,7 +23,7 @@ pub(crate) async fn auth(headers: HeaderMap, request: Request, next: Next) -> Re
         let response = next.run(request).await;
         Ok(response)
     } else {
-        Err(RucatError::unauthorized(anyhow!("wrong credentials")))
+        Err(RucatError::unauthorized(anyhow!("wrong credentials")).into())
     }
 }
 
@@ -37,7 +41,7 @@ fn get_credentials(headers: &HeaderMap) -> Result<Credentials> {
                 .unwrap_or(None)
                 .map(Credentials::Bearer)
         })
-        .ok_or_else(|| RucatError::unauthorized(anyhow!("Unsupported credentials type")))
+        .ok_or_else(|| RucatError::unauthorized(anyhow!("Unsupported credentials type")).into())
 }
 
 fn validate_credentials(token: &Credentials) -> bool {

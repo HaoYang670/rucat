@@ -9,7 +9,7 @@ use ::rucat_common::{
         CreateEngineRequest, EngineId, EngineInfo,
         EngineState::{self, *},
     },
-    error::{Result, RucatError},
+    error::RucatError,
     tracing::info,
 };
 use axum::{
@@ -18,7 +18,9 @@ use axum::{
     Json, Router,
 };
 
-use crate::state::AppState;
+use crate::{error::RucatServerError, state::AppState};
+
+type Result<T> = std::result::Result<T, RucatServerError>;
 
 /// start an engine with the given configuration
 async fn create_engine<DB: Database>(
@@ -65,7 +67,8 @@ where
                     "Engine {} is in {:?} state, cannot be deleted",
                     id,
                     other
-                )))
+                ))
+                .into())
             }
         }
     }
@@ -88,7 +91,8 @@ async fn stop_engine<DB: Database>(
                     "Engine {} is in {:?} state, cannot be stopped",
                     id,
                     other
-                )))
+                ))
+                .into())
             }
         };
         let response = db_client
@@ -127,7 +131,8 @@ async fn restart_engine<DB: Database>(
                     "Engine {} is in {:?} state, cannot be restarted",
                     id,
                     other
-                )))
+                ))
+                .into())
             }
         };
         let response = db_client
@@ -160,13 +165,18 @@ async fn get_engine<DB: Database>(
         .get_engine(&id)
         .await?
         .map(Json)
-        .ok_or(RucatError::engine_not_found(&id))
+        .ok_or(RucatError::engine_not_found(&id).into())
 }
 
 async fn list_engines<DB: Database>(
     State(state): State<AppState<DB>>,
 ) -> Result<Json<Vec<EngineId>>> {
-    state.get_db().list_engines().await.map(Json)
+    state
+        .get_db()
+        .list_engines()
+        .await
+        .map(Json)
+        .map_err(|e| e.into())
 }
 
 /// helper function to get the engine state
@@ -175,7 +185,7 @@ where
     DB: Database,
 {
     db_client.get_engine(id).await?.map_or_else(
-        || Err(RucatError::engine_not_found(id)),
+        || Err(RucatError::engine_not_found(id).into()),
         |info| Ok(info.state),
     )
 }

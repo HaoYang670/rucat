@@ -1,10 +1,6 @@
 use std::fmt::Display;
 
 use ::anyhow::anyhow;
-use axum::{
-    http::StatusCode,
-    response::{IntoResponse, Response},
-};
 
 use RucatErrorType::*;
 
@@ -13,7 +9,7 @@ use crate::engine::EngineId;
 pub type Result<T> = std::result::Result<T, RucatError>;
 
 #[derive(Debug)]
-enum RucatErrorType {
+pub enum RucatErrorType {
     NotFound,
     Unauthorized,
     NotAllowed,
@@ -25,24 +21,6 @@ enum RucatErrorType {
     FailToUpdateDatabase,
     FailToReadDatabase,
     FailToLoadConfig,
-}
-
-impl RucatErrorType {
-    fn get_status_code(&self) -> StatusCode {
-        match self {
-            NotFound => StatusCode::NOT_FOUND,
-            Unauthorized => StatusCode::UNAUTHORIZED,
-            NotAllowed => StatusCode::FORBIDDEN,
-            FailToStartServer => StatusCode::INTERNAL_SERVER_ERROR,
-            FailToStartStateMonitor => StatusCode::INTERNAL_SERVER_ERROR,
-            FailToStartEngine => StatusCode::INTERNAL_SERVER_ERROR,
-            FailToDeleteEngine => StatusCode::INTERNAL_SERVER_ERROR,
-            FailToConnectDatabase => StatusCode::INTERNAL_SERVER_ERROR,
-            FailToUpdateDatabase => StatusCode::INTERNAL_SERVER_ERROR,
-            FailToReadDatabase => StatusCode::INTERNAL_SERVER_ERROR,
-            FailToLoadConfig => StatusCode::INTERNAL_SERVER_ERROR,
-        }
-    }
 }
 
 impl Display for RucatErrorType {
@@ -70,6 +48,9 @@ pub struct RucatError {
 }
 
 impl RucatError {
+    pub fn get_error_type(&self) -> &RucatErrorType {
+        &self.error_type
+    }
     pub fn unauthorized<E: Into<anyhow::Error>>(e: E) -> Self {
         Self::new(Unauthorized, e)
     }
@@ -128,13 +109,6 @@ impl RucatError {
 impl Display for RucatError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}: {:?}", self.error_type, self.content)
-    }
-}
-
-impl IntoResponse for RucatError {
-    fn into_response(self) -> Response {
-        let status = self.error_type.get_status_code();
-        (status, self.to_string()).into_response()
     }
 }
 

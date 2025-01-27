@@ -10,6 +10,7 @@ use tower_http::trace::TraceLayer;
 
 pub(crate) mod authentication;
 pub(crate) mod engine;
+pub(crate) mod error;
 pub(crate) mod state;
 
 /// Configuration for rucat server
