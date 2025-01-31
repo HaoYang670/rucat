@@ -2,32 +2,50 @@
 
 use std::panic::catch_unwind;
 
+use ::axum::extract::State;
+use ::rucat_common::database::Database;
 use axum::{extract::Request, http::HeaderMap, middleware::Next, response::Response};
 use axum_extra::headers::authorization::{Basic, Bearer, Credentials as _};
 use rucat_common::anyhow::anyhow;
 use rucat_common::error::RucatError;
 
 use crate::error::RucatServerError;
+use crate::AppState;
+
+pub mod static_auth_provider;
 
 type Result<T> = std::result::Result<T, RucatServerError>;
 
-enum Credentials {
+pub enum Credentials {
     Basic(Basic),
     Bearer(Bearer),
 }
 
 /// authentication
-pub(crate) async fn auth(headers: HeaderMap, request: Request, next: Next) -> Result<Response> {
-    let credentials = get_credentials(&headers)?;
-    if validate_credentials(&credentials) {
-        let response = next.run(request).await;
-        Ok(response)
-    } else {
-        Err(RucatError::unauthorized(anyhow!("wrong credentials")).into())
+pub(crate) async fn auth<DB, AuthProvider>(
+    State(state): State<AppState<DB, AuthProvider>>,
+    headers: HeaderMap,
+    request: Request,
+    next: Next,
+) -> Result<Response>
+where
+    DB: Database,
+    AuthProvider: Authenticate,
+{
+    match state.get_auth_provider() {
+        None => Ok(next.run(request).await),
+        Some(auth_provider) => {
+            let credentials = get_credentials(&headers)?;
+            if auth_provider.validate(&credentials) {
+                Ok(next.run(request).await)
+            } else {
+                Err(RucatError::unauthorized(anyhow!("wrong credentials")).into())
+            }
+        }
     }
 }
 
-/// Get Basic or Bearer credentials
+/// Get credentials from headers
 fn get_credentials(headers: &HeaderMap) -> Result<Credentials> {
     let token = headers
         .get(http::header::AUTHORIZATION)
@@ -44,9 +62,8 @@ fn get_credentials(headers: &HeaderMap) -> Result<Credentials> {
         .ok_or_else(|| RucatError::unauthorized(anyhow!("Unsupported credentials type")).into())
 }
 
-fn validate_credentials(token: &Credentials) -> bool {
-    match token {
-        Credentials::Basic(basic) => basic.username().eq("admin") && basic.password().eq("admin"),
-        Credentials::Bearer(bearer) => bearer.token().eq("admin"),
-    }
+/// Trait for authentication
+pub trait Authenticate: Send + Sync + 'static {
+    /// Validate the credentials
+    fn validate(&self, credentials: &Credentials) -> bool;
 }

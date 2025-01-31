@@ -78,7 +78,13 @@ stateDiagram
 
 ```json
 {
-    "auth_enable": <bool>,  # enable auth or not when sending request to rucat server. Only supported hard-coded username and password for now.
+    "auth_provider": { # this field is optional. If not provided, no authentication is needed. Only support static auth for now.
+      "StaticAuthProviderConfig": {
+        "username": "admin",
+        "password": "admin",
+        "bearer_token": "admin"
+      }
+    },
     "database": { # database configurations. Only support SurrealDB for now.
         "credentials": { # credentials for connecting to the database. Only supported hard-coded username and password for now.
             "username": "admin",
@@ -229,8 +235,7 @@ cargo test
 4. More resource clients: Yarn, Spark standalone, Spark local, rust shuttle etc. (0.2)
 5. Add test for state monitor. (0.1)
 6. rucat connection for Spark connect. (RPC or REST for the API? Also see <https://tech.fpcomplete.com/blog/axum-hyper-tonic-tower-part4/> for rpc and rest in one port) 0.2 version
-7. Rucat client for engine APIs (0.1)
-8. Generic authentication (0.1)
+7. Release rucat client crate to cargo.com (0.1)
 
 ## Debug
 

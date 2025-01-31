@@ -16,7 +16,7 @@ use http::StatusCode;
 #[tokio::test]
 async fn undefined_handler() -> Result<()> {
     let db = MockDB::new();
-    let server = get_test_server(false, db).await?;
+    let server = get_test_server(db, None).await?;
 
     let response = server.get("/any").await;
 
@@ -27,7 +27,7 @@ async fn undefined_handler() -> Result<()> {
 #[tokio::test]
 async fn root_get_request() -> Result<()> {
     let db = MockDB::new();
-    let server = get_test_server(false, db).await?;
+    let server = get_test_server(db, None).await?;
 
     let response = server.get("/").await;
 
@@ -43,7 +43,7 @@ async fn get_engine_not_found() -> Result<()> {
         .with(predicate::eq(EngineId::new(Cow::Borrowed("any"))?))
         .times(1)
         .returning(|_| Ok(None));
-    let server = get_test_server(false, db).await?;
+    let server = get_test_server(db, None).await?;
 
     let response = server.get("/engine/any").await;
 
@@ -54,7 +54,7 @@ async fn get_engine_not_found() -> Result<()> {
 #[tokio::test]
 async fn create_engine_with_missing_field() -> Result<()> {
     let db = MockDB::new();
-    let server = get_test_server(false, db).await?;
+    let server = get_test_server(db, None).await?;
 
     let response = server
         .post("/engine")
@@ -73,7 +73,7 @@ async fn create_engine_with_missing_field() -> Result<()> {
 #[tokio::test]
 async fn create_engine_with_unknown_field() -> Result<()> {
     let db = MockDB::new();
-    let server = get_test_server(false, db).await?;
+    let server = get_test_server(db, None).await?;
 
     let response = server
         .post("/engine")
@@ -93,7 +93,7 @@ async fn create_engine_with_unknown_field() -> Result<()> {
 #[tokio::test]
 async fn create_engine_with_unsupported_engine_type() -> Result<()> {
     let db = MockDB::new();
-    let server = get_test_server(false, db).await?;
+    let server = get_test_server(db, None).await?;
 
     let response = server
         .post("/engine")
@@ -129,7 +129,7 @@ async fn create_engine() -> Result<()> {
         )
         .times(1)
         .returning(|_, _| Ok(EngineId::new(Cow::Borrowed("123"))?));
-    let server = get_test_server(false, db).await?;
+    let server = get_test_server(db, None).await?;
 
     let response = server
         .post("/engine")
@@ -166,7 +166,7 @@ async fn get_engine() -> Result<()> {
         .with(predicate::eq(EngineId::new(Cow::Borrowed("123"))?))
         .times(1)
         .returning(move |_| Ok(Some(engine_info.clone())));
-    let server = get_test_server(false, db).await?;
+    let server = get_test_server(db, None).await?;
 
     let response: EngineInfo = server.get("/engine/123").await.json();
     assert_eq!(response, engine_info_cloned);
@@ -181,7 +181,7 @@ async fn delete_nonexistent_engine() -> Result<()> {
         .with(predicate::eq(EngineId::new(Cow::Borrowed("123"))?))
         .times(1)
         .returning(|_| Ok(None));
-    let server = get_test_server(false, db).await?;
+    let server = get_test_server(db, None).await?;
     let response = server.delete("/engine/123").await;
     response.assert_status_not_found();
     Ok(())
@@ -215,7 +215,7 @@ async fn delete_engine() -> Result<()> {
                 update_success: true,
             }))
         });
-    let server = get_test_server(false, db).await?;
+    let server = get_test_server(db, None).await?;
 
     let response = server.delete("/engine/123").await;
     response.assert_status_ok();
@@ -252,7 +252,7 @@ async fn stop_wait_to_start_engine() -> Result<()> {
                 update_success: true,
             }))
         });
-    let server = get_test_server(false, db).await?;
+    let server = get_test_server(db, None).await?;
 
     let response = server.post("/engine/123/stop").await;
     response.assert_status_ok();
@@ -267,7 +267,7 @@ async fn stop_nonexistent_engine() -> Result<()> {
         .with(predicate::eq(EngineId::new(Cow::Borrowed("123"))?))
         .times(1)
         .returning(|_| Ok(None));
-    let server = get_test_server(false, db).await?;
+    let server = get_test_server(db, None).await?;
     let response = server.post("/engine/123/stop").await;
     response.assert_status_not_found();
     Ok(())
@@ -303,7 +303,7 @@ async fn restart_terminated_engine() -> Result<()> {
                 update_success: true,
             }))
         });
-    let server = get_test_server(false, db).await?;
+    let server = get_test_server(db, None).await?;
 
     let response = server.post("/engine/123/restart").await;
     response.assert_status_ok();
@@ -318,7 +318,7 @@ async fn restart_nonexistent_engine() -> Result<()> {
         .with(predicate::eq(EngineId::new(Cow::Borrowed("123"))?))
         .times(1)
         .returning(|_| Ok(None));
-    let server = get_test_server(false, db).await?;
+    let server = get_test_server(db, None).await?;
     let response = server.post("/engine/123/restart").await;
     response.assert_status_not_found();
     Ok(())
@@ -340,7 +340,7 @@ async fn cannot_restart_engine() -> Result<()> {
                 EngineTime::now(),
             )))
         });
-    let server = get_test_server(false, db).await?;
+    let server = get_test_server(db, None).await?;
 
     let response = server.post("/engine/123/restart").await;
     response.assert_status_forbidden();
@@ -355,7 +355,7 @@ async fn cannot_restart_engine() -> Result<()> {
 async fn list_engines_empty() -> Result<()> {
     let mut db = MockDB::new();
     db.expect_list_engines().times(1).returning(|| Ok(vec![]));
-    let server = get_test_server(false, db).await?;
+    let server = get_test_server(db, None).await?;
     let response = server.get("/engine").await;
     response.assert_status_ok();
     response.assert_text("[]");
@@ -373,7 +373,7 @@ async fn list_2_engines() -> Result<()> {
     db.expect_list_engines()
         .times(1)
         .returning(move || Ok(ids_cloned.to_vec()));
-    let server = get_test_server(false, db).await?;
+    let server = get_test_server(db, None).await?;
 
     let response = server.get("/engine").await;
     response.assert_status_ok();

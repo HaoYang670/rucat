@@ -1,6 +1,7 @@
 mod common;
 
 use ::rucat_common::{error::Result, tokio};
+use ::rucat_server::authentication::static_auth_provider::StaticAuthProvider;
 use axum_extra::headers::authorization::Credentials as _;
 use common::{get_test_server, MockDB};
 use headers::Authorization;
@@ -13,7 +14,9 @@ static TOKEN: &str = "admin"; // Bearer token
 #[tokio::test]
 async fn without_auth_header() -> Result<()> {
     let db = MockDB::new();
-    let server = get_test_server(true, db).await?;
+    let auth_provider =
+        StaticAuthProvider::new(USERNAME.to_owned(), PWD.to_owned(), TOKEN.to_owned());
+    let server = get_test_server(db, Some(auth_provider)).await?;
 
     let response = server.get("/any").await;
 
@@ -24,7 +27,9 @@ async fn without_auth_header() -> Result<()> {
 #[tokio::test]
 async fn with_wrong_basic_auth() -> Result<()> {
     let db = MockDB::new();
-    let server = get_test_server(true, db).await?;
+    let auth_provider =
+        StaticAuthProvider::new(USERNAME.to_owned(), PWD.to_owned(), TOKEN.to_owned());
+    let server = get_test_server(db, Some(auth_provider)).await?;
 
     let response = server
         .get("/")
@@ -42,7 +47,9 @@ async fn with_wrong_basic_auth() -> Result<()> {
 #[tokio::test]
 async fn with_wrong_bearer_auth() -> Result<()> {
     let db = MockDB::new();
-    let server = get_test_server(true, db).await?;
+    let auth_provider =
+        StaticAuthProvider::new(USERNAME.to_owned(), PWD.to_owned(), TOKEN.to_owned());
+    let server = get_test_server(db, Some(auth_provider)).await?;
 
     let response = server
         .get("/any")
@@ -60,7 +67,9 @@ async fn with_wrong_bearer_auth() -> Result<()> {
 #[tokio::test]
 async fn with_unsupported_auth() -> Result<()> {
     let db = MockDB::new();
-    let server = get_test_server(true, db).await?;
+    let auth_provider =
+        StaticAuthProvider::new(USERNAME.to_owned(), PWD.to_owned(), TOKEN.to_owned());
+    let server = get_test_server(db, Some(auth_provider)).await?;
 
     let response = server
       .get("/")
@@ -80,7 +89,9 @@ async fn with_unsupported_auth() -> Result<()> {
 #[tokio::test]
 async fn basic_auth_successful() -> Result<()> {
     let db = MockDB::new();
-    let server = get_test_server(true, db).await?;
+    let auth_provider =
+        StaticAuthProvider::new(USERNAME.to_owned(), PWD.to_owned(), TOKEN.to_owned());
+    let server = get_test_server(db, Some(auth_provider)).await?;
 
     let response = server
         .get("/")
@@ -97,7 +108,9 @@ async fn basic_auth_successful() -> Result<()> {
 #[tokio::test]
 async fn bearer_auth_successful() -> Result<()> {
     let db = MockDB::new();
-    let server = get_test_server(true, db).await?;
+    let auth_provider =
+        StaticAuthProvider::new(USERNAME.to_owned(), PWD.to_owned(), TOKEN.to_owned());
+    let server = get_test_server(db, Some(auth_provider)).await?;
 
     let response = server
         .get("/")

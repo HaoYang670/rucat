@@ -6,7 +6,10 @@ use ::rucat_common::{
     tracing::info,
     tracing_subscriber,
 };
-use ::rucat_server::{get_server, ServerConfig};
+use ::rucat_server::{
+    authentication::static_auth_provider::StaticAuthProvider, get_server,
+    AuthProviderVariant::StaticAuthProviderConfig, ServerConfig,
+};
 use rucat_common::{config::Args, error::Result};
 use std::net::{Ipv4Addr, SocketAddrV4};
 
@@ -19,12 +22,26 @@ async fn main() -> Result<()> {
     let Args { config_path } = Args::parse_args();
     let endpoint = SocketAddrV4::new(Ipv4Addr::LOCALHOST, 3000);
     let ServerConfig {
-        auth_enable,
+        auth_provider,
         database: DatabaseConfig { credentials, uri },
     } = load_config(&config_path)?;
 
     let db_client = SurrealDBClient::new(credentials.as_ref(), uri).await?;
-    let app = get_server(auth_enable, db_client)?;
+    let app = match auth_provider {
+        None => {
+            info!("Authentication is disabled");
+            get_server(db_client, None::<StaticAuthProvider>)?
+        }
+        Some(StaticAuthProviderConfig {
+            username,
+            password,
+            bearer_token,
+        }) => {
+            info!("Static authentication is enabled");
+            let auth_provider = StaticAuthProvider::new(username, password, bearer_token);
+            get_server(db_client, Some(auth_provider))?
+        }
+    };
 
     // run it
     let listener = tokio::net::TcpListener::bind(endpoint)

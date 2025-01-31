@@ -1,5 +1,11 @@
 {
-  "auth_enable": false,
+  "auth_provider": {
+    "StaticAuthProviderConfig": {
+      "username": "admin",
+      "password": "admin",
+      "bearer_token": "admin"
+    }
+  },
   "database": {
     "credentials": {
       "username": "remziy",

@@ -6,7 +6,7 @@ use ::rucat_common::{
     engine::{CreateEngineRequest, EngineId, EngineInfo, EngineState},
     error::*,
 };
-use ::rucat_server::get_server;
+use ::rucat_server::{authentication::static_auth_provider::StaticAuthProvider, get_server};
 use axum_test::TestServer;
 
 mock! {
@@ -27,7 +27,11 @@ mock! {
     }
 }
 
-pub async fn get_test_server(auth_enable: bool, db: MockDB) -> Result<TestServer> {
-    let app = get_server(auth_enable, db)?;
+// TODO: mock auth provider
+pub async fn get_test_server(
+    db: MockDB,
+    auth_provider: Option<StaticAuthProvider>,
+) -> Result<TestServer> {
+    let app = get_server(db, auth_provider)?;
     TestServer::new(app).map_err(RucatError::fail_to_start_server)
 }

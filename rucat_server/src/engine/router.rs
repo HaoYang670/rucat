@@ -18,15 +18,19 @@ use axum::{
     Json, Router,
 };
 
-use crate::{error::RucatServerError, state::AppState};
+use crate::{error::RucatServerError, state::AppState, Authenticate};
 
 type Result<T> = std::result::Result<T, RucatServerError>;
 
 /// start an engine with the given configuration
-async fn create_engine<DB: Database>(
-    State(state): State<AppState<DB>>,
+async fn create_engine<DB, AuthProvider>(
+    State(state): State<AppState<DB, AuthProvider>>,
     Json(body): Json<CreateEngineRequest>,
-) -> Result<Json<EngineId>> {
+) -> Result<Json<EngineId>>
+where
+    DB: Database,
+    AuthProvider: Authenticate,
+{
     let id = state
         .get_db()
         .add_engine(body, Some(SystemTime::now()))
@@ -35,12 +39,13 @@ async fn create_engine<DB: Database>(
     Ok(Json(id))
 }
 
-async fn delete_engine<DB>(
+async fn delete_engine<DB, AuthProvider>(
     Path(id): Path<EngineId>,
-    State(state): State<AppState<DB>>,
+    State(state): State<AppState<DB, AuthProvider>>,
 ) -> Result<()>
 where
     DB: Database,
+    AuthProvider: Authenticate,
 {
     let db_client = state.get_db();
     let mut current_state = get_engine_state(&id, db_client).await?;
@@ -75,10 +80,14 @@ where
 }
 
 /// Stop an engine to release resources. But engine info is still kept in the data store.
-async fn stop_engine<DB: Database>(
+async fn stop_engine<DB, AuthProvider>(
     Path(id): Path<EngineId>,
-    State(state): State<AppState<DB>>,
-) -> Result<()> {
+    State(state): State<AppState<DB, AuthProvider>>,
+) -> Result<()>
+where
+    DB: Database,
+    AuthProvider: Authenticate,
+{
     let db_client = state.get_db();
     let mut current_state = get_engine_state(&id, db_client).await?;
 
@@ -115,10 +124,14 @@ async fn stop_engine<DB: Database>(
 }
 
 /// Restart a stopped engine with the same configuration.
-async fn restart_engine<DB: Database>(
+async fn restart_engine<DB, AuthProvider>(
     Path(id): Path<EngineId>,
-    State(state): State<AppState<DB>>,
-) -> Result<()> {
+    State(state): State<AppState<DB, AuthProvider>>,
+) -> Result<()>
+where
+    DB: Database,
+    AuthProvider: Authenticate,
+{
     let db_client = state.get_db();
     let mut current_state = get_engine_state(&id, db_client).await?;
 
@@ -156,10 +169,14 @@ async fn restart_engine<DB: Database>(
     }
 }
 
-async fn get_engine<DB: Database>(
+async fn get_engine<DB, AuthProvider>(
     Path(id): Path<EngineId>,
-    State(state): State<AppState<DB>>,
-) -> Result<Json<EngineInfo>> {
+    State(state): State<AppState<DB, AuthProvider>>,
+) -> Result<Json<EngineInfo>>
+where
+    DB: Database,
+    AuthProvider: Authenticate,
+{
     state
         .get_db()
         .get_engine(&id)
@@ -168,9 +185,13 @@ async fn get_engine<DB: Database>(
         .ok_or(RucatError::engine_not_found(&id).into())
 }
 
-async fn list_engines<DB: Database>(
-    State(state): State<AppState<DB>>,
-) -> Result<Json<Vec<EngineId>>> {
+async fn list_engines<DB, AuthProvider>(
+    State(state): State<AppState<DB, AuthProvider>>,
+) -> Result<Json<Vec<EngineId>>>
+where
+    DB: Database,
+    AuthProvider: Authenticate,
+{
     state
         .get_db()
         .list_engines()
@@ -191,10 +212,20 @@ where
 }
 
 /// Pass the data store endpoint later
-pub(crate) fn get_engine_router<DB: Database>() -> Router<AppState<DB>> {
+pub(crate) fn get_engine_router<DB, AuthProvider>() -> Router<AppState<DB, AuthProvider>>
+where
+    DB: Database,
+    AuthProvider: Authenticate,
+{
     Router::new()
-        .route("/", post(create_engine::<DB>).get(list_engines::<DB>))
-        .route("/{id}", get(get_engine::<DB>).delete(delete_engine::<DB>))
-        .route("/{id}/stop", post(stop_engine::<DB>))
-        .route("/{id}/restart", post(restart_engine::<DB>))
+        .route(
+            "/",
+            post(create_engine::<DB, AuthProvider>).get(list_engines::<DB, AuthProvider>),
+        )
+        .route(
+            "/{id}",
+            get(get_engine::<DB, AuthProvider>).delete(delete_engine::<DB, AuthProvider>),
+        )
+        .route("/{id}/stop", post(stop_engine::<DB, AuthProvider>))
+        .route("/{id}/restart", post(restart_engine::<DB, AuthProvider>))
 }
