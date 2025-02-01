@@ -1,5 +1,5 @@
 use ::rucat_common::{
-    config::{load_config, DatabaseConfig},
+    config::{load_config, DatabaseVariant},
     database::surrealdb_client::SurrealDBClient,
     error::RucatError,
     tokio,
@@ -23,7 +23,7 @@ async fn main() -> Result<()> {
     let endpoint = SocketAddrV4::new(Ipv4Addr::LOCALHOST, 3000);
     let ServerConfig {
         auth_provider,
-        database: DatabaseConfig { credentials, uri },
+        database: DatabaseVariant::Surreal { credentials, uri },
     } = load_config(&config_path)?;
 
     let db_client = SurrealDBClient::new(credentials.as_ref(), uri).await?;

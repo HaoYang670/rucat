@@ -1,4 +1,4 @@
-use ::rucat_common::{config::DatabaseConfig, serde::Deserialize};
+use ::rucat_common::{config::DatabaseVariant, serde::Deserialize};
 
 /// Configuration for rucat state monitor
 #[derive(Debug, Deserialize, PartialEq, Eq)]
@@ -14,7 +14,7 @@ pub struct StateMonitorConfig {
     /// to avoid the engine being stuck in *Trigger* state. State monitor will pick up those timed out engines
     /// and retrigger them.
     pub trigger_state_timeout_secs: u16,
-    pub database: DatabaseConfig,
+    pub database: DatabaseVariant,
 }
 
 /// Load the configuration from the file
@@ -35,8 +35,10 @@ mod tests {
         let config = json!(
             {
                 "database": {
-                    "credentials": null,
-                    "uri": ""
+                    "Surreal": {
+                        "credentials": null,
+                        "uri": ""
+                    }
                 }
             }
         );
@@ -65,8 +67,10 @@ mod tests {
             {
                 "check_interval_secs": 1,
                 "database": {
-                    "credentials": null,
-                    "uri": ""
+                    "Surreal": {
+                        "credentials": null,
+                        "uri": ""
+                    }
                 },
                 "unknown_field": "unknown"
             }
@@ -85,8 +89,10 @@ mod tests {
                 "check_interval_secs": 1,
                 "trigger_state_timeout_secs": 60,
                 "database": {
-                    "credentials": null,
-                    "uri":""
+                    "Surreal": {
+                        "credentials": null,
+                        "uri":""
+                    }
                 }
             }
         );
@@ -96,7 +102,7 @@ mod tests {
             StateMonitorConfig {
                 check_interval_secs: 1,
                 trigger_state_timeout_secs: 60,
-                database: DatabaseConfig {
+                database: DatabaseVariant::Surreal {
                     credentials: None,
                     uri: "".to_string()
                 }

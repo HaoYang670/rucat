@@ -32,9 +32,12 @@ pub struct Credentials {
 
 #[derive(Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
-pub struct DatabaseConfig {
-    pub credentials: Option<Credentials>,
-    pub uri: String,
+/// Database config
+pub enum DatabaseVariant {
+    Surreal {
+        credentials: Option<Credentials>,
+        uri: String,
+    },
 }
 
 /// Parse config from file.
@@ -53,16 +56,16 @@ mod tests {
     use super::*;
 
     #[test]
-    fn allow_missing_field_credentials() -> Result<()> {
+    fn allow_missing_credentials() -> Result<()> {
         let config = json!(
             {
-                "uri": ""
+                "Surreal": { "uri": "" }
             }
         );
-        let result = from_value::<DatabaseConfig>(config)?;
+        let result = from_value::<DatabaseVariant>(config)?;
         assert_eq!(
             result,
-            DatabaseConfig {
+            DatabaseVariant::Surreal {
                 credentials: None,
                 uri: "".to_string()
             }
@@ -71,13 +74,13 @@ mod tests {
     }
 
     #[test]
-    fn missing_field_uri() {
+    fn missing_uri() {
         let config = json!(
             {
-                "credentials": null
+                "Surreal": { "credentials": null }
             }
         );
-        let result = from_value::<DatabaseConfig>(config);
+        let result = from_value::<DatabaseVariant>(config);
         assert_eq!(result.unwrap_err().to_string(), "missing field `uri`");
     }
 
@@ -85,12 +88,14 @@ mod tests {
     fn deny_unknown_fields() {
         let config = json!(
             {
-                "credentials": null,
-                "uri": "",
-                "unknown_field": "unknown"
+                "Surreal": {
+                    "credentials": null,
+                    "uri": "",
+                    "unknown_field": "unknown"
+                }
             }
         );
-        let result = from_value::<DatabaseConfig>(config);
+        let result = from_value::<DatabaseVariant>(config);
         assert_eq!(
             result.unwrap_err().to_string(),
             "unknown field `unknown_field`, expected `credentials` or `uri`"
@@ -98,20 +103,22 @@ mod tests {
     }
 
     #[test]
-    fn deserialize_local_database_config() -> Result<()> {
+    fn deserialize_database_config() -> Result<()> {
         let config = json!(
             {
-                "credentials": {
-                    "username": "admin",
-                    "password": "pwd"
-                },
-                "uri": "localhost:27017"
+                "Surreal": {
+                    "credentials": {
+                        "username": "admin",
+                        "password": "pwd"
+                    },
+                    "uri": "localhost:27017"
+                }
             }
         );
-        let result = from_value::<DatabaseConfig>(config)?;
+        let result = from_value::<DatabaseVariant>(config)?;
         assert_eq!(
             result,
-            DatabaseConfig {
+            DatabaseVariant::Surreal {
                 credentials: Some(Credentials {
                     username: "admin".to_string(),
                     password: "pwd".to_string()

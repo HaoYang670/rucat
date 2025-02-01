@@ -1,5 +1,5 @@
 use ::rucat_common::{
-    config::{load_config, DatabaseConfig},
+    config::{load_config, DatabaseVariant},
     database::surrealdb_client::SurrealDBClient,
     error::Result,
     tokio,
@@ -23,7 +23,7 @@ async fn main() -> Result<()> {
     let StateMonitorConfig {
         check_interval_secs,
         trigger_state_timeout_secs,
-        database: DatabaseConfig { credentials, uri },
+        database: DatabaseVariant::Surreal { credentials, uri },
     } = load_config(CONFIG_FILE_PATH)?;
 
     let db_client = SurrealDBClient::new(credentials.as_ref(), uri).await?;

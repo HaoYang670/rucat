@@ -16,8 +16,10 @@ data:
       },
       "database": {
         "credentials": {
-          "username": "admin",
-          "password": "admin"
+          "Surreal": {
+            "username": "admin",
+            "password": "admin"
+          }
         },
         "uri": "rucat-surrealdb:8000"
       }

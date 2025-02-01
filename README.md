@@ -86,11 +86,13 @@ stateDiagram
       }
     },
     "database": { # database configurations. Only support SurrealDB for now.
+      "Surreal": {
         "credentials": { # credentials for connecting to the database. Only supported hard-coded username and password for now.
             "username": "admin",
             "password": "admin"
         },
         "uri": "rucat-surrealdb:8000" # URI of the database server.
+      }
     }
 }
 ```
@@ -105,11 +107,13 @@ Path of the configuration file is hard-coded as `/rucat_state_monitor/config.jso
 {
     "check_interval_secs": < u8 >, # the interval of checking the engine state in second.
     "database": { # same as the database configurations in rucat server.
-      "credentials": {
-          "username": "admin",
-          "password": "admin"
-      },
-      "uri": "rucat-surrealdb:8000"
+      "Surreal": {
+        "credentials": {
+            "username": "admin",
+            "password": "admin"
+        },
+        "uri": "rucat-surrealdb:8000"
+      }
     }
 }
 ```

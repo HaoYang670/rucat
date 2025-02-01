@@ -1,5 +1,5 @@
 use ::rucat_common::{
-    config::DatabaseConfig, database::Database, error::Result, serde::Deserialize,
+    config::DatabaseVariant, database::Database, error::Result, serde::Deserialize,
 };
 use authentication::{auth, Authenticate};
 use axum::{extract::State, middleware, routing::get, Router};
@@ -28,7 +28,7 @@ pub enum AuthProviderVariant {
 #[serde(crate = "rucat_common::serde")]
 pub struct ServerConfig {
     pub auth_provider: Option<AuthProviderVariant>,
-    pub database: DatabaseConfig,
+    pub database: DatabaseVariant,
 }
 
 /// This is the only entry for users to get the rucat server.
@@ -72,8 +72,10 @@ mod tests {
         let config = json!(
             {
                 "database": {
-                    "credentials": null,
-                    "uri": ""
+                    "Surreal": {
+                        "credentials": null,
+                        "uri": ""
+                    }
                 }
             }
         );
@@ -82,7 +84,7 @@ mod tests {
             result,
             ServerConfig {
                 auth_provider: None,
-                database: DatabaseConfig {
+                database: DatabaseVariant::Surreal {
                     credentials: None,
                     uri: "".to_string()
                 }
@@ -112,8 +114,10 @@ mod tests {
         let config = json!(
             {
                 "database": {
-                    "credentials": null,
-                    "uri": ""
+                    "Surreal": {
+                        "credentials": null,
+                        "uri": ""
+                    }
                 },
                 "unknown_field": "unknown"
             }
@@ -137,8 +141,10 @@ mod tests {
                     }
                 },
                 "database": {
-                    "credentials": null,
-                    "uri": "",
+                    "Surreal": {
+                        "credentials": null,
+                        "uri": ""
+                    }
                 }
             }
         );
@@ -151,7 +157,7 @@ mod tests {
                     password: "123".to_string(),
                     bearer_token: "abc".to_string()
                 }),
-                database: DatabaseConfig {
+                database: DatabaseVariant::Surreal {
                     credentials: None,
                     uri: "".to_string()
                 }

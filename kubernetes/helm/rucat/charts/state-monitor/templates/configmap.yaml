@@ -11,8 +11,10 @@ data:
       "trigger_state_timeout_secs": 60,
       "database": {
         "credentials": {
-          "username": "admin",
-          "password": "admin"
+          "Surreal": {
+            "username": "admin",
+            "password": "admin"
+          }
         },
         "uri": "rucat-surrealdb:8000"
       }
