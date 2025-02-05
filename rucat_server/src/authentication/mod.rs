@@ -1,16 +1,15 @@
 //! authentication middleware
 
+use ::std::sync::Arc;
 use std::panic::catch_unwind;
 
 use ::axum::extract::State;
-use ::rucat_common::database::Database;
 use axum::{extract::Request, http::HeaderMap, middleware::Next, response::Response};
 use axum_extra::headers::authorization::{Basic, Bearer, Credentials as _};
 use rucat_common::anyhow::anyhow;
 use rucat_common::error::RucatError;
 
 use crate::error::RucatServerError;
-use crate::AppState;
 
 pub mod static_auth_provider;
 
@@ -22,26 +21,20 @@ pub enum Credentials {
 }
 
 /// authentication
-pub(crate) async fn auth<DB, AuthProvider>(
-    State(state): State<AppState<DB, AuthProvider>>,
+pub(crate) async fn auth<AuthProvider>(
+    State(auth_provider): State<Arc<AuthProvider>>,
     headers: HeaderMap,
     request: Request,
     next: Next,
 ) -> Result<Response>
 where
-    DB: Database,
     AuthProvider: Authenticate,
 {
-    match state.get_auth_provider() {
-        None => Ok(next.run(request).await),
-        Some(auth_provider) => {
-            let credentials = get_credentials(&headers)?;
-            if auth_provider.validate(&credentials) {
-                Ok(next.run(request).await)
-            } else {
-                Err(RucatError::unauthorized(anyhow!("wrong credentials")).into())
-            }
-        }
+    let credentials = get_credentials(&headers)?;
+    if auth_provider.validate(&credentials) {
+        Ok(next.run(request).await)
+    } else {
+        Err(RucatError::unauthorized(anyhow!("wrong credentials")).into())
     }
 }
 

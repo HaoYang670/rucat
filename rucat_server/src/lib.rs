@@ -1,3 +1,6 @@
+use ::std::sync::Arc;
+
+use ::axum_extra::middleware::option_layer;
 use ::rucat_common::{
     config::DatabaseVariant, database::Database, error::Result, serde::Deserialize,
 };
@@ -41,18 +44,20 @@ where
     DB: Database,
     AuthProvider: Authenticate,
 {
-    let app_state = AppState::new(db_client, auth_provider);
+    let app_state = AppState::new(db_client);
 
     // go through the router from outer to inner
     let router = Router::new()
         .route(
             "/",
-            get(|_: State<AppState<DB, AuthProvider>>| async { "welcome to rucat" }),
+            get(|_: State<AppState<DB>>| async { "welcome to rucat" }),
         )
         .nest("/engine", get_engine_router())
         // TODO: use tower::ServiceBuilder to build the middleware stack
         // but need to be careful with the order of the middleware and the compatibility with axum::option_layer
-        .layer(middleware::from_fn_with_state(app_state.clone(), auth))
+        .layer(option_layer(auth_provider.map(|auth_provider| {
+            middleware::from_fn_with_state(Arc::new(auth_provider), auth)
+        })))
         .layer(TraceLayer::new_for_http())
         .with_state(app_state);
     Ok(router)

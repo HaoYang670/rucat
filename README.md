@@ -240,6 +240,8 @@ cargo test
 5. Add test for state monitor. (0.1)
 6. rucat connection for Spark connect. (RPC or REST for the API? Also see <https://tech.fpcomplete.com/blog/axum-hyper-tonic-tower-part4/> for rpc and rest in one port) 0.2 version
 7. Release rucat client crate to cargo.com (0.1)
+8. Officially release docker images to docker hub. (0.1)
+9. Release helm chart. (0.1)
 
 ## Debug
 
