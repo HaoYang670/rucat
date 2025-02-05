@@ -15,12 +15,12 @@ data:
         }
       },
       "database": {
-        "credentials": {
-          "Surreal": {
+        "Surreal": {
+          "credentials": {
             "username": "admin",
             "password": "admin"
-          }
-        },
-        "uri": "rucat-surrealdb:8000"
+          },
+          "uri": "rucat-surrealdb:8000"
+        }
       }
     }
