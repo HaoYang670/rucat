@@ -8,7 +8,7 @@ pub(crate) struct AppState<DB> {
     db: Arc<DB>,
 }
 
-// TODO: I don't know why derive(Clone) is not working here.
+// Manually implement `Clone` because derive(Clone) requires `DB: Clone`
 impl<DB> Clone for AppState<DB> {
     fn clone(&self) -> Self {
         Self {

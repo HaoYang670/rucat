@@ -34,5 +34,5 @@ async fn main() -> Result<()> {
         check_interval_secs,
         trigger_state_timeout_secs,
     );
-    state_monitor.run_state_monitor().await
+    state_monitor.run().await
 }

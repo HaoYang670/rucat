@@ -234,14 +234,13 @@ cargo test
 ## TODO
 
 1. catch the engine log before deleting? (0.2)
-2. mock resource manager. <https://github.com/asomers/mockall> (0.1)
-3. multi rucat state monitors (0.2)
-4. More resource clients: Yarn, Spark standalone, Spark local, rust shuttle etc. (0.2)
-5. Add test for state monitor. (0.1)
-6. rucat connection for Spark connect. (RPC or REST for the API? Also see <https://tech.fpcomplete.com/blog/axum-hyper-tonic-tower-part4/> for rpc and rest in one port) 0.2 version
-7. Release rucat client crate to cargo.com (0.1)
-8. Officially release docker images to docker hub. (0.1)
-9. Release helm chart. (0.1)
+2. multi rucat state monitors (0.2)
+3. More resource clients: Yarn, Spark standalone, Spark local, rust shuttle etc. (0.2)
+4. rucat connection for Spark connect. (RPC or REST for the API? Also see <https://tech.fpcomplete.com/blog/axum-hyper-tonic-tower-part4/> for rpc and rest in one port) 0.2 version
+5. Release rucat client crate to cargo.com (0.1)
+6. Officially release docker images to docker hub. (0.1)
+7. Release helm chart. (0.1)
+8. update UpdateEngineStateResponse to enum. (0.1)
 
 ## Debug
 

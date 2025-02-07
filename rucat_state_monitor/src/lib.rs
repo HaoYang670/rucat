@@ -52,7 +52,7 @@ where
     }
 
     /// This function runs forever to monitor the state of engines.
-    pub async fn run_state_monitor(&self) -> ! {
+    pub async fn run(&self) -> ! {
         loop {
             let start_time = Instant::now();
             match self.db_client.list_engines_need_update().await {
@@ -96,7 +96,7 @@ where
                             Some(Cow::Owned(e.to_string()))
                         }
                     };
-                    self.release_engine(&TriggerStart, &id, err_msg).await;
+                    self.release_engine(&id, &TriggerStart, err_msg).await;
                 }
             }
             WaitToTerminate => {
@@ -113,7 +113,7 @@ where
                             Some(Cow::Owned(e.to_string()))
                         }
                     };
-                    self.release_engine(&TriggerTermination, &id, err_msg).await;
+                    self.release_engine(&id, &TriggerTermination, err_msg).await;
                 }
             }
             ErrorWaitToClean(s) => {
@@ -130,7 +130,7 @@ where
                             Some(Cow::Owned(e.to_string()))
                         }
                     };
-                    self.release_engine(&ErrorTriggerClean(s), &id, err_msg)
+                    self.release_engine(&id, &ErrorTriggerClean(s), err_msg)
                         .await;
                 }
             }
@@ -184,8 +184,8 @@ where
     /// or to Error states if error message is provided.
     async fn release_engine(
         &self,
-        current_state: &EngineState,
         id: &EngineId,
+        current_state: &EngineState,
         err_msg: Option<Cow<'static, str>>,
     ) {
         let new_state = match (current_state, err_msg) {
@@ -336,7 +336,17 @@ fn get_next_update_time(
 
 #[cfg(test)]
 mod tests {
+    use ::std::collections::BTreeMap;
+
     use super::*;
+    use crate::resource_manager::k8s_client::K8sPodState;
+    use ::mockall::{mock, predicate};
+    use ::rucat_common::{
+        anyhow::anyhow,
+        database::UpdateEngineStateResponse,
+        engine::{CreateEngineRequest, EngineInfo, EngineTime, EngineType::Spark, EngineVersion},
+        error::{Result, RucatError},
+    };
 
     #[test]
     fn test_get_next_update_time() {
@@ -373,5 +383,952 @@ mod tests {
             get_next_update_time(&ErrorClean(Cow::Borrowed("error"))),
             None
         );
+    }
+
+    mock! {
+        DB{}
+        impl Database for DB {
+            async fn add_engine(&self, engine: CreateEngineRequest, next_update_time: Option<SystemTime>) -> Result<EngineId>;
+            async fn remove_engine(&self, id: &EngineId, current_state: &EngineState) -> Result<Option<UpdateEngineStateResponse>>;
+            async fn update_engine_state(
+                &self,
+                id: &EngineId,
+                before: &EngineState,
+                after: &EngineState,
+                next_update_time: Option<SystemTime>,
+            ) -> Result<Option<UpdateEngineStateResponse>>;
+            async fn get_engine(&self, id: &EngineId) -> Result<Option<EngineInfo>>;
+            async fn list_engines(&self) -> Result<Vec<EngineId>>;
+            async fn list_engines_need_update(&self) -> Result<Vec<EngineIdAndInfo>>;
+        }
+    }
+    mock! {
+        RM{}
+        impl ResourceManager for RM {
+            type ResourceState = K8sPodState;
+            async fn create_resource(&self, id: &EngineId, info: &EngineInfo) -> Result<()>;
+            async fn clean_resource(&self, id: &EngineId) -> Result<()>;
+            async fn get_resource_state(&self, id: &EngineId) -> K8sPodState;
+        }
+    }
+
+    fn create_mock_state_monitor(db: MockDB, rm: MockRM) -> StateMonitor<MockDB, MockRM> {
+        // check intervals are not tested.
+        StateMonitor::new(db, rm, 0, 0)
+    }
+
+    #[tokio::test]
+    async fn inspect_engine_state_updating_success() {
+        let engine_id = EngineId::try_from("123").unwrap();
+        let mut db = MockDB::new();
+        db.expect_update_engine_state()
+            .with(
+                predicate::eq(engine_id.clone()),
+                predicate::eq(&WaitToStart),
+                predicate::eq(&Terminated),
+                predicate::eq(None),
+            )
+            .times(1)
+            .returning(|_, _, _, _| {
+                Ok(Some(UpdateEngineStateResponse {
+                    before_state: WaitToStart,
+                    update_success: true,
+                }))
+            });
+        let rm = MockRM::new();
+        let monitor = create_mock_state_monitor(db, rm);
+        assert_eq!(
+            monitor
+                .inspect_engine_state_updating(&engine_id, &WaitToStart, &Terminated)
+                .await,
+            true
+        );
+    }
+
+    #[tokio::test]
+    async fn inspect_engine_state_updating_fail_1() {
+        let engine_id = EngineId::try_from("123").unwrap();
+        let mut db = MockDB::new();
+        db.expect_update_engine_state()
+            .with(
+                predicate::eq(engine_id.clone()),
+                predicate::eq(&WaitToStart),
+                predicate::eq(&Terminated),
+                predicate::eq(None),
+            )
+            .times(1)
+            .returning(|_, _, _, _| {
+                Ok(Some(UpdateEngineStateResponse {
+                    before_state: TriggerStart,
+                    update_success: false,
+                }))
+            });
+        let rm = MockRM::new();
+        let monitor = create_mock_state_monitor(db, rm);
+        assert_eq!(
+            monitor
+                .inspect_engine_state_updating(&engine_id, &WaitToStart, &Terminated)
+                .await,
+            false
+        );
+    }
+
+    #[tokio::test]
+    async fn inspect_engine_state_updating_fail_2() {
+        let engine_id = EngineId::try_from("123").unwrap();
+        let mut db = MockDB::new();
+        db.expect_update_engine_state()
+            .with(
+                predicate::eq(engine_id.clone()),
+                predicate::eq(&WaitToStart),
+                predicate::eq(&Terminated),
+                predicate::eq(None),
+            )
+            .times(1)
+            .returning(|_, _, _, _| Ok(None));
+        let rm = MockRM::new();
+        let monitor = create_mock_state_monitor(db, rm);
+        assert_eq!(
+            monitor
+                .inspect_engine_state_updating(&engine_id, &WaitToStart, &Terminated)
+                .await,
+            false
+        );
+    }
+
+    #[tokio::test]
+    async fn inspect_engine_state_updating_fail_3() {
+        let engine_id = EngineId::try_from("123").unwrap();
+        let mut db = MockDB::new();
+        db.expect_update_engine_state()
+            .with(
+                predicate::eq(engine_id.clone()),
+                predicate::eq(&WaitToStart),
+                predicate::eq(&Terminated),
+                predicate::eq(None),
+            )
+            .times(1)
+            .returning(|_, _, _, _| Err(RucatError::fail_to_connect_database(anyhow!(""))));
+        let rm = MockRM::new();
+        let monitor = create_mock_state_monitor(db, rm);
+        assert_eq!(
+            monitor
+                .inspect_engine_state_updating(&engine_id, &WaitToStart, &Terminated)
+                .await,
+            false
+        );
+    }
+
+    #[tokio::test]
+    async fn acquire_engine_success() {
+        let engine_id = EngineId::try_from("123").unwrap();
+        let mut db = MockDB::new();
+        db.expect_update_engine_state()
+            .with(
+                predicate::eq(engine_id.clone()),
+                predicate::eq(&WaitToStart),
+                predicate::eq(&TriggerStart),
+                predicate::always(),
+            )
+            .times(1)
+            .returning(|_, _, _, _| {
+                Ok(Some(UpdateEngineStateResponse {
+                    before_state: WaitToStart,
+                    update_success: true,
+                }))
+            });
+        let rm = MockRM::new();
+        let monitor = create_mock_state_monitor(db, rm);
+        assert_eq!(monitor.acquire_engine(&engine_id, &WaitToStart).await, true);
+    }
+
+    #[tokio::test]
+    #[should_panic(expected = "Should not acquire engine in state Running")]
+    async fn acquire_engine_panic() {
+        let engine_id = EngineId::try_from("123").unwrap();
+        let db = MockDB::new();
+        let rm = MockRM::new();
+        let monitor = create_mock_state_monitor(db, rm);
+        monitor.acquire_engine(&engine_id, &Running).await;
+    }
+
+    #[tokio::test]
+    async fn release_engine_success() {
+        let engine_id = EngineId::try_from("123").unwrap();
+        let mut db = MockDB::new();
+        db.expect_update_engine_state()
+            .with(
+                predicate::eq(engine_id.clone()),
+                predicate::eq(&TriggerStart),
+                predicate::eq(&StartInProgress),
+                predicate::always(),
+            )
+            .times(1)
+            .returning(|_, _, _, _| {
+                Ok(Some(UpdateEngineStateResponse {
+                    before_state: TriggerStart,
+                    update_success: true,
+                }))
+            });
+        let rm = MockRM::new();
+        let monitor = create_mock_state_monitor(db, rm);
+        // this should not panic
+        monitor
+            .release_engine(&engine_id, &TriggerStart, None)
+            .await
+    }
+
+    #[tokio::test]
+    async fn release_engine_to_err_state_success() {
+        let engine_id = EngineId::try_from("123").unwrap();
+        let mut db = MockDB::new();
+        db.expect_update_engine_state()
+            .with(
+                predicate::eq(engine_id.clone()),
+                predicate::eq(&TriggerStart),
+                predicate::eq(&ErrorClean(Cow::Borrowed("error"))),
+                predicate::always(),
+            )
+            .times(1)
+            .returning(|_, _, _, _| {
+                Ok(Some(UpdateEngineStateResponse {
+                    before_state: TriggerStart,
+                    update_success: true,
+                }))
+            });
+        let rm = MockRM::new();
+        let monitor = create_mock_state_monitor(db, rm);
+        // this should not panic
+        monitor
+            .release_engine(&engine_id, &TriggerStart, Some(Cow::Borrowed("error")))
+            .await
+    }
+
+    #[tokio::test]
+    #[should_panic(expected = "Should not release engine in state WaitToStart")]
+    async fn release_engine_panic_on_unexpected_state() {
+        let engine_id = EngineId::try_from("123").unwrap();
+        let db = MockDB::new();
+        let rm = MockRM::new();
+        let monitor = create_mock_state_monitor(db, rm);
+        monitor.release_engine(&engine_id, &WaitToStart, None).await
+    }
+
+    #[tokio::test]
+    #[should_panic(
+        expected = "Bug: engine 123 in TriggerStart start is updated to StartInProgress by others"
+    )]
+    async fn release_engine_panic_on_unexpected_conflict_1() {
+        let engine_id = EngineId::try_from("123").unwrap();
+        let mut db = MockDB::new();
+        db.expect_update_engine_state()
+            .with(
+                predicate::eq(engine_id.clone()),
+                predicate::eq(&TriggerStart),
+                predicate::eq(&StartInProgress),
+                predicate::always(),
+            )
+            .times(1)
+            .returning(|_, _, _, _| {
+                Ok(Some(UpdateEngineStateResponse {
+                    before_state: StartInProgress,
+                    update_success: false,
+                }))
+            });
+        let rm = MockRM::new();
+        let monitor = create_mock_state_monitor(db, rm);
+        monitor
+            .release_engine(&engine_id, &TriggerStart, None)
+            .await
+    }
+
+    #[tokio::test]
+    #[should_panic(expected = "Bug: engine 123 in TriggerStart state is removed by others")]
+    async fn release_engine_panic_on_unexpected_conflict_2() {
+        let engine_id = EngineId::try_from("123").unwrap();
+        let mut db = MockDB::new();
+        db.expect_update_engine_state()
+            .with(
+                predicate::eq(engine_id.clone()),
+                predicate::eq(&TriggerStart),
+                predicate::eq(&StartInProgress),
+                predicate::always(),
+            )
+            .times(1)
+            .returning(|_, _, _, _| Ok(None));
+        let rm = MockRM::new();
+        let monitor = create_mock_state_monitor(db, rm);
+        monitor
+            .release_engine(&engine_id, &TriggerStart, None)
+            .await
+    }
+
+    #[tokio::test]
+    async fn release_engine_not_panic_on_db_error() {
+        let engine_id = EngineId::try_from("123").unwrap();
+        let mut db = MockDB::new();
+        db.expect_update_engine_state()
+            .with(
+                predicate::eq(engine_id.clone()),
+                predicate::eq(&TriggerStart),
+                predicate::eq(&StartInProgress),
+                predicate::always(),
+            )
+            .times(1)
+            .returning(|_, _, _, _| Err(RucatError::fail_to_connect_database(anyhow!(""))));
+        let rm = MockRM::new();
+        let monitor = create_mock_state_monitor(db, rm);
+        // this should not panic
+        monitor
+            .release_engine(&engine_id, &TriggerStart, None)
+            .await
+    }
+
+    #[tokio::test]
+    async fn retry_triggering_engine_success() {
+        let engine_id = EngineId::try_from("123").unwrap();
+        let mut db = MockDB::new();
+        db.expect_update_engine_state()
+            .with(
+                predicate::eq(engine_id.clone()),
+                predicate::eq(&TriggerStart),
+                predicate::eq(&WaitToStart),
+                predicate::always(),
+            )
+            .times(1)
+            .returning(|_, _, _, _| {
+                Ok(Some(UpdateEngineStateResponse {
+                    before_state: TriggerStart,
+                    update_success: true,
+                }))
+            });
+        let rm = MockRM::new();
+        let monitor = create_mock_state_monitor(db, rm);
+        // this should not panic
+        monitor
+            .retry_triggering_engine(&engine_id, &TriggerStart)
+            .await
+    }
+
+    #[tokio::test]
+    #[should_panic(expected = "Should not retry triggering engine in state WaitToStart")]
+    async fn retry_triggering_engine_panic_on_unexpected_state() {
+        let engine_id = EngineId::try_from("123").unwrap();
+        let db = MockDB::new();
+        let rm = MockRM::new();
+        let monitor = create_mock_state_monitor(db, rm);
+        monitor
+            .retry_triggering_engine(&engine_id, &WaitToStart)
+            .await
+    }
+
+    #[tokio::test]
+    async fn sync_wait_to_start_engine_success() {
+        let engine_id = EngineId::try_from("123").unwrap();
+        let engine_info = EngineInfo::new(
+            "abc".to_owned(),
+            Spark,
+            EngineVersion::from("3.5.4"),
+            WaitToStart,
+            BTreeMap::new(),
+            EngineTime::now(),
+        );
+        let mut db = MockDB::new();
+        // acquire engine
+        db.expect_update_engine_state()
+            .with(
+                predicate::eq(engine_id.clone()),
+                predicate::eq(&WaitToStart),
+                predicate::eq(&TriggerStart),
+                predicate::always(),
+            )
+            .times(1)
+            .returning(|_, _, _, _| {
+                Ok(Some(UpdateEngineStateResponse {
+                    before_state: WaitToStart,
+                    update_success: true,
+                }))
+            });
+        // release engine
+        db.expect_update_engine_state()
+            .with(
+                predicate::eq(engine_id.clone()),
+                predicate::eq(&TriggerStart),
+                predicate::eq(&StartInProgress),
+                predicate::always(),
+            )
+            .times(1)
+            .returning(|_, _, _, _| {
+                Ok(Some(UpdateEngineStateResponse {
+                    before_state: TriggerStart,
+                    update_success: true,
+                }))
+            });
+        let mut rm = MockRM::new();
+        rm.expect_create_resource()
+            .with(
+                predicate::eq(engine_id.clone()),
+                predicate::eq(engine_info.clone()),
+            )
+            .times(1)
+            .returning(|_, _| Ok(()));
+        let monitor = create_mock_state_monitor(db, rm);
+        // this should not panic
+        monitor
+            .sync_engine(EngineIdAndInfo {
+                id: engine_id,
+                info: engine_info,
+            })
+            .await
+    }
+
+    #[tokio::test]
+    async fn sync_wait_to_start_engine_error() {
+        let engine_id = EngineId::try_from("123").unwrap();
+        let engine_info = EngineInfo::new(
+            "abc".to_owned(),
+            Spark,
+            EngineVersion::from("3.5.5"),
+            WaitToStart,
+            BTreeMap::new(),
+            EngineTime::now(),
+        );
+        let mut db = MockDB::new();
+        // acquire engine
+        db.expect_update_engine_state()
+            .with(
+                predicate::eq(engine_id.clone()),
+                predicate::eq(&WaitToStart),
+                predicate::eq(&TriggerStart),
+                predicate::always(),
+            )
+            .times(1)
+            .returning(|_, _, _, _| {
+                Ok(Some(UpdateEngineStateResponse {
+                    before_state: WaitToStart,
+                    update_success: true,
+                }))
+            });
+        // release engine
+        db.expect_update_engine_state()
+            .with(
+                predicate::eq(engine_id.clone()),
+                predicate::eq(&TriggerStart),
+                predicate::function(|s| matches!(s, ErrorClean(_))),
+                predicate::always(),
+            )
+            .times(1)
+            .returning(|_, _, _, _| {
+                Ok(Some(UpdateEngineStateResponse {
+                    before_state: TriggerStart,
+                    update_success: true,
+                }))
+            });
+        let mut rm = MockRM::new();
+        rm.expect_create_resource()
+            .with(
+                predicate::eq(engine_id.clone()),
+                predicate::eq(engine_info.clone()),
+            )
+            .times(1)
+            .returning(|_, _| Err(RucatError::not_allowed(anyhow!("3.5.5 is invalid"))));
+        let monitor = create_mock_state_monitor(db, rm);
+        // this should not panic
+        monitor
+            .sync_engine(EngineIdAndInfo {
+                id: engine_id,
+                info: engine_info,
+            })
+            .await
+    }
+
+    #[tokio::test]
+    async fn sync_wait_to_start_engine_skipped() {
+        let engine_id = EngineId::try_from("123").unwrap();
+        let engine_info = EngineInfo::new(
+            "abc".to_owned(),
+            Spark,
+            EngineVersion::from("3.5.4"),
+            WaitToStart,
+            BTreeMap::new(),
+            EngineTime::now(),
+        );
+        let mut db = MockDB::new();
+        // engine has been acquired by others
+        db.expect_update_engine_state()
+            .with(
+                predicate::eq(engine_id.clone()),
+                predicate::eq(&WaitToStart),
+                predicate::eq(&TriggerStart),
+                predicate::always(),
+            )
+            .times(1)
+            .returning(|_, _, _, _| {
+                Ok(Some(UpdateEngineStateResponse {
+                    before_state: TriggerStart,
+                    update_success: false,
+                }))
+            });
+        let rm = MockRM::new();
+        let monitor = create_mock_state_monitor(db, rm);
+        // this should not panic
+        monitor
+            .sync_engine(EngineIdAndInfo {
+                id: engine_id,
+                info: engine_info,
+            })
+            .await
+    }
+
+    #[tokio::test]
+    async fn sync_wait_to_terminate_engine_success() {
+        let engine_id = EngineId::try_from("123").unwrap();
+        let engine_info = EngineInfo::new(
+            "abc".to_owned(),
+            Spark,
+            EngineVersion::from("3.5.4"),
+            WaitToTerminate,
+            BTreeMap::new(),
+            EngineTime::now(),
+        );
+        let mut db = MockDB::new();
+        // acquire engine
+        db.expect_update_engine_state()
+            .with(
+                predicate::eq(engine_id.clone()),
+                predicate::eq(&WaitToTerminate),
+                predicate::eq(&TriggerTermination),
+                predicate::always(),
+            )
+            .times(1)
+            .returning(|_, _, _, _| {
+                Ok(Some(UpdateEngineStateResponse {
+                    before_state: WaitToTerminate,
+                    update_success: true,
+                }))
+            });
+        // release engine
+        db.expect_update_engine_state()
+            .with(
+                predicate::eq(engine_id.clone()),
+                predicate::eq(&TriggerTermination),
+                predicate::eq(&TerminateInProgress),
+                predicate::always(),
+            )
+            .times(1)
+            .returning(|_, _, _, _| {
+                Ok(Some(UpdateEngineStateResponse {
+                    before_state: TriggerTermination,
+                    update_success: true,
+                }))
+            });
+        let mut rm = MockRM::new();
+        rm.expect_clean_resource()
+            .with(predicate::eq(engine_id.clone()))
+            .times(1)
+            .returning(|_| Ok(()));
+        let monitor = create_mock_state_monitor(db, rm);
+        // this should not panic
+        monitor
+            .sync_engine(EngineIdAndInfo {
+                id: engine_id,
+                info: engine_info,
+            })
+            .await
+    }
+
+    #[tokio::test]
+    async fn sync_wait_to_terminate_engine_error() {
+        let engine_id = EngineId::try_from("123").unwrap();
+        let engine_info = EngineInfo::new(
+            "abc".to_owned(),
+            Spark,
+            EngineVersion::from("3.5.5"),
+            WaitToTerminate,
+            BTreeMap::new(),
+            EngineTime::now(),
+        );
+        let mut db = MockDB::new();
+        // acquire engine
+        db.expect_update_engine_state()
+            .with(
+                predicate::eq(engine_id.clone()),
+                predicate::eq(&WaitToTerminate),
+                predicate::eq(&TriggerTermination),
+                predicate::always(),
+            )
+            .times(1)
+            .returning(|_, _, _, _| {
+                Ok(Some(UpdateEngineStateResponse {
+                    before_state: WaitToTerminate,
+                    update_success: true,
+                }))
+            });
+        // release engine
+        db.expect_update_engine_state()
+            .with(
+                predicate::eq(engine_id.clone()),
+                predicate::eq(&TriggerTermination),
+                predicate::function(|s| matches!(s, ErrorWaitToClean(_))),
+                predicate::always(),
+            )
+            .times(1)
+            .returning(|_, _, _, _| {
+                Ok(Some(UpdateEngineStateResponse {
+                    before_state: TriggerTermination,
+                    update_success: true,
+                }))
+            });
+        let mut rm = MockRM::new();
+        rm.expect_clean_resource()
+            .with(predicate::eq(engine_id.clone()))
+            .times(1)
+            .returning(|_| Err(RucatError::fail_to_delete_engine(anyhow!("some error"))));
+        let monitor = create_mock_state_monitor(db, rm);
+        // this should not panic
+        monitor
+            .sync_engine(EngineIdAndInfo {
+                id: engine_id,
+                info: engine_info,
+            })
+            .await
+    }
+
+    #[tokio::test]
+    async fn sync_wait_to_terminate_engine_skipped() {
+        let engine_id = EngineId::try_from("123").unwrap();
+        let engine_info = EngineInfo::new(
+            "abc".to_owned(),
+            Spark,
+            EngineVersion::from("3.5.4"),
+            WaitToTerminate,
+            BTreeMap::new(),
+            EngineTime::now(),
+        );
+        let mut db = MockDB::new();
+        // engine has been acquired by others
+        db.expect_update_engine_state()
+            .with(
+                predicate::eq(engine_id.clone()),
+                predicate::eq(&WaitToTerminate),
+                predicate::eq(&TriggerTermination),
+                predicate::always(),
+            )
+            .times(1)
+            .returning(|_, _, _, _| {
+                Ok(Some(UpdateEngineStateResponse {
+                    before_state: TriggerTermination,
+                    update_success: false,
+                }))
+            });
+        let rm = MockRM::new();
+        let monitor = create_mock_state_monitor(db, rm);
+        // this should not panic
+        monitor
+            .sync_engine(EngineIdAndInfo {
+                id: engine_id,
+                info: engine_info,
+            })
+            .await
+    }
+
+    #[tokio::test]
+    async fn sync_error_wait_to_clean_engine_success() {
+        let engine_id = EngineId::try_from("123").unwrap();
+        let engine_info = EngineInfo::new(
+            "abc".to_owned(),
+            Spark,
+            EngineVersion::from("3.5.4"),
+            ErrorWaitToClean(Cow::Borrowed("error")),
+            BTreeMap::new(),
+            EngineTime::now(),
+        );
+        let mut db = MockDB::new();
+        // acquire engine
+        db.expect_update_engine_state()
+            .with(
+                predicate::eq(engine_id.clone()),
+                predicate::eq(ErrorWaitToClean(Cow::Borrowed("error"))),
+                predicate::eq(ErrorTriggerClean(Cow::Borrowed("error"))),
+                predicate::always(),
+            )
+            .times(1)
+            .returning(|_, _, _, _| {
+                Ok(Some(UpdateEngineStateResponse {
+                    before_state: ErrorWaitToClean(Cow::Borrowed("error")),
+                    update_success: true,
+                }))
+            });
+        // release engine
+        db.expect_update_engine_state()
+            .with(
+                predicate::eq(engine_id.clone()),
+                predicate::eq(ErrorTriggerClean(Cow::Borrowed("error"))),
+                predicate::eq(ErrorCleanInProgress(Cow::Borrowed("error"))),
+                predicate::always(),
+            )
+            .times(1)
+            .returning(|_, _, _, _| {
+                Ok(Some(UpdateEngineStateResponse {
+                    before_state: ErrorTriggerClean(Cow::Borrowed("error")),
+                    update_success: true,
+                }))
+            });
+        let mut rm = MockRM::new();
+        rm.expect_clean_resource()
+            .with(predicate::eq(engine_id.clone()))
+            .times(1)
+            .returning(|_| Ok(()));
+        let monitor = create_mock_state_monitor(db, rm);
+        // this should not panic
+        monitor
+            .sync_engine(EngineIdAndInfo {
+                id: engine_id,
+                info: engine_info,
+            })
+            .await
+    }
+
+    #[tokio::test]
+    async fn sync_error_wait_to_clean_engine_error() {
+        let engine_id = EngineId::try_from("123").unwrap();
+        let engine_info = EngineInfo::new(
+            "abc".to_owned(),
+            Spark,
+            EngineVersion::from("3.5.5"),
+            ErrorWaitToClean(Cow::Borrowed("error")),
+            BTreeMap::new(),
+            EngineTime::now(),
+        );
+        let mut db = MockDB::new();
+        // acquire engine
+        db.expect_update_engine_state()
+            .with(
+                predicate::eq(engine_id.clone()),
+                predicate::eq(ErrorWaitToClean(Cow::Borrowed("error"))),
+                predicate::eq(ErrorTriggerClean(Cow::Borrowed("error"))),
+                predicate::always(),
+            )
+            .times(1)
+            .returning(|_, _, _, _| {
+                Ok(Some(UpdateEngineStateResponse {
+                    before_state: ErrorWaitToClean(Cow::Borrowed("error")),
+                    update_success: true,
+                }))
+            });
+        // release engine
+        db.expect_update_engine_state()
+            .with(
+                predicate::eq(engine_id.clone()),
+                predicate::eq(ErrorTriggerClean(Cow::Borrowed("error"))),
+                predicate::function(|s| matches!(s, ErrorWaitToClean(_))),
+                predicate::always(),
+            )
+            .times(1)
+            .returning(|_, _, _, _| {
+                Ok(Some(UpdateEngineStateResponse {
+                    before_state: ErrorTriggerClean(Cow::Borrowed("error")),
+                    update_success: true,
+                }))
+            });
+        let mut rm = MockRM::new();
+        rm.expect_clean_resource()
+            .with(predicate::eq(engine_id.clone()))
+            .times(1)
+            .returning(|_| Err(RucatError::fail_to_delete_engine(anyhow!("some error"))));
+        let monitor = create_mock_state_monitor(db, rm);
+        // this should not panic
+        monitor
+            .sync_engine(EngineIdAndInfo {
+                id: engine_id,
+                info: engine_info,
+            })
+            .await
+    }
+
+    #[tokio::test]
+    async fn sync_error_wait_to_clean_engine_skipped() {
+        let engine_id = EngineId::try_from("123").unwrap();
+        let engine_info = EngineInfo::new(
+            "abc".to_owned(),
+            Spark,
+            EngineVersion::from("3.5.4"),
+            ErrorWaitToClean(Cow::Borrowed("error")),
+            BTreeMap::new(),
+            EngineTime::now(),
+        );
+        let mut db = MockDB::new();
+        // engine has been acquired by others
+        db.expect_update_engine_state()
+            .with(
+                predicate::eq(engine_id.clone()),
+                predicate::eq(ErrorWaitToClean(Cow::Borrowed("error"))),
+                predicate::eq(ErrorTriggerClean(Cow::Borrowed("error"))),
+                predicate::always(),
+            )
+            .times(1)
+            .returning(|_, _, _, _| {
+                Ok(Some(UpdateEngineStateResponse {
+                    before_state: ErrorTriggerClean(Cow::Borrowed("error")),
+                    update_success: false,
+                }))
+            });
+        let rm = MockRM::new();
+        let monitor = create_mock_state_monitor(db, rm);
+        // this should not panic
+        monitor
+            .sync_engine(EngineIdAndInfo {
+                id: engine_id,
+                info: engine_info,
+            })
+            .await
+    }
+
+    #[tokio::test]
+    async fn sync_in_progress_state_engine_with_state_update() {
+        let engine_id = EngineId::try_from("123").unwrap();
+        let engine_info = EngineInfo::new(
+            "abc".to_owned(),
+            Spark,
+            EngineVersion::from("3.5.4"),
+            StartInProgress,
+            BTreeMap::new(),
+            EngineTime::now(),
+        );
+        let mut rm = MockRM::new();
+        rm.expect_get_resource_state()
+            .with(predicate::eq(engine_id.clone()))
+            .times(1)
+            .returning(|_| K8sPodState::Running);
+        let mut db = MockDB::new();
+
+        db.expect_update_engine_state()
+            .with(
+                predicate::eq(engine_id.clone()),
+                predicate::eq(&StartInProgress),
+                predicate::eq(&Running),
+                predicate::always(),
+            )
+            .times(1)
+            .returning(|_, _, _, _| {
+                Ok(Some(UpdateEngineStateResponse {
+                    before_state: StartInProgress,
+                    update_success: true,
+                }))
+            });
+
+        let monitor = create_mock_state_monitor(db, rm);
+        // this should not panic
+        monitor
+            .sync_engine(EngineIdAndInfo {
+                id: engine_id,
+                info: engine_info,
+            })
+            .await
+    }
+
+    #[tokio::test]
+    async fn sync_in_progress_state_engine_without_state_update() {
+        let engine_id = EngineId::try_from("123").unwrap();
+        let engine_info = EngineInfo::new(
+            "abc".to_owned(),
+            Spark,
+            EngineVersion::from("3.5.4"),
+            StartInProgress,
+            BTreeMap::new(),
+            EngineTime::now(),
+        );
+        let mut rm = MockRM::new();
+        rm.expect_get_resource_state()
+            .with(predicate::eq(engine_id.clone()))
+            .times(1)
+            .returning(|_| K8sPodState::Pending);
+        let mut db = MockDB::new();
+
+        db.expect_update_engine_state()
+            .with(
+                predicate::eq(engine_id.clone()),
+                predicate::eq(&StartInProgress),
+                predicate::eq(&StartInProgress),
+                predicate::always(),
+            )
+            .times(1)
+            .returning(|_, _, _, _| {
+                Ok(Some(UpdateEngineStateResponse {
+                    before_state: StartInProgress,
+                    update_success: true,
+                }))
+            });
+
+        let monitor = create_mock_state_monitor(db, rm);
+        // this should not panic
+        monitor
+            .sync_engine(EngineIdAndInfo {
+                id: engine_id,
+                info: engine_info,
+            })
+            .await
+    }
+
+    #[tokio::test]
+    async fn sync_timed_out_trigger_state_engine() {
+        let engine_id = EngineId::try_from("123").unwrap();
+        let engine_info = EngineInfo::new(
+            "abc".to_owned(),
+            Spark,
+            EngineVersion::from("3.5.4"),
+            TriggerStart,
+            BTreeMap::new(),
+            EngineTime::now(),
+        );
+        let rm = MockRM::new();
+        let mut db = MockDB::new();
+        db.expect_update_engine_state()
+            .with(
+                predicate::eq(engine_id.clone()),
+                predicate::eq(&TriggerStart),
+                predicate::eq(&WaitToStart),
+                predicate::always(),
+            )
+            .times(1)
+            .returning(|_, _, _, _| {
+                Ok(Some(UpdateEngineStateResponse {
+                    before_state: TriggerStart,
+                    update_success: true,
+                }))
+            });
+
+        let monitor = create_mock_state_monitor(db, rm);
+        // this should not panic
+        monitor
+            .sync_engine(EngineIdAndInfo {
+                id: engine_id,
+                info: engine_info,
+            })
+            .await
+    }
+
+    #[tokio::test]
+    #[should_panic(expected = "Should not monitor engine 123 in state Terminated")]
+    async fn sync_stable_state_engine_panic() {
+        let engine_id = EngineId::try_from("123").unwrap();
+        let engine_info = EngineInfo::new(
+            "abc".to_owned(),
+            Spark,
+            EngineVersion::from("3.5.4"),
+            Terminated,
+            BTreeMap::new(),
+            EngineTime::now(),
+        );
+        let rm = MockRM::new();
+        let db = MockDB::new();
+
+        let monitor = create_mock_state_monitor(db, rm);
+        monitor
+            .sync_engine(EngineIdAndInfo {
+                id: engine_id,
+                info: engine_info,
+            })
+            .await
     }
 }
