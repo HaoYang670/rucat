@@ -17,7 +17,7 @@ use surrealdb::{
     Surreal,
 };
 
-use super::{Database, EngineIdAndInfo, UpdateEngineStateResponse};
+use super::{Database, EngineIdAndInfo, UpdateEngineStateResult};
 
 /// Client to interact with the database.
 /// Store the metadata of Engines
@@ -115,7 +115,7 @@ impl Database for SurrealDBClient {
         &self,
         id: &EngineId,
         current_state: &EngineState,
-    ) -> Result<Option<UpdateEngineStateResponse>> {
+    ) -> Result<Option<UpdateEngineStateResult>> {
         let sql = r#"
             let $record_id = type::thing($tb, $id);             // 0th return value
 
@@ -126,14 +126,14 @@ impl Database for SurrealDBClient {
                     RETURN NONE;                                                     // 1st return value
                 } ELSE IF $current_state == $before {
                     DELETE $record_id;
-                    RETURN {before_state: $current_state, update_success: true};                  // 1st return value
+                    RETURN "Success";                                                // 1st return value
                 } ELSE {
-                    RETURN {before_state: $current_state, update_success: false};                 // 1st return value
+                    RETURN {Fail: {current_state: $current_state}};                 // 1st return value
                 }
             };
             COMMIT TRANSACTION;
         "#;
-        let result: Option<UpdateEngineStateResponse> = self
+        let result: Option<UpdateEngineStateResult> = self
             .client
             .query(sql)
             .bind(("tb", Self::TABLE))
@@ -152,7 +152,7 @@ impl Database for SurrealDBClient {
         before: &EngineState,
         after: &EngineState,
         next_update_time: Option<SystemTime>,
-    ) -> Result<Option<UpdateEngineStateResponse>> {
+    ) -> Result<Option<UpdateEngineStateResult>> {
         let sql = r#"
             let $record_id = type::thing($tb, $id);             // 0th return value
 
@@ -163,14 +163,14 @@ impl Database for SurrealDBClient {
                     RETURN NONE;                                                     // 1st return value
                 } ELSE IF $current_state == $before {
                     UPDATE ONLY $record_id SET info.state = $after, next_update_time = $next_update_time;
-                    RETURN {before_state: $current_state, update_success: true};                  // 1st return value
+                    RETURN "Success";                  // 1st return value
                 } ELSE {
-                    RETURN {before_state: $current_state, update_success: false};                 // 1st return value
+                    RETURN {Fail: {current_state: $current_state}};                 // 1st return value
                 }
             };
             COMMIT TRANSACTION;
         "#;
-        let before_state: Option<UpdateEngineStateResponse> = self
+        let before_state: Option<UpdateEngineStateResult> = self
             .client
             .query(sql)
             .bind(("tb", Self::TABLE))

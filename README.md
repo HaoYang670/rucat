@@ -240,7 +240,6 @@ cargo test
 5. Release rucat client crate to cargo.com (0.1)
 6. Officially release docker images to docker hub. (0.1)
 7. Release helm chart. (0.1)
-8. update UpdateEngineStateResponse to enum. (0.1)
 
 ## Debug
 

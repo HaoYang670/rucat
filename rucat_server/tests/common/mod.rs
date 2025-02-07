@@ -2,7 +2,7 @@ use ::std::time::SystemTime;
 
 use ::mockall::mock;
 use ::rucat_common::{
-    database::{Database, EngineIdAndInfo, UpdateEngineStateResponse},
+    database::{Database, EngineIdAndInfo, UpdateEngineStateResult},
     engine::{CreateEngineRequest, EngineId, EngineInfo, EngineState},
     error::*,
 };
@@ -13,14 +13,14 @@ mock! {
     pub DB{}
     impl Database for DB {
         async fn add_engine(&self, engine: CreateEngineRequest, next_update_time: Option<SystemTime>) -> Result<EngineId>;
-        async fn remove_engine(&self, id: &EngineId, current_state: &EngineState) -> Result<Option<UpdateEngineStateResponse>>;
+        async fn remove_engine(&self, id: &EngineId, current_state: &EngineState) -> Result<Option<UpdateEngineStateResult>>;
         async fn update_engine_state(
             &self,
             id: &EngineId,
             before: &EngineState,
             after: &EngineState,
             next_update_time: Option<SystemTime>,
-        ) -> Result<Option<UpdateEngineStateResponse>>;
+        ) -> Result<Option<UpdateEngineStateResult>>;
         async fn get_engine(&self, id: &EngineId) -> Result<Option<EngineInfo>>;
         async fn list_engines(&self) -> Result<Vec<EngineId>>;
         async fn list_engines_need_update(&self) -> Result<Vec<EngineIdAndInfo>>;

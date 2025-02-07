@@ -5,7 +5,7 @@ use ::std::{
 };
 
 use ::rucat_common::{
-    database::{Database, EngineIdAndInfo},
+    database::{Database, EngineIdAndInfo, UpdateEngineStateResult},
     engine::{
         EngineId,
         EngineState::{self, *},
@@ -205,19 +205,22 @@ where
             .update_engine_state(id, current_state, &new_state, next_update_time)
             .await;
         match response {
-            Ok(Some(response)) => {
-                if response.update_success {
+            Ok(Some(response)) => match response {
+                UpdateEngineStateResult::Success => {
                     info!(
                         "Engine {} state updated from {:?} to {:?}",
                         id, current_state, new_state
                     );
-                } else {
+                }
+                UpdateEngineStateResult::Fail {
+                    current_state: actual_state,
+                } => {
                     unreachable!(
                         "Bug: engine {} in {:?} start is updated to {:?} by others",
-                        id, current_state, response.before_state
+                        id, current_state, actual_state
                     );
                 }
-            }
+            },
             Ok(None) => {
                 unreachable!(
                     "Bug: engine {} in {:?} state is removed by others",
@@ -267,22 +270,25 @@ where
             .update_engine_state(id, old_state, new_state, next_update_time)
             .await;
         match response {
-            Ok(Some(response)) => {
-                if response.update_success {
+            Ok(Some(response)) => match response {
+                UpdateEngineStateResult::Success => {
                     info!(
                         "Engine {} state updated from {:?} to {:?}",
                         id, old_state, new_state
                     );
                     true
-                } else {
+                }
+                UpdateEngineStateResult::Fail {
+                    current_state: actual_state,
+                } => {
                     warn!(
                         "Failed to update engine {} as its state has been updated by others, \
-                        from {:?} to {:?}",
-                        id, old_state, response.before_state
+                            from {:?} to {:?}",
+                        id, old_state, actual_state
                     );
                     false
                 }
-            }
+            },
             Ok(None) => {
                 warn!("Failed to update engine {} as it has been removed", id);
                 false
@@ -343,7 +349,7 @@ mod tests {
     use ::mockall::{mock, predicate};
     use ::rucat_common::{
         anyhow::anyhow,
-        database::UpdateEngineStateResponse,
+        database::UpdateEngineStateResult,
         engine::{CreateEngineRequest, EngineInfo, EngineTime, EngineType::Spark, EngineVersion},
         error::{Result, RucatError},
     };
@@ -389,14 +395,14 @@ mod tests {
         DB{}
         impl Database for DB {
             async fn add_engine(&self, engine: CreateEngineRequest, next_update_time: Option<SystemTime>) -> Result<EngineId>;
-            async fn remove_engine(&self, id: &EngineId, current_state: &EngineState) -> Result<Option<UpdateEngineStateResponse>>;
+            async fn remove_engine(&self, id: &EngineId, current_state: &EngineState) -> Result<Option<UpdateEngineStateResult>>;
             async fn update_engine_state(
                 &self,
                 id: &EngineId,
                 before: &EngineState,
                 after: &EngineState,
                 next_update_time: Option<SystemTime>,
-            ) -> Result<Option<UpdateEngineStateResponse>>;
+            ) -> Result<Option<UpdateEngineStateResult>>;
             async fn get_engine(&self, id: &EngineId) -> Result<Option<EngineInfo>>;
             async fn list_engines(&self) -> Result<Vec<EngineId>>;
             async fn list_engines_need_update(&self) -> Result<Vec<EngineIdAndInfo>>;
@@ -429,12 +435,7 @@ mod tests {
                 predicate::eq(None),
             )
             .times(1)
-            .returning(|_, _, _, _| {
-                Ok(Some(UpdateEngineStateResponse {
-                    before_state: WaitToStart,
-                    update_success: true,
-                }))
-            });
+            .returning(|_, _, _, _| Ok(Some(UpdateEngineStateResult::Success)));
         let rm = MockRM::new();
         let monitor = create_mock_state_monitor(db, rm);
         assert_eq!(
@@ -458,9 +459,8 @@ mod tests {
             )
             .times(1)
             .returning(|_, _, _, _| {
-                Ok(Some(UpdateEngineStateResponse {
-                    before_state: TriggerStart,
-                    update_success: false,
+                Ok(Some(UpdateEngineStateResult::Fail {
+                    current_state: TriggerStart,
                 }))
             });
         let rm = MockRM::new();
@@ -531,12 +531,7 @@ mod tests {
                 predicate::always(),
             )
             .times(1)
-            .returning(|_, _, _, _| {
-                Ok(Some(UpdateEngineStateResponse {
-                    before_state: WaitToStart,
-                    update_success: true,
-                }))
-            });
+            .returning(|_, _, _, _| Ok(Some(UpdateEngineStateResult::Success)));
         let rm = MockRM::new();
         let monitor = create_mock_state_monitor(db, rm);
         assert_eq!(monitor.acquire_engine(&engine_id, &WaitToStart).await, true);
@@ -564,12 +559,7 @@ mod tests {
                 predicate::always(),
             )
             .times(1)
-            .returning(|_, _, _, _| {
-                Ok(Some(UpdateEngineStateResponse {
-                    before_state: TriggerStart,
-                    update_success: true,
-                }))
-            });
+            .returning(|_, _, _, _| Ok(Some(UpdateEngineStateResult::Success)));
         let rm = MockRM::new();
         let monitor = create_mock_state_monitor(db, rm);
         // this should not panic
@@ -590,12 +580,7 @@ mod tests {
                 predicate::always(),
             )
             .times(1)
-            .returning(|_, _, _, _| {
-                Ok(Some(UpdateEngineStateResponse {
-                    before_state: TriggerStart,
-                    update_success: true,
-                }))
-            });
+            .returning(|_, _, _, _| Ok(Some(UpdateEngineStateResult::Success)));
         let rm = MockRM::new();
         let monitor = create_mock_state_monitor(db, rm);
         // this should not panic
@@ -630,9 +615,8 @@ mod tests {
             )
             .times(1)
             .returning(|_, _, _, _| {
-                Ok(Some(UpdateEngineStateResponse {
-                    before_state: StartInProgress,
-                    update_success: false,
+                Ok(Some(UpdateEngineStateResult::Fail {
+                    current_state: StartInProgress,
                 }))
             });
         let rm = MockRM::new();
@@ -696,12 +680,7 @@ mod tests {
                 predicate::always(),
             )
             .times(1)
-            .returning(|_, _, _, _| {
-                Ok(Some(UpdateEngineStateResponse {
-                    before_state: TriggerStart,
-                    update_success: true,
-                }))
-            });
+            .returning(|_, _, _, _| Ok(Some(UpdateEngineStateResult::Success)));
         let rm = MockRM::new();
         let monitor = create_mock_state_monitor(db, rm);
         // this should not panic
@@ -743,12 +722,7 @@ mod tests {
                 predicate::always(),
             )
             .times(1)
-            .returning(|_, _, _, _| {
-                Ok(Some(UpdateEngineStateResponse {
-                    before_state: WaitToStart,
-                    update_success: true,
-                }))
-            });
+            .returning(|_, _, _, _| Ok(Some(UpdateEngineStateResult::Success)));
         // release engine
         db.expect_update_engine_state()
             .with(
@@ -758,12 +732,7 @@ mod tests {
                 predicate::always(),
             )
             .times(1)
-            .returning(|_, _, _, _| {
-                Ok(Some(UpdateEngineStateResponse {
-                    before_state: TriggerStart,
-                    update_success: true,
-                }))
-            });
+            .returning(|_, _, _, _| Ok(Some(UpdateEngineStateResult::Success)));
         let mut rm = MockRM::new();
         rm.expect_create_resource()
             .with(
@@ -803,12 +772,7 @@ mod tests {
                 predicate::always(),
             )
             .times(1)
-            .returning(|_, _, _, _| {
-                Ok(Some(UpdateEngineStateResponse {
-                    before_state: WaitToStart,
-                    update_success: true,
-                }))
-            });
+            .returning(|_, _, _, _| Ok(Some(UpdateEngineStateResult::Success)));
         // release engine
         db.expect_update_engine_state()
             .with(
@@ -818,12 +782,7 @@ mod tests {
                 predicate::always(),
             )
             .times(1)
-            .returning(|_, _, _, _| {
-                Ok(Some(UpdateEngineStateResponse {
-                    before_state: TriggerStart,
-                    update_success: true,
-                }))
-            });
+            .returning(|_, _, _, _| Ok(Some(UpdateEngineStateResult::Success)));
         let mut rm = MockRM::new();
         rm.expect_create_resource()
             .with(
@@ -864,9 +823,8 @@ mod tests {
             )
             .times(1)
             .returning(|_, _, _, _| {
-                Ok(Some(UpdateEngineStateResponse {
-                    before_state: TriggerStart,
-                    update_success: false,
+                Ok(Some(UpdateEngineStateResult::Fail {
+                    current_state: TriggerStart,
                 }))
             });
         let rm = MockRM::new();
@@ -901,12 +859,7 @@ mod tests {
                 predicate::always(),
             )
             .times(1)
-            .returning(|_, _, _, _| {
-                Ok(Some(UpdateEngineStateResponse {
-                    before_state: WaitToTerminate,
-                    update_success: true,
-                }))
-            });
+            .returning(|_, _, _, _| Ok(Some(UpdateEngineStateResult::Success)));
         // release engine
         db.expect_update_engine_state()
             .with(
@@ -916,12 +869,7 @@ mod tests {
                 predicate::always(),
             )
             .times(1)
-            .returning(|_, _, _, _| {
-                Ok(Some(UpdateEngineStateResponse {
-                    before_state: TriggerTermination,
-                    update_success: true,
-                }))
-            });
+            .returning(|_, _, _, _| Ok(Some(UpdateEngineStateResult::Success)));
         let mut rm = MockRM::new();
         rm.expect_clean_resource()
             .with(predicate::eq(engine_id.clone()))
@@ -958,12 +906,7 @@ mod tests {
                 predicate::always(),
             )
             .times(1)
-            .returning(|_, _, _, _| {
-                Ok(Some(UpdateEngineStateResponse {
-                    before_state: WaitToTerminate,
-                    update_success: true,
-                }))
-            });
+            .returning(|_, _, _, _| Ok(Some(UpdateEngineStateResult::Success)));
         // release engine
         db.expect_update_engine_state()
             .with(
@@ -973,12 +916,7 @@ mod tests {
                 predicate::always(),
             )
             .times(1)
-            .returning(|_, _, _, _| {
-                Ok(Some(UpdateEngineStateResponse {
-                    before_state: TriggerTermination,
-                    update_success: true,
-                }))
-            });
+            .returning(|_, _, _, _| Ok(Some(UpdateEngineStateResult::Success)));
         let mut rm = MockRM::new();
         rm.expect_clean_resource()
             .with(predicate::eq(engine_id.clone()))
@@ -1016,9 +954,8 @@ mod tests {
             )
             .times(1)
             .returning(|_, _, _, _| {
-                Ok(Some(UpdateEngineStateResponse {
-                    before_state: TriggerTermination,
-                    update_success: false,
+                Ok(Some(UpdateEngineStateResult::Fail {
+                    current_state: TriggerTermination,
                 }))
             });
         let rm = MockRM::new();
@@ -1053,12 +990,7 @@ mod tests {
                 predicate::always(),
             )
             .times(1)
-            .returning(|_, _, _, _| {
-                Ok(Some(UpdateEngineStateResponse {
-                    before_state: ErrorWaitToClean(Cow::Borrowed("error")),
-                    update_success: true,
-                }))
-            });
+            .returning(|_, _, _, _| Ok(Some(UpdateEngineStateResult::Success)));
         // release engine
         db.expect_update_engine_state()
             .with(
@@ -1068,12 +1000,7 @@ mod tests {
                 predicate::always(),
             )
             .times(1)
-            .returning(|_, _, _, _| {
-                Ok(Some(UpdateEngineStateResponse {
-                    before_state: ErrorTriggerClean(Cow::Borrowed("error")),
-                    update_success: true,
-                }))
-            });
+            .returning(|_, _, _, _| Ok(Some(UpdateEngineStateResult::Success)));
         let mut rm = MockRM::new();
         rm.expect_clean_resource()
             .with(predicate::eq(engine_id.clone()))
@@ -1110,12 +1037,7 @@ mod tests {
                 predicate::always(),
             )
             .times(1)
-            .returning(|_, _, _, _| {
-                Ok(Some(UpdateEngineStateResponse {
-                    before_state: ErrorWaitToClean(Cow::Borrowed("error")),
-                    update_success: true,
-                }))
-            });
+            .returning(|_, _, _, _| Ok(Some(UpdateEngineStateResult::Success)));
         // release engine
         db.expect_update_engine_state()
             .with(
@@ -1125,12 +1047,7 @@ mod tests {
                 predicate::always(),
             )
             .times(1)
-            .returning(|_, _, _, _| {
-                Ok(Some(UpdateEngineStateResponse {
-                    before_state: ErrorTriggerClean(Cow::Borrowed("error")),
-                    update_success: true,
-                }))
-            });
+            .returning(|_, _, _, _| Ok(Some(UpdateEngineStateResult::Success)));
         let mut rm = MockRM::new();
         rm.expect_clean_resource()
             .with(predicate::eq(engine_id.clone()))
@@ -1168,9 +1085,8 @@ mod tests {
             )
             .times(1)
             .returning(|_, _, _, _| {
-                Ok(Some(UpdateEngineStateResponse {
-                    before_state: ErrorTriggerClean(Cow::Borrowed("error")),
-                    update_success: false,
+                Ok(Some(UpdateEngineStateResult::Fail {
+                    current_state: ErrorTriggerClean(Cow::Borrowed("error")),
                 }))
             });
         let rm = MockRM::new();
@@ -1210,12 +1126,7 @@ mod tests {
                 predicate::always(),
             )
             .times(1)
-            .returning(|_, _, _, _| {
-                Ok(Some(UpdateEngineStateResponse {
-                    before_state: StartInProgress,
-                    update_success: true,
-                }))
-            });
+            .returning(|_, _, _, _| Ok(Some(UpdateEngineStateResult::Success)));
 
         let monitor = create_mock_state_monitor(db, rm);
         // this should not panic
@@ -1253,12 +1164,7 @@ mod tests {
                 predicate::always(),
             )
             .times(1)
-            .returning(|_, _, _, _| {
-                Ok(Some(UpdateEngineStateResponse {
-                    before_state: StartInProgress,
-                    update_success: true,
-                }))
-            });
+            .returning(|_, _, _, _| Ok(Some(UpdateEngineStateResult::Success)));
 
         let monitor = create_mock_state_monitor(db, rm);
         // this should not panic
@@ -1291,12 +1197,7 @@ mod tests {
                 predicate::always(),
             )
             .times(1)
-            .returning(|_, _, _, _| {
-                Ok(Some(UpdateEngineStateResponse {
-                    before_state: TriggerStart,
-                    update_success: true,
-                }))
-            });
+            .returning(|_, _, _, _| Ok(Some(UpdateEngineStateResult::Success)));
 
         let monitor = create_mock_state_monitor(db, rm);
         // this should not panic

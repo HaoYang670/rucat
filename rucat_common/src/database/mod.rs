@@ -10,13 +10,13 @@ use crate::error::Result;
 use serde::Deserialize;
 
 /// Response of updating an engine state.
-/// # Fields
-/// - `before_state`: The engine state before the update.
-/// - `update_success`: Whether the update is successful.
+/// # Variants
+/// - `Success`: The update is successful.
+/// - `Fail`: The update fails on inconsistent state. Return the current state of the engine.
 #[derive(Deserialize)]
-pub struct UpdateEngineStateResponse {
-    pub before_state: EngineState,
-    pub update_success: bool,
+pub enum UpdateEngineStateResult {
+    Success,
+    Fail { current_state: EngineState },
 }
 
 #[derive(Deserialize)]
@@ -52,7 +52,7 @@ pub trait Database: Sized + Send + Sync + 'static {
         &self,
         id: &EngineId,
         current_state: &EngineState,
-    ) -> impl Future<Output = Result<Option<UpdateEngineStateResponse>>> + Send;
+    ) -> impl Future<Output = Result<Option<UpdateEngineStateResult>>> + Send;
 
     /// Update the engine state to `after` only when
     /// the engine exists and the current state is `before`.
@@ -72,7 +72,7 @@ pub trait Database: Sized + Send + Sync + 'static {
         before: &EngineState,
         after: &EngineState,
         next_update_time: Option<SystemTime>,
-    ) -> impl Future<Output = Result<Option<UpdateEngineStateResponse>>> + Send;
+    ) -> impl Future<Output = Result<Option<UpdateEngineStateResult>>> + Send;
 
     /// Return `Ok(None)` if the engine does not exist
     fn get_engine(&self, id: &EngineId) -> impl Future<Output = Result<Option<EngineInfo>>> + Send;

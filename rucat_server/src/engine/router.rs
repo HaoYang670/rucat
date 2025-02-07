@@ -4,7 +4,7 @@ use ::std::time::SystemTime;
 
 use ::rucat_common::{
     anyhow::anyhow,
-    database::Database,
+    database::{Database, UpdateEngineStateResult},
     engine::{
         CreateEngineRequest, EngineId, EngineInfo,
         EngineState::{self, *},
@@ -55,15 +55,21 @@ where
                     .remove_engine(&id, &s)
                     .await?
                     .ok_or_else(|| RucatError::engine_not_found(&id))?;
-                if response.update_success {
-                    info!("Engine {} is in {:?} state, delete it", id, s);
-                    return Ok(());
+                match response {
+                    UpdateEngineStateResult::Success => {
+                        info!("Engine {} is in {:?} state, delete it", id, s);
+                        return Ok(());
+                    }
+                    UpdateEngineStateResult::Fail {
+                        current_state: actual_state,
+                    } => {
+                        info!(
+                            "Engine {} has been updated from {:?} to {:?}, retry to delete",
+                            id, s, actual_state
+                        );
+                        current_state = actual_state;
+                    }
                 }
-                info!(
-                    "Engine {} has been updated from {:?} to {:?}, retry to delete",
-                    id, s, response.before_state
-                );
-                current_state = response.before_state;
             }
             other => {
                 return Err(RucatError::not_allowed(anyhow!(
@@ -102,18 +108,24 @@ where
             .update_engine_state(&id, &current_state, &new_state, next_update_time)
             .await?
             .ok_or_else(|| RucatError::engine_not_found(&id))?;
-        if response.update_success {
-            info!(
-                "Update Engine {} from {:?} to {:?}",
-                id, current_state, new_state
-            );
-            return Ok(());
+        match response {
+            UpdateEngineStateResult::Success => {
+                info!(
+                    "Update Engine {} from {:?} to {:?}",
+                    id, current_state, new_state
+                );
+                return Ok(());
+            }
+            UpdateEngineStateResult::Fail {
+                current_state: actual_state,
+            } => {
+                info!(
+                    "Engine {} has been updated from {:?} to {:?}, retry to stop",
+                    id, current_state, actual_state
+                );
+                current_state = actual_state;
+            }
         }
-        info!(
-            "Engine {} has been updated from {:?} to {:?}, retry to stop",
-            id, current_state, response.before_state
-        );
-        current_state = response.before_state;
     }
 }
 
@@ -147,18 +159,24 @@ where
             .update_engine_state(&id, &current_state, &new_state, Some(SystemTime::now()))
             .await?
             .ok_or_else(|| RucatError::engine_not_found(&id))?;
-        if response.update_success {
-            info!(
-                "Update Engine {} from {:?} to {:?}",
-                id, current_state, new_state
-            );
-            return Ok(());
+        match response {
+            UpdateEngineStateResult::Success => {
+                info!(
+                    "Update Engine {} from {:?} to {:?}",
+                    id, current_state, new_state
+                );
+                return Ok(());
+            }
+            UpdateEngineStateResult::Fail {
+                current_state: actual_state,
+            } => {
+                info!(
+                    "Engine {} has been updated from {:?} to {:?}, retry to restart",
+                    id, current_state, actual_state
+                );
+                current_state = actual_state;
+            }
         }
-        info!(
-            "Engine {} has been updated from {:?} to {:?}, retry to restart",
-            id, current_state, response.before_state
-        );
-        current_state = response.before_state;
     }
 }
 

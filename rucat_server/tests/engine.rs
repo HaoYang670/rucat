@@ -4,7 +4,7 @@ use ::std::{borrow::Cow, collections::BTreeMap};
 
 use ::mockall::predicate;
 use ::rucat_common::{
-    database::UpdateEngineStateResponse,
+    database::UpdateEngineStateResult,
     engine::{CreateEngineRequest, EngineId, EngineInfo, EngineState::*, EngineTime, EngineType},
     error::*,
     serde_json::json,
@@ -209,12 +209,7 @@ async fn delete_engine() -> Result<()> {
             predicate::eq(&WaitToStart),
         )
         .times(1)
-        .returning(|_, _| {
-            Ok(Some(UpdateEngineStateResponse {
-                before_state: WaitToStart,
-                update_success: true,
-            }))
-        });
+        .returning(|_, _| Ok(Some(UpdateEngineStateResult::Success)));
     let server = get_test_server(db, None).await?;
 
     let response = server.delete("/engine/123").await;
@@ -246,12 +241,7 @@ async fn stop_wait_to_start_engine() -> Result<()> {
             predicate::eq(None),
         )
         .times(1)
-        .returning(|_, _, _, _| {
-            Ok(Some(UpdateEngineStateResponse {
-                before_state: WaitToStart,
-                update_success: true,
-            }))
-        });
+        .returning(|_, _, _, _| Ok(Some(UpdateEngineStateResult::Success)));
     let server = get_test_server(db, None).await?;
 
     let response = server.post("/engine/123/stop").await;
@@ -297,12 +287,7 @@ async fn restart_terminated_engine() -> Result<()> {
             predicate::always(),
         )
         .times(1)
-        .returning(|_, _, _, _| {
-            Ok(Some(UpdateEngineStateResponse {
-                before_state: Terminated,
-                update_success: true,
-            }))
-        });
+        .returning(|_, _, _, _| Ok(Some(UpdateEngineStateResult::Success)));
     let server = get_test_server(db, None).await?;
 
     let response = server.post("/engine/123/restart").await;
