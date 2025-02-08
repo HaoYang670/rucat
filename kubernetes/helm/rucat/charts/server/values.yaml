@@ -8,7 +8,7 @@ image:
   repository: haoyang670/rucat_server
   pullPolicy: Always
   # Overrides the image tag whose default is the chart appVersion.
-  tag: "0.1.0"
+  tag: "0.2.0"
 
 
 imagePullSecrets: []

@@ -1,7 +1,7 @@
 # Rucat
 
 Rucat is design to be a server for managing multiple kinds of big-data applications across different platforms.
-For now, it only supports Apache Spark 3.5.3 (with spark-connect enabled by default) on Kubernetes. More engines and platforms will be supported in the future.
+For now, it supports Apache Spark 3.5.3 and 3.5.4 (with spark-connect enabled by default) on Kubernetes. More engines and platforms will be supported in the future.
 
 Rucat is a Boy / Girl name, meaning is Guider, Discipline and Adventurer. The Numerology Number for the name Rucat is 9.
 
@@ -233,13 +233,32 @@ cargo test
 
 ## TODO
 
-1. catch the engine log before deleting? (0.2)
-2. multi rucat state monitors (0.2)
-3. More resource clients: Yarn, Spark standalone, Spark local, rust shuttle etc. (0.2)
-4. rucat connection for Spark connect. (RPC or REST for the API? Also see <https://tech.fpcomplete.com/blog/axum-hyper-tonic-tower-part4/> for rpc and rest in one port) 0.2 version
-5. Release rucat client crate to cargo.com (0.1)
-6. Officially release docker images to docker hub. (0.1)
-7. Release helm chart. (0.1)
+1. catch the engine log before deleting?
+2. multi rucat state monitors
+3. More resource clients: Yarn, Spark standalone, Spark local, rust shuttle etc.
+4. rucat connection for Spark connect. (RPC or REST for the API? Also see <https://tech.fpcomplete.com/blog/axum-hyper-tonic-tower-part4/> for rpc and rest in one port)
+5. Release rucat client crate to cargo.com
+6. Officially release docker images to docker hub.
+7. Release helm chart.
+
+## Rucat connect design
+
+### Proposal
+
+1. Each engine should already be an RPC server.
+2. Rucat client can transparently connect to the engine and support all the operations that the engine supports. It plays as a proxy.
+3. Rucat server takes the request from the client and forwards it to the engine.
+
+```mermaid
+sequenceDiagram
+    participant Client as Rucat Client
+    participant Server as Rucat Server
+    participant Engine as Rucat Engine
+    Client->>Server: (engine protocol, engine id)
+    Server->>Engine: engine protocol
+    Engine-->>Server: engine response
+    Server-->>Client: engine response
+```
 
 ## Debug
 
