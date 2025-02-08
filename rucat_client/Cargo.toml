@@ -8,7 +8,7 @@ repository = "https://github.com/HaoYang670/rucat/tree/main/rucat_client"
 readme = "../README.md"
 
 [dependencies]
-rucat_common = {path = "../rucat_common"}
+rucat_common = "0.1.0"
 reqwest = { version = "0.12.12", features = ["json"] }
 
 [dev-dependencies]
