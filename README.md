@@ -13,20 +13,26 @@ Rucat is a Boy / Girl name, meaning is Guider, Discipline and Adventurer. The Nu
 
 1. fully async
 2. decouple rest server and k8s, apache spark
+3. no code change with using spark connect
+4. authentication for spark connect
 
 ```mermaid
 flowchart
     server(rucat server)
-    engine(Apache Spark, ...)
+    proxy(rucat engine proxy server)
+    engine(Apache Spark)
     monitor(rucat state monitor)
-    resource-manager(k8s, ...)
-    database[(surreal, ...)]
-    user -- REST requests --> server
+    resource-manager(k8s)
+    database[(surrealdb)]
 
+    admin -- REST requests --> server
+    user -- engine requests (e.g. spark connect) --> proxy
     server -- create, stop, delete engine / get engine info --> database
     monitor -- check / update engine state --> database
     monitor -- trigger operation / get resource info --> resource-manager
     resource-manager -- create / delete / get info --> engine
+    proxy -- check state / get engine endpoint --> database
+    proxy -- forward request --> engine
 ```
 
 ## Rucat Engine State
@@ -62,6 +68,23 @@ stateDiagram
     ErrorTriggerClean --> ErrorCleanInProgress: delete pod
     ErrorCleanInProgress --> ErrorClean: pod removed
     ErrorClean --> [*]: DELETE
+```
+
+## Rucat Engine Proxy Server
+
+Proxy server for doing authentication and forwarding the request to the engine.
+
+```mermaid
+sequenceDiagram
+    participant Client as User(Spark connect client)
+    participant Proxy as Rucat Engine Proxy Server
+    participant Engine as Rucat Engine(Spark connect server)
+    Client->>Proxy: gRPC request with (engine id, engine type, credentials) in metadata
+    Proxy->>Proxy: check the engine type and state
+    Proxy->>Proxy: authentication
+    Proxy->>Engine: gRPC request
+    Engine-->>Proxy: gRPC response
+    Proxy-->>Client: gRPC response
 ```
 
 ## Configurations
@@ -237,28 +260,6 @@ cargo test
 2. multi rucat state monitors
 3. More resource clients: Yarn, Spark standalone, Spark local, rust shuttle etc.
 4. rucat connection for Spark connect. (RPC or REST for the API? Also see <https://tech.fpcomplete.com/blog/axum-hyper-tonic-tower-part4/> for rpc and rest in one port)
-5. Release rucat client crate to cargo.com
-6. Officially release docker images to docker hub.
-7. Release helm chart.
-
-## Rucat connect design
-
-### Proposal
-
-1. Each engine should already be an RPC server.
-2. Rucat client can transparently connect to the engine and support all the operations that the engine supports. It plays as a proxy.
-3. Rucat server takes the request from the client and forwards it to the engine.
-
-```mermaid
-sequenceDiagram
-    participant Client as Rucat Client
-    participant Server as Rucat Server
-    participant Engine as Rucat Engine
-    Client->>Server: (engine protocol, engine id)
-    Server->>Engine: engine protocol
-    Engine-->>Server: engine response
-    Server-->>Client: engine response
-```
 
 ## Debug
 
